@@ -1,0 +1,147 @@
+From be4ab59a3f2bb9829dde390db3dd8868a08840eb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 2 Dec 2022 19:28:54 +0100
+Subject: [PATCH] fileItem: Support .desktop files of type Link
+
+Gio only has direct support for .desktop files of type Application.
+
+However in the context of desktop icons (and file managers), shortcuts
+of URLs are useful as well, so add explicit support for .desktop files
+of type Link.
+---
+ extensions/desktop-icons/fileItem.js | 71 +++++++++++++++++++++++-----
+ 1 file changed, 60 insertions(+), 11 deletions(-)
+
+diff --git a/extensions/desktop-icons/fileItem.js b/extensions/desktop-icons/fileItem.js
+index f2f03440..1c9a1e55 100644
+--- a/extensions/desktop-icons/fileItem.js
++++ b/extensions/desktop-icons/fileItem.js
+@@ -239,12 +239,32 @@ var FileItem = class {
+             log(`desktop-icons: File ${this._displayName} is writable by others - will not allow launching`);
+ 
+         if (this._isDesktopFile) {
+-            this._desktopFile = Gio.DesktopAppInfo.new_from_filename(this._file.get_path());
+-            if (!this._desktopFile) {
+-                log(`Couldn’t parse ${this._displayName} as a desktop file, will treat it as a regular file.`);
++            try {
++                const keyFile = new GLib.KeyFile();
++                keyFile.load_from_file(this._file.get_path(), GLib.KeyFileFlags.NONE);
++
++                const type = keyFile.get_string(
++                    GLib.KEY_FILE_DESKTOP_GROUP, GLib.KEY_FILE_DESKTOP_KEY_TYPE);
++                switch (type) {
++                case GLib.KEY_FILE_DESKTOP_TYPE_APPLICATION:
++                    this._desktopFile = Gio.DesktopAppInfo.new_from_keyfile(keyFile);
++                    if (!this._desktopFile) {
++                        log(`Couldn’t parse ${this._displayName} as a desktop file, will treat it as a regular file.`);
++                        this._isValidDesktopFile = false;
++                    } else {
++                        this._isValidDesktopFile = true;
++                    }
++                    break;
++                case GLib.KEY_FILE_DESKTOP_TYPE_LINK:
++                    const url = keyFile.get_string(
++                        GLib.KEY_FILE_DESKTOP_GROUP, GLib.KEY_FILE_DESKTOP_KEY_URL);
++                    if (url)
++                        this._linkFile = keyFile;
++                default: // fall-through
++                    this._isValidDesktopFile = false;
++                }
++            } catch (e) {
+                 this._isValidDesktopFile = false;
+-            } else {
+-                this._isValidDesktopFile = true;
+             }
+         } else {
+             this._isValidDesktopFile = false;
+@@ -356,8 +376,17 @@ var FileItem = class {
+         if (this._isBrokenSymlink) {
+             this._icon.child = this._createEmblemedStIcon(null, 'text-x-generic');
+         } else {
+-            if (this.trustedDesktopFile && this._desktopFile.has_key('Icon'))
+-                this._icon.child = this._createEmblemedStIcon(null, this._desktopFile.get_string('Icon'));
++            let iconName = null;
++
++            try {
++                if (this.trustedDesktopFile)
++                    iconName = this._desktopFile.get_string('Icon');
++                else if (this._linkFile)
++                    iconName = this._linkFile.get_string(GLib.KEY_FILE_DESKTOP_GROUP, GLib.KEY_FILE_DESKTOP_KEY_ICON);
++            } catch (e) {}
++
++            if (iconName)
++                this._icon.child = this._createEmblemedStIcon(null, iconName);
+             else
+                 this._icon.child = this._createEmblemedStIcon(this._fileInfo.get_icon(), null);
+         }
+@@ -411,7 +440,7 @@ var FileItem = class {
+                 itemIcon.add_emblem(Gio.Emblem.new(Gio.ThemedIcon.new('emblem-unreadable')));
+             else
+                 itemIcon.add_emblem(Gio.Emblem.new(Gio.ThemedIcon.new('emblem-symbolic-link')));
+-        } else if (this.trustedDesktopFile) {
++        } else if (this.trustedDesktopFile || this._linkFile) {
+             itemIcon.add_emblem(Gio.Emblem.new(Gio.ThemedIcon.new('emblem-symbolic-link')));
+         }
+ 
+@@ -440,6 +469,12 @@ var FileItem = class {
+             return;
+         }
+ 
++        if (this._linkFile) {
++            this._openUri(this._linkFile.get_string(
++                GLib.KEY_FILE_DESKTOP_GROUP, GLib.KEY_FILE_DESKTOP_KEY_URL));
++            return;
++        }
++
+         if (this._attributeCanExecute &&
+            !this._isDirectory &&
+            !this._isValidDesktopFile &&
+@@ -449,13 +484,17 @@ var FileItem = class {
+                 return;
+         }
+ 
+-        Gio.AppInfo.launch_default_for_uri_async(this.file.get_uri(),
++        this._openUri(this.file.get_uri());
++    }
++
++    _openUri(uri) {
++        Gio.AppInfo.launch_default_for_uri_async(uri,
+             null, null,
+             (source, result) => {
+                 try {
+                     Gio.AppInfo.launch_default_for_uri_finish(result);
+                 } catch (e) {
+-                    log('Error opening file ' + this.file.get_uri() + ': ' + e.message);
++                    log('Error opening file ' + uri + ': ' + e.message);
+                 }
+             }
+         );
+@@ -555,7 +594,9 @@ var FileItem = class {
+     }
+ 
+     canRename() {
+-        return !this.trustedDesktopFile && this._fileExtra == Prefs.FileType.NONE;
++        return !this.trustedDesktopFile &&
++               !this._linkFile &&
++               this._fileExtra == Prefs.FileType.NONE;
+     }
+ 
+     _doOpenWith() {
+@@ -819,6 +860,14 @@ var FileItem = class {
+         if (this.trustedDesktopFile)
+             return this._desktopFile.get_name();
+ 
++        if (this._linkFile) {
++            try {
++                const name = this._linkFile.get_string(
++                    GLib.KEY_FILE_DESKTOP_GROUP, GLib.KEY_FILE_DESKTOP_KEY_NAME);
++                return name;
++            } catch (e) {}
++        }
++
+         return this._displayName || null;
+     }
+ 
+-- 
+2.38.1
+

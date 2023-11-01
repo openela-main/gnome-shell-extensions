@@ -1,0 +1,32 @@
+From a3db60786407481efbfc4875f887d03b58f0a7b7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 23 Feb 2018 16:56:46 +0100
+Subject: [PATCH] Include top-icons in classic session
+
+---
+ meson.build | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/meson.build b/meson.build
+index 6764f9a..32743ed 100644
+--- a/meson.build
++++ b/meson.build
+@@ -36,6 +36,7 @@ classic_extensions = [
+   'desktop-icons',
+   'places-menu',
+   'launch-new-instance',
++  'top-icons',
+   'window-list'
+ ]
+ 
+@@ -56,7 +57,6 @@ all_extensions += [
+   'no-hot-corner',
+   'panel-favorites',
+   'systemMonitor',
+-  'top-icons',
+   'updates-dialog',
+   'user-theme',
+   'window-grouper'
+-- 
+2.21.0
+

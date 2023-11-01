@@ -1,0 +1,41 @@
+From dfdd10b46d670674d5e0e38f7adcd007f5884822 Mon Sep 17 00:00:00 2001
+From: rpm-build <rpm-build>
+Date: Wed, 29 Sep 2021 14:33:25 +0200
+Subject: [PATCH] gesture-inhibitor: Put a foot down with self-enabling
+ gestures
+
+If a gesture (unfullscreen, I'm looking at you) controls its 'enabled'
+property, it will bypass the will of this extension. Make it sure that
+gestures are forced-off if the extension says so.
+---
+ extensions/gesture-inhibitor/extension.js | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/gesture-inhibitor/extension.js b/extensions/gesture-inhibitor/extension.js
+index e74ede2..66c706e 100644
+--- a/extensions/gesture-inhibitor/extension.js
++++ b/extensions/gesture-inhibitor/extension.js
+@@ -59,13 +59,19 @@ class Extension {
+     enable() {
+ 	this._map.forEach(m => {
+ 	    this._settings.bind(m.setting, m.action, 'enabled',
+-				Gio.SettingsBindFlags.DEFAULT);
++				Gio.SettingsBindFlags.GET);
++            m.handler = m.action.connect('notify::enabled', () => {
++                if (m.action.enabled && !this._settings.get_boolean(m.setting))
++                    m.action.enabled = this._settings.get_boolean(m.setting);
++            });
+ 	});
+     }
+ 
+     disable() {
+ 	this._map.forEach(m => {
+ 	    m.action.enabled = true;
++            if (m.handler > 0)
++                m.action.disconnect(m.handler);
+ 	});
+     }
+ }
+-- 
+2.31.1
+

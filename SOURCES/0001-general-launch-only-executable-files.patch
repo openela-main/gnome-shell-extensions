@@ -1,0 +1,45 @@
+From ee89a91a9ac235b69ff3c47af14d702c0309e892 Mon Sep 17 00:00:00 2001
+From: Sergio Costas <raster@rastersoft.com>
+Date: Thu, 25 Jul 2019 00:12:09 +0200
+Subject: [PATCH] general: launch only executable files
+
+Until now, if a file has the "execute" flag, clicking on it will try
+to execute it, no matter if it is really an executable. This means
+that a non-executable file (like a JPEG picture, or a text file)
+won't be opened with its desired application if it has set the
+executable flag.
+
+This patch fixes this, by ensuring that the only files that can be
+executed when the "execute" flag is set, are the ones that makes
+sense to execute.
+
+Fixes https://gitlab.gnome.org/World/ShellExtensions/desktop-icons/issues/144
+---
+ extensions/desktop-icons/fileItem.js | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/extensions/desktop-icons/fileItem.js b/extensions/desktop-icons/fileItem.js
+index d6d43c9f..44a93352 100644
+--- a/extensions/desktop-icons/fileItem.js
++++ b/extensions/desktop-icons/fileItem.js
+@@ -440,10 +440,13 @@ var FileItem = class {
+             return;
+         }
+ 
+-        if (this._attributeCanExecute && !this._isDirectory && !this._isValidDesktopFile) {
+-            if (this._execLine)
+-                Util.spawnCommandLine(this._execLine);
+-            return;
++        if (this._attributeCanExecute &&
++           !this._isDirectory &&
++           !this._isValidDesktopFile &&
++            Gio.content_type_can_be_executable(this._attributeContentType)) {
++                if (this._execLine)
++                    Util.spawnCommandLine(this._execLine);
++                return;
+         }
+ 
+         Gio.AppInfo.launch_default_for_uri_async(this.file.get_uri(),
+-- 
+2.31.1
+

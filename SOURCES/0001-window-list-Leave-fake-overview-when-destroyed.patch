@@ -1,0 +1,30 @@
+From ee25c2aac70b86f31c91f6491dad4c67a59bc261 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 26 Jan 2021 21:14:47 +0100
+Subject: [PATCH] window-list: Leave "fake overview" when destroyed
+
+Otherwise we leave an incomplete overview-like state around, which
+can cause issues later when the extension is re-enabled (for example
+when coming back from screen lock).
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1904371
+---
+ extensions/window-list/windowPicker.js | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/extensions/window-list/windowPicker.js b/extensions/window-list/windowPicker.js
+index 12a7627..afb5d27 100644
+--- a/extensions/window-list/windowPicker.js
++++ b/extensions/window-list/windowPicker.js
+@@ -210,6 +210,8 @@ var WindowPicker = class {
+     }
+ 
+     _onDestroy() {
++        this._fakeOverviewVisible(false);
++
+         if (this._monitorsChangedId)
+             Main.layoutManager.disconnect(this._monitorsChangedId);
+         this._monitorsChangedId = 0;
+-- 
+2.31.1
+

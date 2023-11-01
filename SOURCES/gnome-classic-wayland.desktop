@@ -1,0 +1,27 @@
+[Desktop Entry]
+Name[de]=Klassisch (Wayland Anzeige-Server)
+Name[es]=Clásico (servidor gráfico Wayland)
+Name[fr]=Classic (serveur affichage Wayland)
+Name[it]=Classico (server grafico Wayland)
+Name[ja]=クラシック (Wayland ディスプレイサーバー)
+Name[ko]=클래식 (Wayland 디스플레이 서버)
+Name[pt_BR]=Clássico (servidor de exibição Wayland)
+Name[ru]=Классический (дисплейный сервер Wayland)
+Name[zh_CN]=经典（Wayland 显现服务器）
+Name[zh_TW]=經典（Wayland顯示服務器）
+Name=Classic (Wayland display server)
+Comment[de]=Diese Sitzung meldet Sie in GNOME Classic an
+Comment[es]=Esta sesión inicia GNOME clásico
+Comment[fr]=Cette session vous connnecte à GNOME Classique
+Comment[it]=Questa sessione si avvia con GNOME classico
+Comment[ja]=GNOME クラシックモードでログインします
+Comment[ko]=이 세션을 사용하면 그놈 클래식에 로그인합니다
+Comment[pt_BR]=Essa sessão se inicia como GNOME Clássico
+Comment[ru]=Данный сеанс использует классический рабочий стол GNOME
+Comment[zh_CN]=该会话将登录到“GNOME 经典模式”
+Comment[zh_TW]=這個作業階段讓您登入 GNOME Classic
+Comment=This session logs you into GNOME Classic
+Exec=env GNOME_SHELL_SESSION_MODE=classic gnome-session --session gnome-classic
+TryExec=gnome-session
+Type=Application
+DesktopNames=GNOME-Classic;GNOME;

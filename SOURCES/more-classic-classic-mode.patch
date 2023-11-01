@@ -1,0 +1,3270 @@
+From e8425ac158bda015b09861bab4224ca2fdd2b50f Mon Sep 17 00:00:00 2001
+From: Jakub Steiner <jimmac@gmail.com>
+Date: Mon, 15 Jul 2019 23:40:09 +0200
+Subject: [PATCH 01/30] classic: hover state for panel buttons
+
+- prelight before active
+- lighten up slightly, similar to what the default does (inverted)
+
+Fixes https://gitlab.gnome.org/GNOME/gnome-shell-extensions/issues/169
+---
+ data/gnome-classic.scss | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/data/gnome-classic.scss b/data/gnome-classic.scss
+index 9e23506..9c0e06e 100644
+--- a/data/gnome-classic.scss
++++ b/data/gnome-classic.scss
+@@ -32,18 +32,20 @@ $variant: 'light';
+     font-weight: normal;
+     color: $fg_color;
+     text-shadow: none;
++    &:hover {
++      color: lighten($fg_color,10%);
++      text-shadow: none;
++      & .system-status-icon { icon-shadow: none; }
++    }
+     &:active, &:overview, &:focus, &:checked {
+       // Trick due to St limitations. It needs a background to draw
+       // a box-shadow
+-      background-color: $selected_bg_color !important;
+-      color: $selected_fg_color !important;
++      background-color: $selected_bg_color;
++      color: $selected_fg_color;
+       box-shadow: none;
+       & > .system-status-icon { icon-shadow: none; }
+     }
+-    &:hover {
+-      text-shadow: none;
+-      & .system-status-icon { icon-shadow: none; }
+-    }
++
+     .app-menu-icon { width: 0; height: 0; margin: 0; } // shell's display:none; :D
+ 
+     .system-status-icon {
+-- 
+2.21.0
+
+
+From fcbb1b1d8956d7447973a9d5ffaa4fede8d359ee Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 18 Jul 2019 00:39:49 +0200
+Subject: [PATCH 02/30] apps-menu: Add drop-shadow to application icons
+
+... to make sure they are readable on light backgrounds.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/issues/168
+---
+ extensions/apps-menu/extension.js | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/apps-menu/extension.js b/extensions/apps-menu/extension.js
+index cc399c6..1f95c16 100644
+--- a/extensions/apps-menu/extension.js
++++ b/extensions/apps-menu/extension.js
+@@ -103,7 +103,9 @@ class ApplicationMenuItem extends PopupMenu.PopupBaseMenuItem {
+     }
+ 
+     _updateIcon() {
+-        this._iconBin.set_child(this.getDragActor());
++        let icon = this.getDragActor();
++        icon.style_class = 'icon-dropshadow';
++        this._iconBin.set_child(icon);
+     }
+ }
+ 
+-- 
+2.21.0
+
+
+From 904e632c62aab6cd89a849a01c56b7c0f123eee8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 29 May 2019 10:17:20 +0000
+Subject: [PATCH 03/30] places-menu: Don't hardcode position
+
+The extension currently assumes that we have the "Activities" button
+at the left of the top bar. This is currently true, not only in the
+regular session, but also in GNOME classic where the button is hidden
+(but still present).
+
+However this is about to change: We will stop taking over the button
+from the apps-menu extension, and instead disable "Activities" from
+the session mode definition.
+
+Prepare for this by adding the places menu before the application menu
+instead of assuming a hardcoded position.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/69
+---
+ extensions/places-menu/extension.js | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/places-menu/extension.js b/extensions/places-menu/extension.js
+index c477a4a..5c038ae 100644
+--- a/extensions/places-menu/extension.js
++++ b/extensions/places-menu/extension.js
+@@ -135,9 +135,9 @@ let _indicator;
+ function enable() {
+     _indicator = new PlacesMenu;
+ 
+-    let pos = 1;
++    let pos = Main.sessionMode.panel.left.indexOf('appMenu');
+     if ('apps-menu' in Main.panel.statusArea)
+-        pos = 2;
++        pos++;
+     Main.panel.addToStatusArea('places-menu', _indicator, pos, 'left');
+ }
+ 
+-- 
+2.21.0
+
+
+From 2b1eb285d0c0e113a9be2bd801e1692b48fcfd78 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 29 May 2019 08:32:03 +0000
+Subject: [PATCH 04/30] apps-menu: Stop taking over Activities button
+
+We don't want the "Activities" button in GNOME Classic, but the current
+way of handling it is confusing:
+
+ - the button is hidden, but the corresponding hot corner
+   sometimes works (when the application menu isn't open)
+
+ - the button is effectively moved inside the menu, although
+   it's clearly not an app or category
+
+ - the apps-menu can be used independent from classic mode, in
+   which case removing the "Activities" button may not be wanted
+
+Address those points by removing any handling of the activities button
+from the apps-menu extension. We will remove it again from the classic
+session via a session mode tweak.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/69
+---
+ extensions/apps-menu/extension.js | 67 +++----------------------------
+ 1 file changed, 6 insertions(+), 61 deletions(-)
+
+diff --git a/extensions/apps-menu/extension.js b/extensions/apps-menu/extension.js
+index 1f95c16..865a87e 100644
+--- a/extensions/apps-menu/extension.js
++++ b/extensions/apps-menu/extension.js
+@@ -25,22 +25,6 @@ const NAVIGATION_REGION_OVERSHOOT = 50;
+ Gio._promisify(Gio._LocalFilePrototype, 'query_info_async', 'query_info_finish');
+ Gio._promisify(Gio._LocalFilePrototype, 'set_attributes_async', 'set_attributes_finish');
+ 
+-class ActivitiesMenuItem extends PopupMenu.PopupBaseMenuItem {
+-    constructor(button) {
+-        super();
+-        this._button = button;
+-        let label = new St.Label({ text: _('Activities Overview') });
+-        this.actor.add_child(label);
+-        this.actor.label_actor = label;
+-    }
+-
+-    activate(event) {
+-        this._button.menu.toggle();
+-        Main.overview.toggle();
+-        super.activate(event);
+-    }
+-}
+-
+ class ApplicationMenuItem extends PopupMenu.PopupBaseMenuItem {
+     constructor(button, app) {
+         super();
+@@ -235,21 +219,6 @@ class ApplicationsMenu extends PopupMenu.PopupMenu {
+         return false;
+     }
+ 
+-    open(animate) {
+-        this._button.hotCorner.setBarrierSize(0);
+-        if (this._button.hotCorner.actor) // fallback corner
+-            this._button.hotCorner.actor.hide();
+-        super.open(animate);
+-    }
+-
+-    close(animate) {
+-        let size = Main.layoutManager.panelBox.height;
+-        this._button.hotCorner.setBarrierSize(size);
+-        if (this._button.hotCorner.actor) // fallback corner
+-            this._button.hotCorner.actor.show();
+-        super.close(animate);
+-    }
+-
+     toggle() {
+         if (this.isOpen) {
+             this._button.selectCategory(null);
+@@ -383,7 +352,7 @@ Signals.addSignalMethods(DesktopTarget.prototype);
+ 
+ let ApplicationsButton = GObject.registerClass(
+ class ApplicationsButton extends PanelMenu.Button {
+-    _init() {
++    _init(includeIcon) {
+         super._init(1.0, null, false);
+ 
+         this.setMenu(new ApplicationsMenu(this, 1.0, St.Side.TOP, this));
+@@ -400,7 +369,8 @@ class ApplicationsButton extends PanelMenu.Button {
+             '/usr/share/icons/hicolor/scalable/apps/start-here.svg');
+         this._icon = new St.Icon({
+             gicon: new Gio.FileIcon({ file: iconFile }),
+-            style_class: 'panel-logo-icon'
++            style_class: 'panel-logo-icon',
++            visible: includeIcon
+         });
+         hbox.add_actor(this._icon);
+ 
+@@ -416,8 +386,6 @@ class ApplicationsButton extends PanelMenu.Button {
+         this.name = 'panelApplications';
+         this.label_actor = this._label;
+ 
+-        this.connect('captured-event', this._onCapturedEvent.bind(this));
+-
+         this._showingId = Main.overview.connect('showing', () => {
+             this.add_accessible_state (Atk.StateType.CHECKED);
+         });
+@@ -459,10 +427,6 @@ class ApplicationsButton extends PanelMenu.Button {
+         }
+     }
+ 
+-    get hotCorner() {
+-        return Main.layoutManager.hotCorners[Main.layoutManager.primaryIndex];
+-    }
+-
+     _createVertSeparator() {
+         let separator = new St.DrawingArea({
+             style_class: 'calendar-vertical-separator',
+@@ -489,14 +453,6 @@ class ApplicationsButton extends PanelMenu.Button {
+         this._desktopTarget.destroy();
+     }
+ 
+-    _onCapturedEvent(actor, event) {
+-        if (event.type() == Clutter.EventType.BUTTON_PRESS) {
+-            if (!Main.overview.shouldToggleByCornerOrButton())
+-                return true;
+-        }
+-        return false;
+-    }
+-
+     _onMenuKeyPress(actor, event) {
+         let symbol = event.get_key_symbol();
+         if (symbol == Clutter.KEY_Left || symbol == Clutter.KEY_Right) {
+@@ -640,14 +596,6 @@ class ApplicationsButton extends PanelMenu.Button {
+             y_align: St.Align.START
+         });
+ 
+-        let activities = new ActivitiesMenuItem(this);
+-        this.leftBox.add(activities.actor, {
+-            expand: false,
+-            x_fill: true,
+-            y_fill: false,
+-            y_align: St.Align.START
+-        });
+-
+         this.applicationsBox = new St.BoxLayout({ vertical: true });
+         this.applicationsScrollBox.add_actor(this.applicationsBox);
+         this.categoriesBox = new St.BoxLayout({ vertical: true });
+@@ -759,19 +707,16 @@ class ApplicationsButton extends PanelMenu.Button {
+ });
+ 
+ let appsMenuButton;
+-let activitiesButton;
+ 
+ function enable() {
+-    activitiesButton = Main.panel.statusArea['activities'];
+-    activitiesButton.container.hide();
+-    appsMenuButton = new ApplicationsButton();
+-    Main.panel.addToStatusArea('apps-menu', appsMenuButton, 1, 'left');
++    let index = Main.sessionMode.panel.left.indexOf('activities') + 1;
++    appsMenuButton = new ApplicationsButton(index == 0);
++    Main.panel.addToStatusArea('apps-menu', appsMenuButton, index, 'left');
+ }
+ 
+ function disable() {
+     Main.panel.menuManager.removeMenu(appsMenuButton.menu);
+     appsMenuButton.destroy();
+-    activitiesButton.container.show();
+ }
+ 
+ function init() {
+-- 
+2.21.0
+
+
+From 45b5f9b8f73032a87017131d8f29b429a8b75ef1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 7 Jun 2019 14:30:16 +0000
+Subject: [PATCH 05/30] apps-menu: Stop hiding the overview when toggled
+
+Now that the extension no longer doubles as the "Activities" button,
+that behavior is confusing.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/69
+---
+ extensions/apps-menu/extension.js | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/extensions/apps-menu/extension.js b/extensions/apps-menu/extension.js
+index 865a87e..1e2882b 100644
+--- a/extensions/apps-menu/extension.js
++++ b/extensions/apps-menu/extension.js
+@@ -220,12 +220,8 @@ class ApplicationsMenu extends PopupMenu.PopupMenu {
+     }
+ 
+     toggle() {
+-        if (this.isOpen) {
++        if (this.isOpen)
+             this._button.selectCategory(null);
+-        } else {
+-            if (Main.overview.visible)
+-                Main.overview.hide();
+-        }
+         super.toggle();
+     }
+ }
+-- 
+2.21.0
+
+
+From 0f143dc87bd501a44843aad7d0a1cd0d20ad4d31 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 7 Jun 2019 20:07:19 +0000
+Subject: [PATCH 06/30] apps-menu: Hide overview when launching app
+
+Now that we no longer hide the overview when the menu is opened,
+it is possible to activate menu entries from the overview. Start
+hiding the overview in that case, which is consistent with app
+launching elsewhere.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/69
+---
+ extensions/apps-menu/extension.js | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/extensions/apps-menu/extension.js b/extensions/apps-menu/extension.js
+index 1e2882b..3dbe43f 100644
+--- a/extensions/apps-menu/extension.js
++++ b/extensions/apps-menu/extension.js
+@@ -66,6 +66,8 @@ class ApplicationMenuItem extends PopupMenu.PopupBaseMenuItem {
+         this._button.selectCategory(null);
+         this._button.menu.toggle();
+         super.activate(event);
++
++        Main.overview.hide();
+     }
+ 
+     setActive(active, params) {
+-- 
+2.21.0
+
+
+From 72f956cc589d9789ae6ad7b99c1dfd60f9a9f8e3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 29 May 2019 09:44:30 +0000
+Subject: [PATCH 07/30] classic: Disable overview
+
+The overview is one of the defining features of GNOME 3, and thus
+almost by definition at odds with the classic session, which
+emulates a traditional GNOME 2 desktop.
+
+Even with the less prominent placement inside the application menu
+it never quite fit in - it doesn't help that besides the different
+UI paradigma, the overview keeps its "normal" styling which differs
+greatly with classic's normal mode.
+
+So besides removing the "Activities" button via the session mode
+definition, now that the apps-menu extension doesn't replace it anymore,
+disable the overview completely in the classic session.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/69
+---
+ data/classic.json.in | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/data/classic.json.in b/data/classic.json.in
+index fdb3762..c1c0544 100644
+--- a/data/classic.json.in
++++ b/data/classic.json.in
+@@ -1,8 +1,9 @@
+ {
+     "parentMode": "user",
+     "stylesheetName": "gnome-classic.css",
++    "hasOverview": false,
+     "enabledExtensions": [@CLASSIC_EXTENSIONS@],
+-    "panel": { "left": ["activities", "appMenu"],
++    "panel": { "left": ["appMenu"],
+                "center": [],
+                "right": ["a11y", "keyboard", "dateMenu", "aggregateMenu"]
+              }
+-- 
+2.21.0
+
+
+From 6277f55210a2f1a3283b3eaad7ae1f2cf2f48d8b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 14 May 2019 19:51:22 +0200
+Subject: [PATCH 08/30] window-list: Add window picker button
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+With the latest changes, GNOME Classic has become so classic that it
+is bordering dull. Salvage at least a tiny piece of GNOME 3 in form
+of a window-pick button which toggles an exposé-like reduced overview.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/73
+---
+ extensions/window-list/classic.css     |  20 +-
+ extensions/window-list/extension.js    |  36 +++-
+ extensions/window-list/meson.build     |   2 +-
+ extensions/window-list/stylesheet.css  |  27 ++-
+ extensions/window-list/windowPicker.js | 260 +++++++++++++++++++++++++
+ 5 files changed, 332 insertions(+), 13 deletions(-)
+ create mode 100644 extensions/window-list/windowPicker.js
+
+diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
+index f3c44a3..c506bea 100644
+--- a/extensions/window-list/classic.css
++++ b/extensions/window-list/classic.css
+@@ -6,14 +6,13 @@
+     height: 2.25em ;
+   }
+ 
+-  .bottom-panel .window-button > StWidget {
++  .bottom-panel .window-button > StWidget,
++  .bottom-panel .window-picker-toggle > StWidget {
+     background-gradient-drection: vertical;
+     background-color: #fff;
+     background-gradient-start: #fff;
+     background-gradient-end: #eee;
+     color: #000;
+-    -st-natural-width: 18.7em;
+-    max-width: 18.75em;
+     color: #2e3436;
+     background-color: #eee;
+     border-radius: 2px;
+@@ -22,7 +21,17 @@
+     text-shadow: 0 0 transparent;
+   }
+ 
+-  .bottom-panel .window-button:hover > StWidget {
++  .bottom-panel .window-button > StWidget {
++    -st-natural-width: 18.7em;
++    max-width: 18.75em;
++  }
++
++  .bottom-panel .window-picker-toggle > StWidet {
++    border: 1px solid rgba(0,0,0,0.3);
++  }
++
++  .bottom-panel .window-button:hover > StWidget,
++  .bottom-panel .window-picker-toggle:hover > StWidget {
+     background-color: #f9f9f9;
+   }
+ 
+@@ -31,7 +40,8 @@
+     box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5);
+   }
+ 
+-  .bottom-panel .window-button.focused > StWidget {
++  .bottom-panel .window-button.focused > StWidget,
++  .bottom-panel .window-picker-toggle:checked > StWidget {
+     background-color: #ddd;
+     box-shadow: inset 1px 1px 1px rgba(0,0,0,0.5);
+   }
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index e1ea742..b2784b4 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -3,11 +3,14 @@ const { Clutter, Gio, GLib, GObject, Gtk, Meta, Shell, St } = imports.gi;
+ 
+ const DND = imports.ui.dnd;
+ const Main = imports.ui.main;
++const Overview = imports.ui.overview;
+ const PanelMenu = imports.ui.panelMenu;
+ const PopupMenu = imports.ui.popupMenu;
++const Tweener = imports.ui.tweener;
+ 
+ const ExtensionUtils = imports.misc.extensionUtils;
+ const Me = ExtensionUtils.getCurrentExtension();
++const { WindowPicker, WindowPickerToggle } = Me.imports.windowPicker;
+ 
+ const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ const _ = Gettext.gettext;
+@@ -787,6 +790,12 @@ class WindowList {
+         let box = new St.BoxLayout({ x_expand: true, y_expand: true });
+         this.actor.add_actor(box);
+ 
++        let toggle = new WindowPickerToggle();
++        box.add_actor(toggle);
++
++        toggle.connect('notify::checked',
++            this._updateWindowListVisibility.bind(this));
++
+         let layout = new Clutter.BoxLayout({ homogeneous: true });
+         this._windowList = new St.Widget({
+             style_class: 'window-list',
+@@ -936,6 +945,19 @@ class WindowList {
+         this._workspaceIndicator.actor.visible = hasWorkspaces && workspacesOnMonitor;
+     }
+ 
++    _updateWindowListVisibility() {
++        let visible = !Main.windowPicker.visible;
++
++        Tweener.addTween(this._windowList, {
++            opacity: visible ? 255 : 0,
++            transition: 'ease-out-quad',
++            time: Overview.ANIMATION_TIME
++        });
++
++        this._windowList.reactive = visible;
++        this._windowList.get_children().forEach(c => c.reactive = visible);
++    }
++
+     _getPreferredUngroupedWindowListWidth() {
+         if (this._windowList.get_n_children() == 0)
+             return this._windowList.get_preferred_width(-1)[1];
+@@ -1206,7 +1228,7 @@ class WindowList {
+ class Extension {
+     constructor() {
+         this._windowLists = null;
+-        this._injections = {};
++        this._hideOverviewOrig = Main.overview.hide;
+     }
+ 
+     enable() {
+@@ -1221,6 +1243,13 @@ class Extension {
+             Main.layoutManager.connect('monitors-changed',
+                                        this._buildWindowLists.bind(this));
+ 
++        Main.windowPicker = new WindowPicker();
++
++        Main.overview.hide = () => {
++            Main.windowPicker.close();
++            this._hideOverviewOrig.call(Main.overview);
++        };
++
+         this._buildWindowLists();
+     }
+ 
+@@ -1251,6 +1280,11 @@ class Extension {
+             windowList.actor.destroy();
+         });
+         this._windowLists = null;
++
++        Main.windowPicker.actor.destroy();
++        delete Main.windowPicker;
++
++        Main.overview.hide = this._hideOverviewOrig;
+     }
+ 
+     someWindowListContains(actor) {
+diff --git a/extensions/window-list/meson.build b/extensions/window-list/meson.build
+index b4aa4db..5b1f5f5 100644
+--- a/extensions/window-list/meson.build
++++ b/extensions/window-list/meson.build
+@@ -4,7 +4,7 @@ extension_data += configure_file(
+   configuration: metadata_conf
+ )
+ 
+-extension_sources += files('prefs.js')
++extension_sources += files('prefs.js', 'windowPicker.js')
+ extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+ 
+ if classic_mode_enabled
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index f5285cb..91383ab 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -26,9 +26,8 @@
+   spacing: 4px;
+ }
+ 
+-.window-button > StWidget {
+-  -st-natural-width: 18.75em;
+-  max-width: 18.75em;
++.window-button > StWidget,
++.window-picker-toggle > StWidget {
+   color: #bbb;
+   background-color: black;
+   border-radius: 4px;
+@@ -37,7 +36,21 @@
+   text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+ }
+ 
+-.window-button:hover > StWidget {
++.window-picker-toggle {
++  padding: 3px;
++}
++
++.window-picker-toggle > StWidet {
++  border: 1px solid rgba(255,255,255,0.3);
++}
++
++.window-button > StWidget {
++  -st-natural-width: 18.75em;
++  max-width: 18.75em;
++}
++
++.window-button:hover > StWidget,
++.window-picker-toggle:hover > StWidget {
+   color: white;
+   background-color: #1f1f1f;
+ }
+@@ -47,12 +60,14 @@
+   box-shadow: inset 2px 2px 4px rgba(255,255,255,0.5);
+ }
+ 
+-.window-button.focused > StWidget {
++.window-button.focused > StWidget,
++.window-picker-toggle:checked > StWidget {
+   color: white;
+   box-shadow: inset 1px 1px 4px rgba(255,255,255,0.7);
+ }
+ 
+-.window-button.focused:active > StWidget {
++.window-button.focused:active > StWidget,
++.window-picker-toggle:checked:active > StWidget {
+   box-shadow: inset 2px 2px 4px rgba(255,255,255,0.7);
+ }
+ 
+diff --git a/extensions/window-list/windowPicker.js b/extensions/window-list/windowPicker.js
+new file mode 100644
+index 0000000..024fd80
+--- /dev/null
++++ b/extensions/window-list/windowPicker.js
+@@ -0,0 +1,260 @@
++/* exported WindowPicker, WindowPickerToggle */
++const { Clutter, GLib, GObject, Meta, Shell, St } = imports.gi;
++const Signals = imports.signals;
++
++const Layout = imports.ui.layout;
++const Main = imports.ui.main;
++const Overview = imports.ui.overview;
++const { WorkspacesDisplay } = imports.ui.workspacesView;
++
++let MyWorkspacesDisplay = class extends WorkspacesDisplay {
++    constructor() {
++        super();
++
++        this.actor.add_constraint(
++            new Layout.MonitorConstraint({
++                primary: true,
++                work_area: true
++            }));
++
++        this.actor.connect('destroy', this._onDestroy.bind(this));
++
++        this._workareasChangedId = global.display.connect('workareas-changed',
++            this._onWorkAreasChanged.bind(this));
++        this._onWorkAreasChanged();
++    }
++
++    show(...args) {
++        if (this._scrollEventId == 0)
++            this._scrollEventId = Main.windowPicker.connect('scroll-event',
++                this._onScrollEvent.bind(this));
++
++        super.show(...args);
++    }
++
++    hide(...args) {
++        if (this._scrollEventId > 0)
++            Main.windowPicker.disconnect(this._scrollEventId);
++        this._scrollEventId = 0;
++
++        super.hide(...args);
++    }
++
++    _onWorkAreasChanged() {
++        let { primaryIndex } = Main.layoutManager;
++        let workarea = Main.layoutManager.getWorkAreaForMonitor(primaryIndex);
++        this.setWorkspacesFullGeometry(workarea);
++    }
++
++    _updateWorkspacesViews() {
++        super._updateWorkspacesViews();
++
++        this._workspacesViews.forEach(v => {
++            Main.layoutManager.overviewGroup.remove_actor(v.actor);
++            Main.windowPicker.actor.add_actor(v.actor);
++        });
++    }
++
++    _onDestroy() {
++        if (this._workareasChangedId)
++            global.display.disconnect(this._workareasChangedId);
++        this._workareasChangedId = 0;
++    }
++};
++
++var WindowPicker = class {
++    constructor() {
++        this._visible = false;
++        this._modal = false;
++
++        this.actor = new Clutter.Actor();
++
++        this.actor.connect('destroy', this._onDestroy.bind(this));
++
++        global.bind_property('screen-width',
++            this.actor, 'width',
++            GObject.BindingFlags.SYNC_CREATE);
++        global.bind_property('screen-height',
++            this.actor, 'height',
++            GObject.BindingFlags.SYNC_CREATE);
++
++        this._backgroundGroup = new Meta.BackgroundGroup({ reactive: true });
++        this.actor.add_child(this._backgroundGroup);
++
++        this._backgroundGroup.connect('scroll-event', (a, ev) => {
++            this.emit('scroll-event', ev);
++        });
++
++        // Trick WorkspacesDisplay constructor into adding actions here
++        let addActionOrig = Main.overview.addAction;
++        Main.overview.addAction = a => this._backgroundGroup.add_action(a);
++
++        this._workspacesDisplay = new MyWorkspacesDisplay();
++        this.actor.add_child(this._workspacesDisplay.actor);
++
++        Main.overview.addAction = addActionOrig;
++
++        this._bgManagers = [];
++
++        this._monitorsChangedId = Main.layoutManager.connect('monitors-changed',
++            this._updateBackgrounds.bind(this));
++        this._updateBackgrounds();
++
++        Main.uiGroup.insert_child_below(this.actor, global.window_group);
++    }
++
++    get visible() {
++        return this._visible;
++    }
++
++    open() {
++        if (this._visible)
++            return;
++
++        this._visible = true;
++
++        if (!this._syncGrab())
++            return;
++
++        this._fakeOverviewVisible(true);
++        this._shadeBackgrounds();
++        this._fakeOverviewAnimation();
++        this._workspacesDisplay.show(false);
++
++        this.emit('open-state-changed', this._visible);
++    }
++
++    close() {
++        if (!this._visible)
++            return;
++
++        this._visible = false;
++
++        if (!this._syncGrab())
++            return;
++
++        this._workspacesDisplay.animateFromOverview(false);
++        this._unshadeBackgrounds();
++        this._fakeOverviewAnimation(() => {
++            this._workspacesDisplay.hide();
++            this._fakeOverviewVisible(false);
++        });
++
++        this.emit('open-state-changed', this._visible);
++    }
++
++    _fakeOverviewAnimation(onComplete) {
++        Main.overview.animationInProgress = true;
++        GLib.timeout_add(
++            GLib.PRIORITY_DEFAULT,
++            Overview.ANIMATION_TIME * 1000,
++            () => {
++                Main.overview.animationInProgress = false;
++                if (onComplete)
++                    onComplete();
++            });
++    }
++
++    _fakeOverviewVisible(visible) {
++        // Fake overview state for WorkspacesDisplay
++        Main.overview.visible = visible;
++
++        // Hide real windows
++        Main.layoutManager._inOverview = visible;
++        Main.layoutManager._updateVisibility();
++    }
++
++    _syncGrab() {
++        if (this._visible) {
++            if (this._modal)
++                return true;
++
++            this._modal = Main.pushModal(this.actor, {
++                actionMode: Shell.ActionMode.OVERVIEW
++            });
++
++            if (!this._modal) {
++                this.hide();
++                return false;
++            }
++        } else if (this._modal) {
++            Main.popModal(this.actor);
++            this._modal = false;
++        }
++        return true;
++    }
++
++    _onDestroy() {
++        if (this._monitorsChangedId)
++            Main.layoutManager.disconnect(this._monitorsChangedId);
++        this._monitorsChangedId = 0;
++    }
++
++    _updateBackgrounds() {
++        Main.overview._updateBackgrounds.call(this);
++    }
++
++    _shadeBackgrounds() {
++        Main.overview._shadeBackgrounds.call(this);
++    }
++
++    _unshadeBackgrounds() {
++        Main.overview._unshadeBackgrounds.call(this);
++    }
++};
++Signals.addSignalMethods(WindowPicker.prototype);
++
++var WindowPickerToggle = GObject.registerClass(
++class WindowPickerToggle extends St.Button {
++    _init() {
++        let iconBin = new St.Widget({
++            layout_manager: new Clutter.BinLayout()
++        });
++        iconBin.add_child(new St.Icon({
++            icon_name: 'focus-windows-symbolic',
++            icon_size: 16,
++            x_expand: true,
++            y_expand: true,
++            x_align: Clutter.ActorAlign.CENTER,
++            y_align: Clutter.ActorAlign.CENTER
++        }));
++        super._init({
++            style_class: 'window-picker-toggle',
++            child: iconBin,
++            visible: !Main.sessionMode.hasOverview,
++            x_fill: true,
++            y_fill: true,
++            toggle_mode: true
++        });
++
++        this._overlayKeyId = 0;
++
++        this.connect('destroy', this._onDestroy.bind(this));
++
++        this.connect('notify::checked', () => {
++            if (this.checked)
++                Main.windowPicker.open();
++            else
++                Main.windowPicker.close();
++        });
++
++        if (!Main.sessionMode.hasOverview) {
++            this._overlayKeyId = global.display.connect('overlay-key', () => {
++                if (!Main.windowPicker.visible)
++                    Main.windowPicker.open();
++                else
++                    Main.windowPicker.close();
++            });
++        }
++
++        Main.windowPicker.connect('open-state-changed', () => {
++            this.checked = Main.windowPicker.visible;
++        });
++    }
++
++    _onDestroy() {
++        if (this._overlayKeyId)
++            global.display.disconnect(this._overlayKeyId);
++        this._overlayKeyId == 0;
++    }
++});
+-- 
+2.21.0
+
+
+From 5d82db41ac53a1c7462e1ee69b155588b3e321fc Mon Sep 17 00:00:00 2001
+From: Jakub Steiner <jimmac@gmail.com>
+Date: Mon, 15 Jul 2019 23:03:41 +0200
+Subject: [PATCH 09/30] classic: Update window-list styling
+
+Make buttons flatter, rounder to match default styling.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/82
+---
+ extensions/window-list/classic.css | 25 +++++++++----------------
+ 1 file changed, 9 insertions(+), 16 deletions(-)
+
+diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
+index c506bea..cc967e0 100644
+--- a/extensions/window-list/classic.css
++++ b/extensions/window-list/classic.css
+@@ -4,21 +4,18 @@
+     border-top-width: 1px;
+     border-bottom-width: 0px;
+     height: 2.25em ;
++    padding: 2px;
+   }
+ 
+   .bottom-panel .window-button > StWidget,
+   .bottom-panel .window-picker-toggle > StWidget {
+-    background-gradient-drection: vertical;
+-    background-color: #fff;
+-    background-gradient-start: #fff;
+-    background-gradient-end: #eee;
+-    color: #000;
+     color: #2e3436;
+     background-color: #eee;
+-    border-radius: 2px;
++    border-radius: 3px;
+     padding: 3px 6px 1px;
+-    box-shadow: inset -1px -1px 1px rgba(0,0,0,0.5);
+-    text-shadow: 0 0 transparent;
++    box-shadow: none;
++    text-shadow: none;
++    border: 1px solid rgba(0,0,0,0.2);
+   }
+ 
+   .bottom-panel .window-button > StWidget {
+@@ -26,10 +23,6 @@
+     max-width: 18.75em;
+   }
+ 
+-  .bottom-panel .window-picker-toggle > StWidet {
+-    border: 1px solid rgba(0,0,0,0.3);
+-  }
+-
+   .bottom-panel .window-button:hover > StWidget,
+   .bottom-panel .window-picker-toggle:hover > StWidget {
+     background-color: #f9f9f9;
+@@ -37,13 +30,13 @@
+ 
+   .bottom-panel .window-button:active > StWidget,
+   .bottom-panel .window-button:focus > StWidget {
+-    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5);
++    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+   }
+ 
+   .bottom-panel .window-button.focused > StWidget,
+   .bottom-panel .window-picker-toggle:checked > StWidget {
+-    background-color: #ddd;
+-    box-shadow: inset 1px 1px 1px rgba(0,0,0,0.5);
++    background-color: #ccc;
++    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+   }
+ 
+   .bottom-panel .window-button.focused:hover > StWidget {
+@@ -52,5 +45,5 @@
+ 
+   .bottom-panel .window-button.minimized > StWidget {
+     color: #888;
+-    box-shadow: inset -1px -1px 1px rgba(0,0,0,0.5);
++    box-shadow: none;
+   }
+-- 
+2.21.0
+
+
+From 479a8907063970fb6f7e08cea9a2cd6f2e518b84 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 5 Jun 2019 00:23:13 +0000
+Subject: [PATCH 10/30] window-list: Split out workspaceIndicator
+
+The extension has grown unwieldily big, so before starting to improve
+on the workspace indicator, move it to its own source file.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/70
+---
+ extensions/window-list/extension.js          | 130 +-----------------
+ extensions/window-list/meson.build           |   2 +-
+ extensions/window-list/workspaceIndicator.js | 135 +++++++++++++++++++
+ 3 files changed, 138 insertions(+), 129 deletions(-)
+ create mode 100644 extensions/window-list/workspaceIndicator.js
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index b2784b4..1f854aa 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -1,16 +1,16 @@
+ /* exported init */
+-const { Clutter, Gio, GLib, GObject, Gtk, Meta, Shell, St } = imports.gi;
++const { Clutter, Gio, GLib, Gtk, Meta, Shell, St } = imports.gi;
+ 
+ const DND = imports.ui.dnd;
+ const Main = imports.ui.main;
+ const Overview = imports.ui.overview;
+-const PanelMenu = imports.ui.panelMenu;
+ const PopupMenu = imports.ui.popupMenu;
+ const Tweener = imports.ui.tweener;
+ 
+ const ExtensionUtils = imports.misc.extensionUtils;
+ const Me = ExtensionUtils.getCurrentExtension();
+ const { WindowPicker, WindowPickerToggle } = Me.imports.windowPicker;
++const { WorkspaceIndicator } = Me.imports.workspaceIndicator;
+ 
+ const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ const _ = Gettext.gettext;
+@@ -647,132 +647,6 @@ class AppButton extends BaseButton {
+ }
+ 
+ 
+-let WorkspaceIndicator = GObject.registerClass(
+-class WorkspaceIndicator extends PanelMenu.Button {
+-    _init() {
+-        super._init(0.0, _('Workspace Indicator'), true);
+-        this.setMenu(new PopupMenu.PopupMenu(this, 0.0, St.Side.BOTTOM));
+-        this.add_style_class_name('window-list-workspace-indicator');
+-        this.menu.actor.remove_style_class_name('panel-menu');
+-
+-        let container = new St.Widget({
+-            layout_manager: new Clutter.BinLayout(),
+-            x_expand: true,
+-            y_expand: true
+-        });
+-        this.add_actor(container);
+-
+-        let workspaceManager = global.workspace_manager;
+-
+-        this._currentWorkspace = workspaceManager.get_active_workspace().index();
+-        this.statusLabel = new St.Label({
+-            text: this._getStatusText(),
+-            x_align: Clutter.ActorAlign.CENTER,
+-            y_align: Clutter.ActorAlign.CENTER
+-        });
+-        container.add_actor(this.statusLabel);
+-
+-        this.workspacesItems = [];
+-
+-        this._workspaceManagerSignals = [];
+-        this._workspaceManagerSignals.push(workspaceManager.connect('notify::n-workspaces',
+-                                                                    this._updateMenu.bind(this)));
+-        this._workspaceManagerSignals.push(workspaceManager.connect_after('workspace-switched',
+-                                                                          this._updateIndicator.bind(this)));
+-
+-        this.connect('scroll-event', this._onScrollEvent.bind(this));
+-        this._updateMenu();
+-
+-        this._settings = new Gio.Settings({ schema_id: 'org.gnome.desktop.wm.preferences' });
+-        this._settingsChangedId =
+-            this._settings.connect('changed::workspace-names',
+-                                   this._updateMenu.bind(this));
+-    }
+-
+-    _onDestroy() {
+-        for (let i = 0; i < this._workspaceManagerSignals.length; i++)
+-            global.workspace_manager.disconnect(this._workspaceManagerSignals[i]);
+-
+-        if (this._settingsChangedId) {
+-            this._settings.disconnect(this._settingsChangedId);
+-            this._settingsChangedId = 0;
+-        }
+-
+-        super._onDestroy();
+-    }
+-
+-    _updateIndicator() {
+-        this.workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.NONE);
+-        this._currentWorkspace = global.workspace_manager.get_active_workspace().index();
+-        this.workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.DOT);
+-
+-        this.statusLabel.set_text(this._getStatusText());
+-    }
+-
+-    _getStatusText() {
+-        let workspaceManager = global.workspace_manager;
+-        let current = workspaceManager.get_active_workspace().index();
+-        let total = workspaceManager.n_workspaces;
+-
+-        return '%d / %d'.format(current + 1, total);
+-    }
+-
+-    _updateMenu() {
+-        let workspaceManager = global.workspace_manager;
+-
+-        this.menu.removeAll();
+-        this.workspacesItems = [];
+-        this._currentWorkspace = workspaceManager.get_active_workspace().index();
+-
+-        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
+-            let name = Meta.prefs_get_workspace_name(i);
+-            let item = new PopupMenu.PopupMenuItem(name);
+-            item.workspaceId = i;
+-
+-            item.connect('activate', (item, _event) => {
+-                this._activate(item.workspaceId);
+-            });
+-
+-            if (i == this._currentWorkspace)
+-                item.setOrnament(PopupMenu.Ornament.DOT);
+-
+-            this.menu.addMenuItem(item);
+-            this.workspacesItems[i] = item;
+-        }
+-
+-        this.statusLabel.set_text(this._getStatusText());
+-    }
+-
+-    _activate(index) {
+-        let workspaceManager = global.workspace_manager;
+-
+-        if (index >= 0 && index < workspaceManager.n_workspaces) {
+-            let metaWorkspace = workspaceManager.get_workspace_by_index(index);
+-            metaWorkspace.activate(global.get_current_time());
+-        }
+-    }
+-
+-    _onScrollEvent(actor, event) {
+-        let direction = event.get_scroll_direction();
+-        let diff = 0;
+-        if (direction == Clutter.ScrollDirection.DOWN) {
+-            diff = 1;
+-        } else if (direction == Clutter.ScrollDirection.UP) {
+-            diff = -1;
+-        } else {
+-            return;
+-        }
+-
+-        let newIndex = this._currentWorkspace + diff;
+-        this._activate(newIndex);
+-    }
+-
+-    _allocate(actor, box, flags) {
+-        if (actor.get_n_children() > 0)
+-            actor.get_first_child().allocate(box, flags);
+-    }
+-});
+-
+ class WindowList {
+     constructor(perMonitor, monitor) {
+         this._perMonitor = perMonitor;
+diff --git a/extensions/window-list/meson.build b/extensions/window-list/meson.build
+index 5b1f5f5..34d7c3f 100644
+--- a/extensions/window-list/meson.build
++++ b/extensions/window-list/meson.build
+@@ -4,7 +4,7 @@ extension_data += configure_file(
+   configuration: metadata_conf
+ )
+ 
+-extension_sources += files('prefs.js', 'windowPicker.js')
++extension_sources += files('prefs.js', 'windowPicker.js', 'workspaceIndicator.js')
+ extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+ 
+ if classic_mode_enabled
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+new file mode 100644
+index 0000000..fb3ffe7
+--- /dev/null
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -0,0 +1,135 @@
++/* exported WorkspaceIndicator */
++const { Clutter, Gio, GObject, Meta, St } = imports.gi;
++
++const PanelMenu = imports.ui.panelMenu;
++const PopupMenu = imports.ui.popupMenu;
++
++const Gettext = imports.gettext.domain('gnome-shell-extensions');
++const _ = Gettext.gettext;
++
++var WorkspaceIndicator = GObject.registerClass(
++class WorkspaceIndicator extends PanelMenu.Button {
++    _init() {
++        super._init(0.0, _('Workspace Indicator'), true);
++        this.setMenu(new PopupMenu.PopupMenu(this, 0.0, St.Side.BOTTOM));
++        this.add_style_class_name('window-list-workspace-indicator');
++        this.menu.actor.remove_style_class_name('panel-menu');
++
++        let container = new St.Widget({
++            layout_manager: new Clutter.BinLayout(),
++            x_expand: true,
++            y_expand: true
++        });
++        this.add_actor(container);
++
++        let workspaceManager = global.workspace_manager;
++
++        this._currentWorkspace = workspaceManager.get_active_workspace().index();
++        this.statusLabel = new St.Label({
++            text: this._getStatusText(),
++            x_align: Clutter.ActorAlign.CENTER,
++            y_align: Clutter.ActorAlign.CENTER
++        });
++        container.add_actor(this.statusLabel);
++
++        this.workspacesItems = [];
++
++        this._workspaceManagerSignals = [
++            workspaceManager.connect('notify::n-workspaces',
++                this._updateMenu.bind(this)),
++            workspaceManager.connect_after('workspace-switched',
++                this._updateIndicator.bind(this))
++        ];
++
++        this.connect('scroll-event', this._onScrollEvent.bind(this));
++        this._updateMenu();
++
++        this._settings = new Gio.Settings({ schema_id: 'org.gnome.desktop.wm.preferences' });
++        this._settingsChangedId = this._settings.connect(
++            'changed::workspace-names', this._updateMenu.bind(this));
++    }
++
++    _onDestroy() {
++        for (let i = 0; i < this._workspaceManagerSignals.length; i++)
++            global.workspace_manager.disconnect(this._workspaceManagerSignals[i]);
++
++        if (this._settingsChangedId) {
++            this._settings.disconnect(this._settingsChangedId);
++            this._settingsChangedId = 0;
++        }
++
++        super._onDestroy();
++    }
++
++    _updateIndicator() {
++        this.workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.NONE);
++        this._currentWorkspace = global.workspace_manager.get_active_workspace().index();
++        this.workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.DOT);
++
++        this.statusLabel.set_text(this._getStatusText());
++    }
++
++    _getStatusText() {
++        let workspaceManager = global.workspace_manager;
++        let current = workspaceManager.get_active_workspace().index();
++        let total = workspaceManager.n_workspaces;
++
++        return '%d / %d'.format(current + 1, total);
++    }
++
++    _updateMenu() {
++        let workspaceManager = global.workspace_manager;
++
++        this.menu.removeAll();
++        this.workspacesItems = [];
++        this._currentWorkspace = workspaceManager.get_active_workspace().index();
++
++        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
++            let name = Meta.prefs_get_workspace_name(i);
++            let item = new PopupMenu.PopupMenuItem(name);
++            item.workspaceId = i;
++
++            item.connect('activate', (item, _event) => {
++                this._activate(item.workspaceId);
++            });
++
++            if (i == this._currentWorkspace)
++                item.setOrnament(PopupMenu.Ornament.DOT);
++
++            this.menu.addMenuItem(item);
++            this.workspacesItems[i] = item;
++        }
++
++        this.statusLabel.set_text(this._getStatusText());
++    }
++
++    _activate(index) {
++        let workspaceManager = global.workspace_manager;
++
++        if (index >= 0 && index < workspaceManager.n_workspaces) {
++            let metaWorkspace = workspaceManager.get_workspace_by_index(index);
++            metaWorkspace.activate(global.get_current_time());
++        }
++    }
++
++    _onScrollEvent(actor, event) {
++        let direction = event.get_scroll_direction();
++        let diff = 0;
++        if (direction == Clutter.ScrollDirection.DOWN) {
++            diff = 1;
++        } else if (direction == Clutter.ScrollDirection.UP) {
++            diff = -1;
++        } else {
++            return;
++        }
++
++        let newIndex = this._currentWorkspace + diff;
++        this._activate(newIndex);
++    }
++
++    _allocate(actor, box, flags) {
++        if (actor.get_n_children() > 0)
++            actor.get_first_child().allocate(box, flags);
++    }
++});
++
+-- 
+2.21.0
+
+
+From 3380c9ca5c85a61101bf916a2b326c478d83475e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 5 Jun 2019 17:39:53 +0000
+Subject: [PATCH 11/30] window-list: Use a more specific GTypeName for
+ workspace indicator
+
+Now that the class inherits from GObject, the generic name easily
+conflicts with other classes otherwise, for example with the one
+from the workspace-indicator extension.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/70
+---
+ extensions/window-list/workspaceIndicator.js | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index fb3ffe7..8ac43eb 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -7,8 +7,9 @@ const PopupMenu = imports.ui.popupMenu;
+ const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ const _ = Gettext.gettext;
+ 
+-var WorkspaceIndicator = GObject.registerClass(
+-class WorkspaceIndicator extends PanelMenu.Button {
++var WorkspaceIndicator = GObject.registerClass({
++    GTypeName: 'WindowListWorkspaceIndicator'
++}, class WorkspaceIndicator extends PanelMenu.Button {
+     _init() {
+         super._init(0.0, _('Workspace Indicator'), true);
+         this.setMenu(new PopupMenu.PopupMenu(this, 0.0, St.Side.BOTTOM));
+-- 
+2.21.0
+
+
+From ad21dfc00c53420794f940e8710b60d2dd25bb9e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 5 Jun 2019 04:54:50 +0200
+Subject: [PATCH 12/30] window-list: Make some properties private
+
+There's no reason why they should be public.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/70
+---
+ extensions/window-list/workspaceIndicator.js | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index 8ac43eb..7c0360a 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -26,14 +26,14 @@ var WorkspaceIndicator = GObject.registerClass({
+         let workspaceManager = global.workspace_manager;
+ 
+         this._currentWorkspace = workspaceManager.get_active_workspace().index();
+-        this.statusLabel = new St.Label({
++        this._statusLabel = new St.Label({
+             text: this._getStatusText(),
+             x_align: Clutter.ActorAlign.CENTER,
+             y_align: Clutter.ActorAlign.CENTER
+         });
+-        container.add_actor(this.statusLabel);
++        container.add_actor(this._statusLabel);
+ 
+-        this.workspacesItems = [];
++        this._workspacesItems = [];
+ 
+         this._workspaceManagerSignals = [
+             workspaceManager.connect('notify::n-workspaces',
+@@ -63,11 +63,11 @@ var WorkspaceIndicator = GObject.registerClass({
+     }
+ 
+     _updateIndicator() {
+-        this.workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.NONE);
++        this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.NONE);
+         this._currentWorkspace = global.workspace_manager.get_active_workspace().index();
+-        this.workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.DOT);
++        this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.DOT);
+ 
+-        this.statusLabel.set_text(this._getStatusText());
++        this._statusLabel.set_text(this._getStatusText());
+     }
+ 
+     _getStatusText() {
+@@ -82,7 +82,7 @@ var WorkspaceIndicator = GObject.registerClass({
+         let workspaceManager = global.workspace_manager;
+ 
+         this.menu.removeAll();
+-        this.workspacesItems = [];
++        this._workspacesItems = [];
+         this._currentWorkspace = workspaceManager.get_active_workspace().index();
+ 
+         for (let i = 0; i < workspaceManager.n_workspaces; i++) {
+@@ -98,10 +98,10 @@ var WorkspaceIndicator = GObject.registerClass({
+                 item.setOrnament(PopupMenu.Ornament.DOT);
+ 
+             this.menu.addMenuItem(item);
+-            this.workspacesItems[i] = item;
++            this._workspacesItems[i] = item;
+         }
+ 
+-        this.statusLabel.set_text(this._getStatusText());
++        this._statusLabel.set_text(this._getStatusText());
+     }
+ 
+     _activate(index) {
+-- 
+2.21.0
+
+
+From 14515b02845a6fe53c9a76eefc3359183dd8076f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 5 Jun 2019 04:57:39 +0200
+Subject: [PATCH 13/30] window-list: Update workspace names in-place
+
+There's no good reason to rebuild the entire menu on workspace names
+changes, we can simply update the labels in-place.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/70
+---
+ extensions/window-list/workspaceIndicator.js | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index 7c0360a..9888838 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -47,7 +47,7 @@ var WorkspaceIndicator = GObject.registerClass({
+ 
+         this._settings = new Gio.Settings({ schema_id: 'org.gnome.desktop.wm.preferences' });
+         this._settingsChangedId = this._settings.connect(
+-            'changed::workspace-names', this._updateMenu.bind(this));
++            'changed::workspace-names', this._updateMenuLabels.bind(this));
+     }
+ 
+     _onDestroy() {
+@@ -78,6 +78,14 @@ var WorkspaceIndicator = GObject.registerClass({
+         return '%d / %d'.format(current + 1, total);
+     }
+ 
++    _updateMenuLabels() {
++        for (let i = 0; i < this._workspacesItems.length; i++) {
++            let item = this._workspacesItems[i];
++            let name = Meta.prefs_get_workspace_name(i);
++            item.label.text = name;
++        }
++    }
++
+     _updateMenu() {
+         let workspaceManager = global.workspace_manager;
+ 
+-- 
+2.21.0
+
+
+From 7ecdd7d2c61694df8ca9f76016bd8113bfbd7b51 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 5 Jun 2019 04:59:19 +0200
+Subject: [PATCH 14/30] window-list: Minor cleanup
+
+Mutter has a dedicated method for getting the index of the active
+workspace, use that instead of getting first the active workspace
+and then its index.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/70
+---
+ extensions/window-list/workspaceIndicator.js | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index 9888838..1f2e1c1 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -25,7 +25,7 @@ var WorkspaceIndicator = GObject.registerClass({
+ 
+         let workspaceManager = global.workspace_manager;
+ 
+-        this._currentWorkspace = workspaceManager.get_active_workspace().index();
++        this._currentWorkspace = workspaceManager.get_active_workspace_index();
+         this._statusLabel = new St.Label({
+             text: this._getStatusText(),
+             x_align: Clutter.ActorAlign.CENTER,
+@@ -64,7 +64,7 @@ var WorkspaceIndicator = GObject.registerClass({
+ 
+     _updateIndicator() {
+         this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.NONE);
+-        this._currentWorkspace = global.workspace_manager.get_active_workspace().index();
++        this._currentWorkspace = global.workspace_manager.get_active_workspace_index();
+         this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.DOT);
+ 
+         this._statusLabel.set_text(this._getStatusText());
+@@ -72,7 +72,7 @@ var WorkspaceIndicator = GObject.registerClass({
+ 
+     _getStatusText() {
+         let workspaceManager = global.workspace_manager;
+-        let current = workspaceManager.get_active_workspace().index();
++        let current = workspaceManager.get_active_workspace_index();
+         let total = workspaceManager.n_workspaces;
+ 
+         return '%d / %d'.format(current + 1, total);
+@@ -91,7 +91,7 @@ var WorkspaceIndicator = GObject.registerClass({
+ 
+         this.menu.removeAll();
+         this._workspacesItems = [];
+-        this._currentWorkspace = workspaceManager.get_active_workspace().index();
++        this._currentWorkspace = workspaceManager.get_active_workspace_index();
+ 
+         for (let i = 0; i < workspaceManager.n_workspaces; i++) {
+             let name = Meta.prefs_get_workspace_name(i);
+-- 
+2.21.0
+
+
+From 42ef09c097b297ee68207c4f439ec40e5998baa0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 5 Jun 2019 05:11:34 +0200
+Subject: [PATCH 15/30] window-list: Improve workspace label styling
+
+The border currently looks off - it extends all the way vertically
+and leaves zero spacing to the label horizontally. Fix both issues
+by setting appropriate padding/margins.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/70
+---
+ extensions/window-list/stylesheet.css        |  8 +++-----
+ extensions/window-list/workspaceIndicator.js | 13 ++++++++-----
+ 2 files changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index 91383ab..bab8f76 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -85,13 +85,11 @@
+   height: 24px;
+ }
+ 
+-.window-list-workspace-indicator {
+-  padding: 3px;
+-}
+-
+-.window-list-workspace-indicator > StWidget {
++.window-list-workspace-indicator .status-label-bin {
+   background-color: rgba(200, 200, 200, .3);
+   border: 1px solid #cccccc;
++  padding: 0 3px;
++  margin: 3px 0;
+ }
+ 
+ .notification {
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index 1f2e1c1..598c516 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -26,12 +26,15 @@ var WorkspaceIndicator = GObject.registerClass({
+         let workspaceManager = global.workspace_manager;
+ 
+         this._currentWorkspace = workspaceManager.get_active_workspace_index();
+-        this._statusLabel = new St.Label({
+-            text: this._getStatusText(),
+-            x_align: Clutter.ActorAlign.CENTER,
+-            y_align: Clutter.ActorAlign.CENTER
++        this._statusLabel = new St.Label({ text: this._getStatusText() });
++
++        this._statusBin = new St.Bin({
++            style_class: 'status-label-bin',
++            x_expand: true,
++            y_expand: true,
++            child: this._statusLabel
+         });
+-        container.add_actor(this._statusLabel);
++        container.add_actor(this._statusBin);
+ 
+         this._workspacesItems = [];
+ 
+-- 
+2.21.0
+
+
+From 0bf800b529ddfdc8663c63ff5fbf4ba5ac5d64d3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 5 Jun 2019 05:08:31 +0200
+Subject: [PATCH 16/30] window-list: Refactor workspace signal handlers
+
+We are about to support a separate representation if horizontal
+workspaces are used. To prepare for that, rename the handlers to
+something more generic and split out menu-specific bits into a
+dedicated help function.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/70
+---
+ extensions/window-list/workspaceIndicator.js | 25 +++++++++++++++-----
+ 1 file changed, 19 insertions(+), 6 deletions(-)
+
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index 598c516..78ca97e 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -40,9 +40,9 @@ var WorkspaceIndicator = GObject.registerClass({
+ 
+         this._workspaceManagerSignals = [
+             workspaceManager.connect('notify::n-workspaces',
+-                this._updateMenu.bind(this)),
++                this._nWorkspacesChanged.bind(this)),
+             workspaceManager.connect_after('workspace-switched',
+-                this._updateIndicator.bind(this))
++                this._onWorkspaceSwitched.bind(this))
+         ];
+ 
+         this.connect('scroll-event', this._onScrollEvent.bind(this));
+@@ -65,14 +65,27 @@ var WorkspaceIndicator = GObject.registerClass({
+         super._onDestroy();
+     }
+ 
+-    _updateIndicator() {
+-        this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.NONE);
+-        this._currentWorkspace = global.workspace_manager.get_active_workspace_index();
+-        this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.DOT);
++    _onWorkspaceSwitched() {
++        let workspaceManager = global.workspace_manager;
++        this._currentWorkspace = workspaceManager.get_active_workspace_index();
++
++        this._updateMenuOrnament();
+ 
+         this._statusLabel.set_text(this._getStatusText());
+     }
+ 
++    _nWorkspacesChanged() {
++        this._updateMenu();
++    }
++
++    _updateMenuOrnament() {
++        for (let i = 0; i < this._workspacesItems.length; i++) {
++            this._workspacesItems[i].setOrnament(i == this._currentWorkspace
++                ? PopupMenu.Ornament.DOT
++                : PopupMenu.Ornament.NONE);
++        }
++    }
++
+     _getStatusText() {
+         let workspaceManager = global.workspace_manager;
+         let current = workspaceManager.get_active_workspace_index();
+-- 
+2.21.0
+
+
+From 263aeea7be1e5bd244664bb3aefd9b81d8a80e32 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 5 Jun 2019 02:53:38 +0000
+Subject: [PATCH 17/30] window-list: Support horizontal workspace layout
+
+Unlike in GNOME 2, the workspace indicator we display in the window list
+isn't a workspace switcher, but a menu button that allows switching
+workspaces via its menu. The reason for that is that a horizontal
+in-place switcher would be at odds with the vertical workspace layout
+used in GNOME 3.
+
+However that reasoning doesn't apply when the layout is changed to a
+horizontal one, so replace the button with a traditional workspace
+switcher in that case.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/70
+---
+ extensions/window-list/classic.css           |  9 +++
+ extensions/window-list/stylesheet.css        | 29 +++++++++
+ extensions/window-list/workspaceIndicator.js | 66 +++++++++++++++++++-
+ 3 files changed, 103 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
+index cc967e0..c533473 100644
+--- a/extensions/window-list/classic.css
++++ b/extensions/window-list/classic.css
+@@ -47,3 +47,12 @@
+     color: #888;
+     box-shadow: none;
+   }
++
++/* workspace switcher */
++.window-list-workspace-indicator .workspace {
++  background-color: #ddd;
++}
++
++.window-list-workspace-indicator .workspace.active {
++  background-color: #ccc;
++}
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index bab8f76..ad5978a 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -92,6 +92,35 @@
+   margin: 3px 0;
+ }
+ 
++.window-list-workspace-indicator .workspaces-box {
++  spacing: 3px;
++  padding: 3px;
++}
++
++.window-list-workspace-indicator .workspace {
++  border: 1px solid #cccccc;
++  width: 52px;
++}
++
++.window-list-workspace-indicator .workspace:first-child:last-child:ltr,
++.window-list-workspace-indicator .workspace:first-child:last-child:rtl {
++  border-radius: 4px;
++}
++
++.window-list-workspace-indicator .workspace:first-child:ltr,
++.window-list-workspace-indicator .workspace:last-child:rtl {
++  border-radius: 4px 0 0 4px;
++}
++
++.window-list-workspace-indicator .workspace:first-child:rtl,
++.window-list-workspace-indicator .workspace:last-child:ltr {
++  border-radius: 0 4px 4px 0;
++}
++
++.window-list-workspace-indicator .workspace.active {
++  background-color: rgba(200, 200, 200, .3);
++}
++
+ .notification {
+   font-weight: normal;
+ }
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index 78ca97e..1258ed2 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -7,6 +7,25 @@ const PopupMenu = imports.ui.popupMenu;
+ const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ const _ = Gettext.gettext;
+ 
++let WorkspaceThumbnail = GObject.registerClass({
++    GTypeName: 'WindowListWorkspaceThumbnail'
++}, class WorkspaceThumbnail extends St.Button {
++    _init(index) {
++        super._init({
++            style_class: 'workspace'
++        });
++
++        this._index = index;
++    }
++
++    // eslint-disable-next-line camelcase
++    on_clicked() {
++        let ws = global.workspace_manager.get_workspace_by_index(this._index);
++        if (ws)
++            ws.activate(global.get_current_time());
++    }
++});
++
+ var WorkspaceIndicator = GObject.registerClass({
+     GTypeName: 'WindowListWorkspaceIndicator'
+ }, class WorkspaceIndicator extends PanelMenu.Button {
+@@ -36,17 +55,30 @@ var WorkspaceIndicator = GObject.registerClass({
+         });
+         container.add_actor(this._statusBin);
+ 
++        this._thumbnailsBox = new St.BoxLayout({
++            style_class: 'workspaces-box',
++            y_expand: true,
++            reactive: true
++        });
++        this._thumbnailsBox.connect('scroll-event',
++            this._onScrollEvent.bind(this));
++        container.add_actor(this._thumbnailsBox);
++
+         this._workspacesItems = [];
+ 
+         this._workspaceManagerSignals = [
+             workspaceManager.connect('notify::n-workspaces',
+                 this._nWorkspacesChanged.bind(this)),
+             workspaceManager.connect_after('workspace-switched',
+-                this._onWorkspaceSwitched.bind(this))
++                this._onWorkspaceSwitched.bind(this)),
++            workspaceManager.connect('notify::layout-rows',
++                this._onWorkspaceOrientationChanged.bind(this))
+         ];
+ 
+         this.connect('scroll-event', this._onScrollEvent.bind(this));
+         this._updateMenu();
++        this._updateThumbnails();
++        this._onWorkspaceOrientationChanged();
+ 
+         this._settings = new Gio.Settings({ schema_id: 'org.gnome.desktop.wm.preferences' });
+         this._settingsChangedId = this._settings.connect(
+@@ -65,17 +97,27 @@ var WorkspaceIndicator = GObject.registerClass({
+         super._onDestroy();
+     }
+ 
++    _onWorkspaceOrientationChanged() {
++        let vertical = global.workspace_manager.layout_rows == -1;
++        this.reactive = vertical;
++
++        this._statusBin.visible = vertical;
++        this._thumbnailsBox.visible = !vertical;
++    }
++
+     _onWorkspaceSwitched() {
+         let workspaceManager = global.workspace_manager;
+         this._currentWorkspace = workspaceManager.get_active_workspace_index();
+ 
+         this._updateMenuOrnament();
++        this._updateActiveThumbnail();
+ 
+         this._statusLabel.set_text(this._getStatusText());
+     }
+ 
+     _nWorkspacesChanged() {
+         this._updateMenu();
++        this._updateThumbnails();
+     }
+ 
+     _updateMenuOrnament() {
+@@ -86,6 +128,16 @@ var WorkspaceIndicator = GObject.registerClass({
+         }
+     }
+ 
++    _updateActiveThumbnail() {
++        let thumbs = this._thumbnailsBox.get_children();
++        for (let i = 0; i < thumbs.length; i++) {
++            if (i == this._currentWorkspace)
++                thumbs[i].add_style_class_name('active');
++            else
++                thumbs[i].remove_style_class_name('active');
++        }
++    }
++
+     _getStatusText() {
+         let workspaceManager = global.workspace_manager;
+         let current = workspaceManager.get_active_workspace_index();
+@@ -128,6 +180,18 @@ var WorkspaceIndicator = GObject.registerClass({
+         this._statusLabel.set_text(this._getStatusText());
+     }
+ 
++    _updateThumbnails() {
++        let workspaceManager = global.workspace_manager;
++
++        this._thumbnailsBox.destroy_all_children();
++
++        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
++            let thumb = new WorkspaceThumbnail(i);
++            this._thumbnailsBox.add_actor(thumb);
++        }
++        this._updateActiveThumbnail();
++    }
++
+     _activate(index) {
+         let workspaceManager = global.workspace_manager;
+ 
+-- 
+2.21.0
+
+
+From 2a2958831f51968089262b1e41bc908a69ef6834 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 5 Jun 2019 03:31:16 +0000
+Subject: [PATCH 18/30] classic: Add 'horizontal-workspaces' extension
+
+Vertical workspaces are another defining characteristics of GNOME 3,
+and thus rather un-classic. That switch was driven by the overall
+layout of the overview, and now that we disable the overview in
+GNOME Classic, we can just return to the traditional workspace
+layout as well.
+
+Add a small extension that does just that.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/72
+---
+ extensions/horizontal-workspaces/extension.js  | 18 ++++++++++++++++++
+ extensions/horizontal-workspaces/meson.build   |  5 +++++
+ .../horizontal-workspaces/metadata.json.in     | 10 ++++++++++
+ .../horizontal-workspaces/stylesheet.css       |  1 +
+ meson.build                                    |  1 +
+ 5 files changed, 35 insertions(+)
+ create mode 100644 extensions/horizontal-workspaces/extension.js
+ create mode 100644 extensions/horizontal-workspaces/meson.build
+ create mode 100644 extensions/horizontal-workspaces/metadata.json.in
+ create mode 100644 extensions/horizontal-workspaces/stylesheet.css
+
+diff --git a/extensions/horizontal-workspaces/extension.js b/extensions/horizontal-workspaces/extension.js
+new file mode 100644
+index 0000000..b3937ce
+--- /dev/null
++++ b/extensions/horizontal-workspaces/extension.js
+@@ -0,0 +1,18 @@
++/* exported enable disable */
++const { Meta } = imports.gi;
++
++function enable() {
++    global.workspace_manager.override_workspace_layout(
++        Meta.DisplayCorner.TOPLEFT,
++        false,
++        1,
++        -1);
++}
++
++function disable() {
++    global.workspace_manager.override_workspace_layout(
++        Meta.DisplayCorner.TOPLEFT,
++        false,
++        -1,
++        1);
++}
+diff --git a/extensions/horizontal-workspaces/meson.build b/extensions/horizontal-workspaces/meson.build
+new file mode 100644
+index 0000000..48504f6
+--- /dev/null
++++ b/extensions/horizontal-workspaces/meson.build
+@@ -0,0 +1,5 @@
++extension_data += configure_file(
++  input: metadata_name + '.in',
++  output: metadata_name,
++  configuration: metadata_conf
++)
+diff --git a/extensions/horizontal-workspaces/metadata.json.in b/extensions/horizontal-workspaces/metadata.json.in
+new file mode 100644
+index 0000000..f109e06
+--- /dev/null
++++ b/extensions/horizontal-workspaces/metadata.json.in
+@@ -0,0 +1,10 @@
++{
++"extension-id": "@extension_id@",
++"uuid": "@uuid@",
++"settings-schema": "@gschemaname@",
++"gettext-domain": "@gettext_domain@",
++"name": "Horizontal workspaces",
++"description": "Use a horizontal workspace layout",
++"shell-version": [ "@shell_current@" ],
++"url": "@url@"
++}
+diff --git a/extensions/horizontal-workspaces/stylesheet.css b/extensions/horizontal-workspaces/stylesheet.css
+new file mode 100644
+index 0000000..25134b6
+--- /dev/null
++++ b/extensions/horizontal-workspaces/stylesheet.css
+@@ -0,0 +1 @@
++/* This extensions requires no special styling */
+diff --git a/meson.build b/meson.build
+index 32743ed..23bd5ad 100644
+--- a/meson.build
++++ b/meson.build
+@@ -34,6 +34,7 @@ uuid_suffix = '@gnome-shell-extensions.gcampax.github.com'
+ classic_extensions = [
+   'apps-menu',
+   'desktop-icons',
++  'horizontal-workspaces',
+   'places-menu',
+   'launch-new-instance',
+   'top-icons',
+-- 
+2.21.0
+
+
+From 6a7b057028a1e4264312974d3ca21e16f5c07776 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 11 Jun 2019 23:01:20 +0000
+Subject: [PATCH 19/30] window-list: Turn workspace thumbs into drop targets
+
+It makes some sense to allow using the workspace indicator for moving
+windows between workspaces as well as for workspace switching. This
+applies particularly in GNOME classic after we disabled the overview
+there, so that there is again a non-shortcut way of moving windows
+between workspaces.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/74
+---
+ extensions/window-list/workspaceIndicator.js | 27 ++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index 1258ed2..4831768 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -1,6 +1,8 @@
+ /* exported WorkspaceIndicator */
+ const { Clutter, Gio, GObject, Meta, St } = imports.gi;
+ 
++const DND = imports.ui.dnd;
++const Main = imports.ui.main;
+ const PanelMenu = imports.ui.panelMenu;
+ const PopupMenu = imports.ui.popupMenu;
+ 
+@@ -16,6 +18,31 @@ let WorkspaceThumbnail = GObject.registerClass({
+         });
+ 
+         this._index = index;
++        this._delegate = this; // needed for DND
++    }
++
++    acceptDrop(source) {
++        if (!source.realWindow)
++            return false;
++
++        let window = source.realWindow.get_meta_window();
++        this._moveWindow(window);
++        return true;
++    }
++
++    handleDragOver(source) {
++        if (source.realWindow)
++            return DND.DragMotionResult.MOVE_DROP;
++        else
++            return DND.DragMotionResult.CONTINUE;
++    }
++
++
++    _moveWindow(window) {
++        let monitorIndex = Main.layoutManager.findIndexForActor(this);
++        if (monitorIndex != window.get_monitor())
++            window.move_to_monitor(monitorIndex);
++        window.change_workspace_by_index(this._index, false);
+     }
+ 
+     // eslint-disable-next-line camelcase
+-- 
+2.21.0
+
+
+From 7dca894705ddfd73016f4d073f6fe486563ce324 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 26 Jun 2019 23:55:58 +0000
+Subject: [PATCH 20/30] window-list: Show previews in workspace switcher
+
+Currently the new horizontal workspace switcher only shows a series of
+buttons, with no indication of the workspaces' contents. Go full GNOME 2
+and add tiny draggable preview rectangles that represent the windows
+on a particular workspace.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/74
+---
+ extensions/window-list/classic.css           |  10 ++
+ extensions/window-list/stylesheet.css        |  10 ++
+ extensions/window-list/workspaceIndicator.js | 154 ++++++++++++++++++-
+ 3 files changed, 173 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
+index c533473..7079d3e 100644
+--- a/extensions/window-list/classic.css
++++ b/extensions/window-list/classic.css
+@@ -56,3 +56,13 @@
+ .window-list-workspace-indicator .workspace.active {
+   background-color: #ccc;
+ }
++
++.window-list-window-preview {
++  background-color: #ededed;
++  border: 1px solid #ccc;
++}
++
++.window-list-window-preview.active {
++  background-color: #f6f5f4;
++  border: 2px solid #888;
++}
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index ad5978a..79d56ba 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -121,6 +121,16 @@
+   background-color: rgba(200, 200, 200, .3);
+ }
+ 
++.window-list-window-preview {
++  background-color: #252525;
++  border: 1px solid #ccc;
++}
++
++.window-list-window-preview.active {
++  background-color: #353535;
++  border: 2px solid #ccc;
++}
++
+ .notification {
+   font-weight: normal;
+ }
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index 4831768..ca47611 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -9,16 +9,131 @@ const PopupMenu = imports.ui.popupMenu;
+ const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ const _ = Gettext.gettext;
+ 
++let WindowPreview = GObject.registerClass({
++    GTypeName: 'WindowListWindowPreview'
++}, class WindowPreview extends St.Button {
++    _init(window) {
++        super._init({
++            style_class: 'window-list-window-preview'
++        });
++
++        this._delegate = this;
++        DND.makeDraggable(this, { restoreOnSuccess: true });
++
++        this._window = window;
++
++        this.connect('destroy', this._onDestroy.bind(this));
++
++        this._sizeChangedId = this._window.connect('size-changed',
++            this._relayout.bind(this));
++        this._positionChangedId = this._window.connect('position-changed',
++            this._relayout.bind(this));
++        this._minimizedChangedId = this._window.connect('notify::minimized',
++            this._relayout.bind(this));
++        this._monitorEnteredId = global.display.connect('window-entered-monitor',
++            this._relayout.bind(this));
++        this._monitorLeftId = global.display.connect('window-left-monitor',
++            this._relayout.bind(this));
++
++        // Do initial layout when we get a parent
++        let id = this.connect('parent-set', () => {
++            this.disconnect(id);
++            if (!this.get_parent())
++                return;
++            this._laterId = Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
++                this._laterId = 0;
++                this._relayout();
++                return false;
++            });
++        });
++
++        this._focusChangedId = global.display.connect('notify::focus-window',
++            this._onFocusChanged.bind(this));
++        this._onFocusChanged();
++    }
++
++    // needed for DND
++    get realWindow() {
++        return this._window.get_compositor_private();
++    }
++
++    _onDestroy() {
++        this._window.disconnect(this._sizeChangedId);
++        this._window.disconnect(this._positionChangedId);
++        this._window.disconnect(this._minimizedChangedId);
++        global.display.disconnect(this._monitorEnteredId);
++        global.display.disconnect(this._monitorLeftId);
++        global.display.disconnect(this._focusChangedId);
++        if (this._laterId)
++            Meta.later_remove(this._laterId);
++    }
++
++    _onFocusChanged() {
++        if (global.display.focus_window == this._window)
++            this.add_style_class_name('active');
++        else
++            this.remove_style_class_name('active');
++    }
++
++    _relayout() {
++        let monitor = Main.layoutManager.findIndexForActor(this);
++        this.visible = monitor == this._window.get_monitor() &&
++            this._window.showing_on_its_workspace();
++
++        if (!this.visible)
++            return;
++
++        let workArea = Main.layoutManager.getWorkAreaForMonitor(monitor);
++        let hscale = this.get_parent().allocation.get_width() / workArea.width;
++        let vscale = this.get_parent().allocation.get_height() / workArea.height;
++
++        let frameRect = this._window.get_frame_rect();
++        this.set_size(
++            Math.round(Math.min(frameRect.width, workArea.width) * hscale),
++            Math.round(Math.min(frameRect.height, workArea.height) * vscale));
++        this.set_position(
++            Math.round(frameRect.x * hscale),
++            Math.round(frameRect.y * vscale));
++    }
++});
++
+ let WorkspaceThumbnail = GObject.registerClass({
+     GTypeName: 'WindowListWorkspaceThumbnail'
+ }, class WorkspaceThumbnail extends St.Button {
+     _init(index) {
+         super._init({
+-            style_class: 'workspace'
++            style_class: 'workspace',
++            child: new Clutter.Actor({
++                layout_manager: new Clutter.BinLayout(),
++                clip_to_allocation: true
++            }),
++            x_fill: true,
++            y_fill: true
+         });
+ 
++        this.connect('destroy', this._onDestroy.bind(this));
++
+         this._index = index;
+         this._delegate = this; // needed for DND
++
++        this._windowPreviews = new Map();
++
++        let workspaceManager = global.workspace_manager;
++        this._workspace = workspaceManager.get_workspace_by_index(index);
++
++        this._windowAddedId = this._workspace.connect('window-added',
++            (ws, window) => {
++                this._addWindow(window);
++            });
++        this._windowRemovedId = this._workspace.connect('window-removed',
++            (ws, window) => {
++                this._removeWindow(window);
++            });
++        this._restackedId = global.display.connect('restacked',
++            this._onRestacked.bind(this));
++
++        this._workspace.list_windows().forEach(w => this._addWindow(w));
++        this._onRestacked();
+     }
+ 
+     acceptDrop(source) {
+@@ -37,6 +152,37 @@ let WorkspaceThumbnail = GObject.registerClass({
+             return DND.DragMotionResult.CONTINUE;
+     }
+ 
++    _addWindow(window) {
++        if (this._windowPreviews.has(window))
++            return;
++
++        let preview = new WindowPreview(window);
++        preview.connect('clicked', (a, btn) => this.emit('clicked', btn));
++        this._windowPreviews.set(window, preview);
++        this.child.add_child(preview);
++    }
++
++    _removeWindow(window) {
++        let preview = this._windowPreviews.get(window);
++        if (!preview)
++            return;
++
++        this._windowPreviews.delete(window);
++        preview.destroy();
++    }
++
++    _onRestacked() {
++        let lastPreview = null;
++        let windows = global.get_window_actors().map(a => a.meta_window);
++        for (let i = 0; i < windows.length; i++) {
++            let preview = this._windowPreviews.get(windows[i]);
++            if (!preview)
++                continue;
++
++            this.child.set_child_above_sibling(preview, lastPreview);
++            lastPreview = preview;
++        }
++    }
+ 
+     _moveWindow(window) {
+         let monitorIndex = Main.layoutManager.findIndexForActor(this);
+@@ -51,6 +197,12 @@ let WorkspaceThumbnail = GObject.registerClass({
+         if (ws)
+             ws.activate(global.get_current_time());
+     }
++
++    _onDestroy() {
++        this._workspace.disconnect(this._windowAddedId);
++        this._workspace.disconnect(this._windowRemovedId);
++        global.display.disconnect(this._restackedId);
++    }
+ });
+ 
+ var WorkspaceIndicator = GObject.registerClass({
+-- 
+2.21.0
+
+
+From 77b9d4fee20d84816cb64bfa6b95fddd589b4788 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sat, 29 Jun 2019 01:24:54 +0200
+Subject: [PATCH 21/30] workspace-indicator: Fix whitespace error
+
+We only want a single space before and after operators, not at least
+one. Unfortunately eslint only enforces the latter ...
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/71
+---
+ extensions/workspace-indicator/extension.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index 3be1268..c3c4d5f 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -109,7 +109,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+     _activate(index) {
+         let workspaceManager = global.workspace_manager;
+ 
+-        if (index >= 0 && index <  workspaceManager.n_workspaces) {
++        if (index >= 0 && index < workspaceManager.n_workspaces) {
+             let metaWorkspace = workspaceManager.get_workspace_by_index(index);
+             metaWorkspace.activate(global.get_current_time());
+         }
+-- 
+2.21.0
+
+
+From a68ef2096fed7580f7177991e354910add1ab79c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sun, 9 Jun 2019 22:58:29 +0000
+Subject: [PATCH 22/30] workspace-indicator: Make some properties private
+
+There's no reason why they should be public.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/71
+---
+ extensions/workspace-indicator/extension.js | 30 ++++++++++-----------
+ 1 file changed, 15 insertions(+), 15 deletions(-)
+
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index c3c4d5f..e052181 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -23,14 +23,14 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         let workspaceManager = global.workspace_manager;
+ 
+         this._currentWorkspace = workspaceManager.get_active_workspace().index();
+-        this.statusLabel = new St.Label({
++        this._statusLabel = new St.Label({
+             y_align: Clutter.ActorAlign.CENTER,
+             text: this._labelText()
+         });
+ 
+-        this.add_actor(this.statusLabel);
++        this.add_actor(this._statusLabel);
+ 
+-        this.workspacesItems = [];
++        this._workspacesItems = [];
+         this._workspaceSection = new PopupMenu.PopupMenuSection();
+         this.menu.addMenuItem(this._workspaceSection);
+ 
+@@ -46,7 +46,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._createWorkspacesSection();
+ 
+         //styling
+-        this.statusLabel.add_style_class_name('panel-workspace-indicator');
++        this._statusLabel.add_style_class_name('panel-workspace-indicator');
+ 
+         this._settings = new Gio.Settings({ schema_id: WORKSPACE_SCHEMA });
+         this._settingsChangedId =
+@@ -67,11 +67,11 @@ class WorkspaceIndicator extends PanelMenu.Button {
+     }
+ 
+     _updateIndicator() {
+-        this.workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.NONE);
++        this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.NONE);
+         this._currentWorkspace = global.workspace_manager.get_active_workspace().index();
+-        this.workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.DOT);
++        this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.DOT);
+ 
+-        this.statusLabel.set_text(this._labelText());
++        this._statusLabel.set_text(this._labelText());
+     }
+ 
+     _labelText(workspaceIndex) {
+@@ -86,24 +86,24 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         let workspaceManager = global.workspace_manager;
+ 
+         this._workspaceSection.removeAll();
+-        this.workspacesItems = [];
++        this._workspacesItems = [];
+         this._currentWorkspace = workspaceManager.get_active_workspace().index();
+ 
+         let i = 0;
+         for (; i < workspaceManager.n_workspaces; i++) {
+-            this.workspacesItems[i] = new PopupMenu.PopupMenuItem(this._labelText(i));
+-            this._workspaceSection.addMenuItem(this.workspacesItems[i]);
+-            this.workspacesItems[i].workspaceId = i;
+-            this.workspacesItems[i].label_actor = this.statusLabel;
+-            this.workspacesItems[i].connect('activate', (actor, _event) => {
++            this._workspacesItems[i] = new PopupMenu.PopupMenuItem(this._labelText(i));
++            this._workspaceSection.addMenuItem(this._workspacesItems[i]);
++            this._workspacesItems[i].workspaceId = i;
++            this._workspacesItems[i].label_actor = this._statusLabel;
++            this._workspacesItems[i].connect('activate', (actor, _event) => {
+                 this._activate(actor.workspaceId);
+             });
+ 
+             if (i == this._currentWorkspace)
+-                this.workspacesItems[i].setOrnament(PopupMenu.Ornament.DOT);
++                this._workspacesItems[i].setOrnament(PopupMenu.Ornament.DOT);
+         }
+ 
+-        this.statusLabel.set_text(this._labelText());
++        this._statusLabel.set_text(this._labelText());
+     }
+ 
+     _activate(index) {
+-- 
+2.21.0
+
+
+From 7e74dd6e331846564898ed220d58eb54cad83524 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sun, 9 Jun 2019 23:03:55 +0000
+Subject: [PATCH 23/30] workspace-indicator: Update workspace names in-place
+
+There's no good reason to rebuild the entire menu on workspace names
+changes, we can simply update the labels in-place.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/71
+---
+ extensions/workspace-indicator/extension.js | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index e052181..205ee36 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -49,9 +49,9 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._statusLabel.add_style_class_name('panel-workspace-indicator');
+ 
+         this._settings = new Gio.Settings({ schema_id: WORKSPACE_SCHEMA });
+-        this._settingsChangedId =
+-            this._settings.connect(`changed::${WORKSPACE_KEY}`,
+-                                   this._createWorkspacesSection.bind(this));
++        this._settingsChangedId = this._settings.connect(
++            `changed::${WORKSPACE_KEY}`,
++            this._updateMenuLabels.bind(this));
+     }
+ 
+     _onDestroy() {
+@@ -82,6 +82,11 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         return Meta.prefs_get_workspace_name(workspaceIndex);
+     }
+ 
++    _updateMenuLabels() {
++        for (let i = 0; i < this._workspacesItems.length; i++)
++            this._workspacesItems[i].label.text = this._labelText(i);
++    }
++
+     _createWorkspacesSection() {
+         let workspaceManager = global.workspace_manager;
+ 
+-- 
+2.21.0
+
+
+From dfcd296cf33de8a3e739c340734332a63f2c01f3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sun, 9 Jun 2019 23:05:00 +0000
+Subject: [PATCH 24/30] workspace-indicator: Minor cleanup
+
+Mutter has a dedicated method for getting the index of the active
+workspace, use that instead of getting first the active workspace
+and then its index.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/71
+---
+ extensions/workspace-indicator/extension.js | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index 205ee36..7ebc1f0 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -22,7 +22,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+         let workspaceManager = global.workspace_manager;
+ 
+-        this._currentWorkspace = workspaceManager.get_active_workspace().index();
++        this._currentWorkspace = workspaceManager.get_active_workspace_index();
+         this._statusLabel = new St.Label({
+             y_align: Clutter.ActorAlign.CENTER,
+             text: this._labelText()
+@@ -68,7 +68,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+     _updateIndicator() {
+         this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.NONE);
+-        this._currentWorkspace = global.workspace_manager.get_active_workspace().index();
++        this._currentWorkspace = global.workspace_manager.get_active_workspace_index();
+         this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.DOT);
+ 
+         this._statusLabel.set_text(this._labelText());
+@@ -92,7 +92,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+         this._workspaceSection.removeAll();
+         this._workspacesItems = [];
+-        this._currentWorkspace = workspaceManager.get_active_workspace().index();
++        this._currentWorkspace = workspaceManager.get_active_workspace_index();
+ 
+         let i = 0;
+         for (; i < workspaceManager.n_workspaces; i++) {
+@@ -131,7 +131,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             return;
+         }
+ 
+-        let newIndex = global.workspace_manager.get_active_workspace().index() + diff;
++        let newIndex = global.workspace_manager.get_active_workspace_index() + diff;
+         this._activate(newIndex);
+     }
+ });
+-- 
+2.21.0
+
+
+From 00d1e9637f0b7f51b271c384fb55ecaea673bb70 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sun, 9 Jun 2019 23:09:12 +0000
+Subject: [PATCH 25/30] workspace-indicator: Refactor workspace signal handlers
+
+We are about to support a separate representation if horizontal
+workspaces are used. To prepare for that, rename the handlers to
+something more generic and split out menu-specific bits into a
+dedicated help function.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/71
+---
+ extensions/workspace-indicator/extension.js | 31 ++++++++++++++-------
+ 1 file changed, 21 insertions(+), 10 deletions(-)
+
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index 7ebc1f0..34fc275 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -34,13 +34,12 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._workspaceSection = new PopupMenu.PopupMenuSection();
+         this.menu.addMenuItem(this._workspaceSection);
+ 
+-        this._workspaceManagerSignals = [];
+-        this._workspaceManagerSignals.push(workspaceManager.connect_after('workspace-added',
+-                                                                          this._createWorkspacesSection.bind(this)));
+-        this._workspaceManagerSignals.push(workspaceManager.connect_after('workspace-removed',
+-                                                                          this._createWorkspacesSection.bind(this)));
+-        this._workspaceManagerSignals.push(workspaceManager.connect_after('workspace-switched',
+-                                                                          this._updateIndicator.bind(this)));
++        this._workspaceManagerSignals = [
++            workspaceManager.connect_after('notify::n-workspaces',
++                this._nWorkspacesChanged.bind(this)),
++            workspaceManager.connect_after('workspace-switched',
++                this._onWorkspaceSwitched.bind(this))
++        ];
+ 
+         this.connect('scroll-event', this._onScrollEvent.bind(this));
+         this._createWorkspacesSection();
+@@ -66,14 +65,26 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         super._onDestroy();
+     }
+ 
+-    _updateIndicator() {
+-        this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.NONE);
++    _onWorkspaceSwitched() {
+         this._currentWorkspace = global.workspace_manager.get_active_workspace_index();
+-        this._workspacesItems[this._currentWorkspace].setOrnament(PopupMenu.Ornament.DOT);
++
++        this._updateMenuOrnament();
+ 
+         this._statusLabel.set_text(this._labelText());
+     }
+ 
++    _nWorkspacesChanged() {
++        this._createWorkspacesSection();
++    }
++
++    _updateMenuOrnament() {
++        for (let i = 0; i < this._workspacesItems.length; i++) {
++            this._workspacesItems[i].setOrnament(i == this._currentWorkspace
++                ? PopupMenu.Ornament.DOT
++                : PopupMenu.Ornament.NONE);
++        }
++    }
++
+     _labelText(workspaceIndex) {
+         if (workspaceIndex == undefined) {
+             workspaceIndex = this._currentWorkspace;
+-- 
+2.21.0
+
+
+From 0834d04691de28f3a216578e55335c6e9b3e4fad Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sun, 9 Jun 2019 23:17:35 +0000
+Subject: [PATCH 26/30] workspace-indicator: Minor cleanup
+
+Pass the style class at construction time instead of setting it later.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/71
+---
+ extensions/workspace-indicator/extension.js | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index 34fc275..672b98d 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -24,6 +24,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+         this._currentWorkspace = workspaceManager.get_active_workspace_index();
+         this._statusLabel = new St.Label({
++            style_class: 'panel-workspace-indicator',
+             y_align: Clutter.ActorAlign.CENTER,
+             text: this._labelText()
+         });
+@@ -44,9 +45,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this.connect('scroll-event', this._onScrollEvent.bind(this));
+         this._createWorkspacesSection();
+ 
+-        //styling
+-        this._statusLabel.add_style_class_name('panel-workspace-indicator');
+-
+         this._settings = new Gio.Settings({ schema_id: WORKSPACE_SCHEMA });
+         this._settingsChangedId = this._settings.connect(
+             `changed::${WORKSPACE_KEY}`,
+-- 
+2.21.0
+
+
+From 07fca6b1ee27a1eaf97027e4353ab46ea9cb745e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sun, 9 Jun 2019 23:45:24 +0000
+Subject: [PATCH 27/30] workspace-indicator: Support horizontal workspace
+ layout
+
+Just like we did for the workspace indicator in the window-list, improve
+the handling of horizontal workspace layouts by showing the switcher
+in-place instead of delegating the functionality to a menu.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/71
+---
+ extensions/workspace-indicator/extension.js   | 76 ++++++++++++++++++-
+ extensions/workspace-indicator/stylesheet.css | 18 ++++-
+ 2 files changed, 90 insertions(+), 4 deletions(-)
+
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index 672b98d..48019da 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -15,11 +15,38 @@ const ExtensionUtils = imports.misc.extensionUtils;
+ const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
+ const WORKSPACE_KEY = 'workspace-names';
+ 
++let WorkspaceThumbnail = GObject.registerClass({
++    GTypeName: 'WorkspaceIndicatorWorkspaceThumbnail'
++}, class WorkspaceThumbnail extends St.Button {
++    _init(index) {
++        super._init({
++            style_class: 'workspace',
++        });
++
++        this._index = index;
++    }
++
++    // eslint-disable-next-line camelcase
++    on_clicked() {
++        let ws = global.workspace_manager.get_workspace_by_index(this._index);
++        if (ws)
++            ws.activate(global.get_current_time());
++    }
++});
++
++
+ let WorkspaceIndicator = GObject.registerClass(
+ class WorkspaceIndicator extends PanelMenu.Button {
+     _init() {
+         super._init(0.0, _('Workspace Indicator'));
+ 
++        let container = new St.Widget({
++            layout_manager: new Clutter.BinLayout(),
++            x_expand: true,
++            y_expand: true
++        });
++        this.add_actor(container);
++
+         let workspaceManager = global.workspace_manager;
+ 
+         this._currentWorkspace = workspaceManager.get_active_workspace_index();
+@@ -29,7 +56,15 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             text: this._labelText()
+         });
+ 
+-        this.add_actor(this._statusLabel);
++        container.add_actor(this._statusLabel);
++
++        this._thumbnailsBox = new St.BoxLayout({
++            style_class: 'panel-workspace-indicator-box',
++            y_expand: true,
++            reactive: true
++        });
++
++        container.add_actor(this._thumbnailsBox);
+ 
+         this._workspacesItems = [];
+         this._workspaceSection = new PopupMenu.PopupMenuSection();
+@@ -39,11 +74,16 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             workspaceManager.connect_after('notify::n-workspaces',
+                 this._nWorkspacesChanged.bind(this)),
+             workspaceManager.connect_after('workspace-switched',
+-                this._onWorkspaceSwitched.bind(this))
++                this._onWorkspaceSwitched.bind(this)),
++            workspaceManager.connect('notify::layout-rows',
++                this._onWorkspaceOrientationChanged.bind(this))
+         ];
+ 
+         this.connect('scroll-event', this._onScrollEvent.bind(this));
++        this._thumbnailsBox.connect('scroll-event', this._onScrollEvent.bind(this));
+         this._createWorkspacesSection();
++        this._updateThumbnails();
++        this._onWorkspaceOrientationChanged();
+ 
+         this._settings = new Gio.Settings({ schema_id: WORKSPACE_SCHEMA });
+         this._settingsChangedId = this._settings.connect(
+@@ -63,16 +103,26 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         super._onDestroy();
+     }
+ 
++    _onWorkspaceOrientationChanged() {
++        let vertical = global.workspace_manager.layout_rows == -1;
++        this.reactive = vertical;
++
++        this._statusLabel.visible = vertical;
++        this._thumbnailsBox.visible = !vertical;
++    }
++
+     _onWorkspaceSwitched() {
+         this._currentWorkspace = global.workspace_manager.get_active_workspace_index();
+ 
+         this._updateMenuOrnament();
++        this._updateActiveThumbnail();
+ 
+         this._statusLabel.set_text(this._labelText());
+     }
+ 
+     _nWorkspacesChanged() {
+         this._createWorkspacesSection();
++        this._updateThumbnails();
+     }
+ 
+     _updateMenuOrnament() {
+@@ -83,6 +133,16 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         }
+     }
+ 
++    _updateActiveThumbnail() {
++        let thumbs = this._thumbnailsBox.get_children();
++        for (let i = 0; i < thumbs.length; i++) {
++            if (i == this._currentWorkspace)
++                thumbs[i].add_style_class_name('active');
++            else
++                thumbs[i].remove_style_class_name('active');
++        }
++    }
++
+     _labelText(workspaceIndex) {
+         if (workspaceIndex == undefined) {
+             workspaceIndex = this._currentWorkspace;
+@@ -120,6 +180,18 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._statusLabel.set_text(this._labelText());
+     }
+ 
++    _updateThumbnails() {
++        let workspaceManager = global.workspace_manager;
++
++        this._thumbnailsBox.destroy_all_children();
++
++        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
++            let thumb = new WorkspaceThumbnail(i);
++            this._thumbnailsBox.add_actor(thumb);
++        }
++        this._updateActiveThumbnail();
++    }
++
+     _activate(index) {
+         let workspaceManager = global.workspace_manager;
+ 
+diff --git a/extensions/workspace-indicator/stylesheet.css b/extensions/workspace-indicator/stylesheet.css
+index 1271f1c..a15081e 100644
+--- a/extensions/workspace-indicator/stylesheet.css
++++ b/extensions/workspace-indicator/stylesheet.css
+@@ -1,5 +1,19 @@
+-.panel-workspace-indicator {
++.panel-workspace-indicator,
++.panel-workspace-indicator-box .workspace {
+ 	padding: 0 8px;
+-	background-color: rgba(200, 200, 200, .5);
+ 	border: 1px solid #cccccc;
+ }
++
++.panel-workspace-indicator,
++.panel-workspace-indicator-box .workspace.active {
++	background-color: rgba(200, 200, 200, .5);
++}
++
++.panel-workspace-indicator-box .workspace {
++    background-color: rgba(200, 200, 200, .3);
++    border-left-width: 0;
++}
++
++.panel-workspace-indicator-box .workspace:first-child {
++    border-left-width: 1px;
++}
+-- 
+2.21.0
+
+
+From 58496daaf5591e86238d7ab7f470b5ad7797b3e3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 28 Jun 2019 11:33:16 +0200
+Subject: [PATCH 28/30] workspace-indicator: Show previews in workspace
+ switcher
+
+Currently the new horizontal workspace switcher only shows a series of
+buttons, with no indication of the workspaces' contents. Go full GNOME 2
+and add tiny draggable preview rectangles that represent the windows
+on a particular workspace.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/77
+---
+ extensions/workspace-indicator/extension.js   | 194 +++++++++++++++++-
+ extensions/workspace-indicator/stylesheet.css |  22 +-
+ 2 files changed, 209 insertions(+), 7 deletions(-)
+
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index 48019da..69eef88 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -2,28 +2,199 @@
+ /* exported init enable disable */
+ 
+ const { Clutter, Gio, GObject, Meta, St } = imports.gi;
++
++const DND = imports.ui.dnd;
++const ExtensionUtils = imports.misc.extensionUtils;
++const Main = imports.ui.main;
+ const PanelMenu = imports.ui.panelMenu;
+ const PopupMenu = imports.ui.popupMenu;
+ 
+ const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ const _ = Gettext.gettext;
+ 
+-const Main = imports.ui.main;
+-
+-const ExtensionUtils = imports.misc.extensionUtils;
+-
+ const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
+ const WORKSPACE_KEY = 'workspace-names';
+ 
++let WindowPreview = GObject.registerClass({
++    GTypeName: 'WorkspaceIndicatorWindowPreview'
++}, class WindowPreview extends St.Button {
++    _init(window) {
++        super._init({
++            style_class: 'workspace-indicator-window-preview'
++        });
++
++        this._delegate = this;
++        DND.makeDraggable(this, { restoreOnSuccess: true });
++
++        this._window = window;
++
++        this.connect('destroy', this._onDestroy.bind(this));
++
++        this._sizeChangedId = this._window.connect('size-changed',
++            this._relayout.bind(this));
++        this._positionChangedId = this._window.connect('position-changed',
++            this._relayout.bind(this));
++        this._minimizedChangedId = this._window.connect('notify::minimized',
++            this._relayout.bind(this));
++        this._monitorEnteredId = global.display.connect('window-entered-monitor',
++            this._relayout.bind(this));
++        this._monitorLeftId = global.display.connect('window-left-monitor',
++            this._relayout.bind(this));
++
++        // Do initial layout when we get a parent
++        let id = this.connect('parent-set', () => {
++            this.disconnect(id);
++            if (!this.get_parent())
++                return;
++            this._laterId = Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
++                this._laterId = 0;
++                this._relayout();
++                return false;
++            });
++        });
++
++        this._focusChangedId = global.display.connect('notify::focus-window',
++            this._onFocusChanged.bind(this));
++        this._onFocusChanged();
++    }
++
++    // needed for DND
++    get realWindow() {
++        return this._window.get_compositor_private();
++    }
++
++    _onDestroy() {
++        this._window.disconnect(this._sizeChangedId);
++        this._window.disconnect(this._positionChangedId);
++        this._window.disconnect(this._minimizedChangedId);
++        global.display.disconnect(this._monitorEnteredId);
++        global.display.disconnect(this._monitorLeftId);
++        global.display.disconnect(this._focusChangedId);
++        if (this._laterId)
++            Meta.later_remove(this._laterId);
++    }
++
++    _onFocusChanged() {
++        if (global.display.focus_window == this._window)
++            this.add_style_class_name('active');
++        else
++            this.remove_style_class_name('active');
++    }
++
++    _relayout() {
++        let monitor = Main.layoutManager.findIndexForActor(this);
++        this.visible = monitor == this._window.get_monitor() &&
++            this._window.showing_on_its_workspace();
++
++        if (!this.visible)
++            return;
++
++        let workArea = Main.layoutManager.getWorkAreaForMonitor(monitor);
++        let hscale = this.get_parent().allocation.get_width() / workArea.width;
++        let vscale = this.get_parent().allocation.get_height() / workArea.height;
++
++        let frameRect = this._window.get_frame_rect();
++        this.set_size(
++            Math.round(Math.min(frameRect.width, workArea.width) * hscale),
++            Math.round(Math.min(frameRect.height, workArea.height) * vscale));
++        this.set_position(
++            Math.round(frameRect.x * hscale),
++            Math.round(frameRect.y * vscale));
++    }
++});
++
+ let WorkspaceThumbnail = GObject.registerClass({
+     GTypeName: 'WorkspaceIndicatorWorkspaceThumbnail'
+ }, class WorkspaceThumbnail extends St.Button {
+     _init(index) {
+         super._init({
+             style_class: 'workspace',
++            child: new Clutter.Actor({
++                layout_manager: new Clutter.BinLayout(),
++                clip_to_allocation: true
++            }),
++            x_fill: true,
++            y_fill: true
+         });
+ 
++        this.connect('destroy', this._onDestroy.bind(this));
++
+         this._index = index;
++        this._delegate = this; // needed for DND
++
++        this._windowPreviews = new Map();
++
++        let workspaceManager = global.workspace_manager;
++        this._workspace = workspaceManager.get_workspace_by_index(index);
++
++        this._windowAddedId = this._workspace.connect('window-added',
++            (ws, window) => {
++                this._addWindow(window);
++            });
++        this._windowRemovedId = this._workspace.connect('window-removed',
++            (ws, window) => {
++                this._removeWindow(window);
++            });
++        this._restackedId = global.display.connect('restacked',
++            this._onRestacked.bind(this));
++
++        this._workspace.list_windows().forEach(w => this._addWindow(w));
++        this._onRestacked();
++    }
++
++    acceptDrop(source) {
++        if (!source.realWindow)
++            return false;
++
++        let window = source.realWindow.get_meta_window();
++        this._moveWindow(window);
++        return true;
++    }
++
++    handleDragOver(source) {
++        if (source.realWindow)
++            return DND.DragMotionResult.MOVE_DROP;
++        else
++            return DND.DragMotionResult.CONTINUE;
++    }
++
++    _addWindow(window) {
++        if (this._windowPreviews.has(window))
++            return;
++
++        let preview = new WindowPreview(window);
++        preview.connect('clicked', (a, btn) => this.emit('clicked', btn));
++        this._windowPreviews.set(window, preview);
++        this.child.add_child(preview);
++    }
++
++    _removeWindow(window) {
++        let preview = this._windowPreviews.get(window);
++        if (!preview)
++            return;
++
++        this._windowPreviews.delete(window);
++        preview.destroy();
++    }
++
++    _onRestacked() {
++        let lastPreview = null;
++        let windows = global.get_window_actors().map(a => a.meta_window);
++        for (let i = 0; i < windows.length; i++) {
++            let preview = this._windowPreviews.get(windows[i]);
++            if (!preview)
++                continue;
++
++            this.child.set_child_above_sibling(preview, lastPreview);
++            lastPreview = preview;
++        }
++    }
++
++    _moveWindow(window) {
++        let monitorIndex = Main.layoutManager.findIndexForActor(this);
++        if (monitorIndex != window.get_monitor())
++            window.move_to_monitor(monitorIndex);
++        window.change_workspace_by_index(this._index, false);
+     }
+ 
+     // eslint-disable-next-line camelcase
+@@ -32,8 +203,13 @@ let WorkspaceThumbnail = GObject.registerClass({
+         if (ws)
+             ws.activate(global.get_current_time());
+     }
+-});
+ 
++    _onDestroy() {
++        this._workspace.disconnect(this._windowAddedId);
++        this._workspace.disconnect(this._windowRemovedId);
++        global.display.disconnect(this._restackedId);
++    }
++});
+ 
+ let WorkspaceIndicator = GObject.registerClass(
+ class WorkspaceIndicator extends PanelMenu.Button {
+@@ -100,6 +276,8 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             this._settingsChangedId = 0;
+         }
+ 
++        Main.panel.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
++
+         super._onDestroy();
+     }
+ 
+@@ -109,6 +287,12 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+         this._statusLabel.visible = vertical;
+         this._thumbnailsBox.visible = !vertical;
++
++        // Disable offscreen-redirect when showing the workspace switcher
++        // so that clip-to-allocation works
++        Main.panel.set_offscreen_redirect(vertical
++            ? Clutter.OffscreenRedirect.ALWAYS
++            : Clutter.OffscreenRedirect.AUTOMATIC_FOR_OPACITY);
+     }
+ 
+     _onWorkspaceSwitched() {
+diff --git a/extensions/workspace-indicator/stylesheet.css b/extensions/workspace-indicator/stylesheet.css
+index a15081e..8c101e7 100644
+--- a/extensions/workspace-indicator/stylesheet.css
++++ b/extensions/workspace-indicator/stylesheet.css
+@@ -1,9 +1,17 @@
+-.panel-workspace-indicator,
+-.panel-workspace-indicator-box .workspace {
++.panel-workspace-indicator {
+ 	padding: 0 8px;
+ 	border: 1px solid #cccccc;
+ }
+ 
++.panel-workspace-indicator-box {
++    padding: 2px 0;
++}
++
++.panel-workspace-indicator-box .workspace {
++    border: 1px solid #cccccc;
++    width: 48px;
++}
++
+ .panel-workspace-indicator,
+ .panel-workspace-indicator-box .workspace.active {
+ 	background-color: rgba(200, 200, 200, .5);
+@@ -17,3 +25,13 @@
+ .panel-workspace-indicator-box .workspace:first-child {
+     border-left-width: 1px;
+ }
++
++.workspace-indicator-window-preview {
++    background-color: #252525;
++    border: 1px solid #ccc;
++}
++
++.workspace-indicator-window-preview {
++    background-color: #353535;
++    border: 2px solid #ccc;
++}
+-- 
+2.21.0
+
+
+From 06674bf6aff9fb4ae2224a448ba928c1687b5f6b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 2 Jul 2019 17:39:55 +0200
+Subject: [PATCH 29/30] window-list: Move super-key handling into WindowPicker
+
+We have an option to put a window list on each monitor, so we may have
+more than one window picker toggle. We don't want each of those try to
+toggle the window picker simultanuously, so move handling of the super
+key directly into the picker.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/80
+---
+ extensions/window-list/windowPicker.js | 34 ++++++++++++--------------
+ 1 file changed, 15 insertions(+), 19 deletions(-)
+
+diff --git a/extensions/window-list/windowPicker.js b/extensions/window-list/windowPicker.js
+index 024fd80..ba0a697 100644
+--- a/extensions/window-list/windowPicker.js
++++ b/extensions/window-list/windowPicker.js
+@@ -67,6 +67,8 @@ var WindowPicker = class {
+         this._visible = false;
+         this._modal = false;
+ 
++        this._overlayKeyId = 0;
++
+         this.actor = new Clutter.Actor();
+ 
+         this.actor.connect('destroy', this._onDestroy.bind(this));
+@@ -101,6 +103,15 @@ var WindowPicker = class {
+         this._updateBackgrounds();
+ 
+         Main.uiGroup.insert_child_below(this.actor, global.window_group);
++
++        if (!Main.sessionMode.hasOverview) {
++            this._overlayKeyId = global.display.connect('overlay-key', () => {
++                if (!this._visible)
++                    this.open();
++                else
++                    this.close();
++            });
++        }
+     }
+ 
+     get visible() {
+@@ -188,6 +199,10 @@ var WindowPicker = class {
+         if (this._monitorsChangedId)
+             Main.layoutManager.disconnect(this._monitorsChangedId);
+         this._monitorsChangedId = 0;
++
++        if (this._overlayKeyId)
++            global.display.disconnect(this._overlayKeyId);
++        this._overlayKeyId = 0;
+     }
+ 
+     _updateBackgrounds() {
+@@ -227,10 +242,6 @@ class WindowPickerToggle extends St.Button {
+             toggle_mode: true
+         });
+ 
+-        this._overlayKeyId = 0;
+-
+-        this.connect('destroy', this._onDestroy.bind(this));
+-
+         this.connect('notify::checked', () => {
+             if (this.checked)
+                 Main.windowPicker.open();
+@@ -238,23 +249,8 @@ class WindowPickerToggle extends St.Button {
+                 Main.windowPicker.close();
+         });
+ 
+-        if (!Main.sessionMode.hasOverview) {
+-            this._overlayKeyId = global.display.connect('overlay-key', () => {
+-                if (!Main.windowPicker.visible)
+-                    Main.windowPicker.open();
+-                else
+-                    Main.windowPicker.close();
+-            });
+-        }
+-
+         Main.windowPicker.connect('open-state-changed', () => {
+             this.checked = Main.windowPicker.visible;
+         });
+     }
+-
+-    _onDestroy() {
+-        if (this._overlayKeyId)
+-            global.display.disconnect(this._overlayKeyId);
+-        this._overlayKeyId == 0;
+-    }
+ });
+-- 
+2.21.0
+
+
+From c37d082487cce3548844c150d1976bf1735552c8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 2 Jul 2019 18:12:31 +0200
+Subject: [PATCH 30/30] window-list: Handle closing window picker with Escape
+
+Just like the overview can be closed with Escape, it makes sense to
+allow the same for the window picker (in addition to pressing super
+repeatedly).
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/80
+---
+ extensions/window-list/windowPicker.js | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/extensions/window-list/windowPicker.js b/extensions/window-list/windowPicker.js
+index ba0a697..12a7627 100644
+--- a/extensions/window-list/windowPicker.js
++++ b/extensions/window-list/windowPicker.js
+@@ -68,6 +68,7 @@ var WindowPicker = class {
+         this._modal = false;
+ 
+         this._overlayKeyId = 0;
++        this._stageKeyPressId = 0;
+ 
+         this.actor = new Clutter.Actor();
+ 
+@@ -132,6 +133,16 @@ var WindowPicker = class {
+         this._fakeOverviewAnimation();
+         this._workspacesDisplay.show(false);
+ 
++        this._stageKeyPressId = global.stage.connect('key-press-event',
++            (a, event) => {
++                let sym = event.get_key_symbol();
++                if (sym == Clutter.KEY_Escape) {
++                    this.close();
++                    return Clutter.EVENT_STOP;
++                }
++                return Clutter.EVENT_PROPAGATE;
++            });
++
+         this.emit('open-state-changed', this._visible);
+     }
+ 
+@@ -151,6 +162,9 @@ var WindowPicker = class {
+             this._fakeOverviewVisible(false);
+         });
+ 
++        global.stage.disconnect(this._stageKeyPressId);
++        this._stageKeyPressId = 0;
++
+         this.emit('open-state-changed', this._visible);
+     }
+ 
+@@ -203,6 +217,10 @@ var WindowPicker = class {
+         if (this._overlayKeyId)
+             global.display.disconnect(this._overlayKeyId);
+         this._overlayKeyId = 0;
++
++        if (this._stageKeyPressId)
++            global.stage.disconnect(this._stageKeyPressId);
++        this._stageKeyPressId = 0;
+     }
+ 
+     _updateBackgrounds() {
+-- 
+2.21.0
+
