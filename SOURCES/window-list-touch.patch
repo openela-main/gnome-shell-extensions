@@ -1,0 +1,126 @@
+From f8ec838485ae81cf2e8ab2b899ad4154c7c06fbd Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 21 Apr 2022 16:34:50 +0200
+Subject: [PATCH 1/2] window-list: Fix primary button action on touch
+
+If a click event was triggered via touch rather than a pointer
+device, the button parameter is 0 rather than a mouse button
+number.
+
+Account for that to make sure that touch events are not misinterpreted
+as right clicks.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/issues/146
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/233>
+---
+ extensions/window-list/extension.js | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 1f854aa2..fedc4195 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -358,7 +358,7 @@ class WindowButton extends BaseButton {
+             return;
+         }
+ 
+-        if (button == 1)
++        if (!button || button === 1)
+             _minimizeOrActivateWindow(this.metaWindow);
+         else
+             _openMenu(this._contextMenu);
+@@ -601,7 +601,7 @@ class AppButton extends BaseButton {
+         if (contextMenuWasOpen)
+             this._contextMenu.close();
+ 
+-        if (button == 1) {
++        if (!button || button === 1) {
+             if (menuWasOpen)
+                 return;
+ 
+-- 
+2.36.1
+
+
+From d3cf07f8065935736e8a79d06ec79c971c453453 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 5 May 2022 20:55:20 +0200
+Subject: [PATCH 2/2] window-list: Open menu on long press
+
+Right-click isn't available on touch, so implement long-press as
+an alternative.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/issues/146
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/233>
+---
+ extensions/window-list/extension.js | 45 +++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index fedc4195..0baaeecb 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -229,6 +229,9 @@ class BaseButton {
+         this.actor.connect('clicked', this._onClicked.bind(this));
+         this.actor.connect('destroy', this._onDestroy.bind(this));
+         this.actor.connect('popup-menu', this._onPopupMenu.bind(this));
++        this.actor.connect('button-press-event', this._onButtonPress.bind(this));
++        this.actor.connect('button-release-event', this._onButtonRelease.bind(this));
++        this.actor.connect('touch-event', this._onTouch.bind(this));
+ 
+         this._contextMenuManager = new PopupMenu.PopupMenuManager(this);
+ 
+@@ -250,6 +253,48 @@ class BaseButton {
+         return this.actor.has_style_class_name('focused');
+     }
+ 
++    _setLongPressTimeout() {
++        if (this._longPressTimeoutId)
++            return;
++
++        const { longPressDuration } = Clutter.Settings.get_default();
++        this._longPressTimeoutId =
++            GLib.timeout_add(GLib.PRIORITY_DEFAULT, longPressDuration, () => {
++                delete this._longPressTimeoutId;
++
++                if (this._canOpenPopupMenu() && !this._contextMenu.isOpen)
++                    _openMenu(this._contextMenu);
++                return GLib.SOURCE_REMOVE;
++            });
++    }
++
++    _removeLongPressTimeout() {
++        if (!this._longPressTimeoutId)
++            return;
++        GLib.source_remove(this._longPressTimeoutId);
++        delete this._longPressTimeoutId;
++    }
++
++    _onButtonPress(button, event) {
++        if (event.get_button() === 1)
++            this._setLongPressTimeout();
++        return Clutter.EVENT_PROPAGATE;
++    }
++
++    _onButtonRelease() {
++        this._removeLongPressTimeout();
++        return Clutter.EVENT_PROPAGATE;
++    }
++
++    _onTouch(event) {
++        const type = event.get_type();
++        if (type === Clutter.EventType.TOUCH_BEGIN)
++            this._setLongPressTimeout();
++        else if (type === Clutter.EventType.TOUCH_END)
++            this._removeLongPressTimeout();
++        return Clutter.EVENT_PROPAGATE;
++    }
++
+     activate() {
+         if (this.active)
+             return;
+-- 
+2.36.1
+

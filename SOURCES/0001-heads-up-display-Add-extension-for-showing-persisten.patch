@@ -1,0 +1,831 @@
+From 8da1760af68496c6073be4d6b3c8266b64347925 Mon Sep 17 00:00:00 2001
+From: Ray Strode <rstrode@redhat.com>
+Date: Tue, 24 Aug 2021 15:03:57 -0400
+Subject: [PATCH] heads-up-display: Add extension for showing persistent heads
+ up display message
+
+---
+ extensions/heads-up-display/extension.js      | 320 ++++++++++++++++++
+ extensions/heads-up-display/headsUpMessage.js | 150 ++++++++
+ extensions/heads-up-display/meson.build       |   8 +
+ extensions/heads-up-display/metadata.json.in  |  11 +
+ ...ll.extensions.heads-up-display.gschema.xml |  54 +++
+ extensions/heads-up-display/prefs.js          | 175 ++++++++++
+ extensions/heads-up-display/stylesheet.css    |  32 ++
+ meson.build                                   |   1 +
+ 8 files changed, 751 insertions(+)
+ create mode 100644 extensions/heads-up-display/extension.js
+ create mode 100644 extensions/heads-up-display/headsUpMessage.js
+ create mode 100644 extensions/heads-up-display/meson.build
+ create mode 100644 extensions/heads-up-display/metadata.json.in
+ create mode 100644 extensions/heads-up-display/org.gnome.shell.extensions.heads-up-display.gschema.xml
+ create mode 100644 extensions/heads-up-display/prefs.js
+ create mode 100644 extensions/heads-up-display/stylesheet.css
+
+diff --git a/extensions/heads-up-display/extension.js b/extensions/heads-up-display/extension.js
+new file mode 100644
+index 00000000..e4ef9e85
+--- /dev/null
++++ b/extensions/heads-up-display/extension.js
+@@ -0,0 +1,320 @@
++/* exported init enable disable */
++
++
++const Signals = imports.signals;
++
++const {
++    Atk, Clutter, Gio, GLib, GObject, Gtk, Meta, Shell, St,
++} = imports.gi;
++
++const ExtensionUtils = imports.misc.extensionUtils;
++const Me = ExtensionUtils.getCurrentExtension();
++
++const Main = imports.ui.main;
++const HeadsUpMessage = Me.imports.headsUpMessage;
++
++const Gettext = imports.gettext.domain('gnome-shell-extensions');
++const _ = Gettext.gettext;
++
++class Extension {
++    constructor() {
++        ExtensionUtils.initTranslations();
++    }
++
++    enable() {
++        this._settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.heads-up-display');
++        this._idleTimeoutChangedId = this._settings.connect('changed::idle-timeout', this._onIdleTimeoutChanged.bind(this));
++        this._settingsChangedId = this._settings.connect('changed', this._updateMessage.bind(this));
++
++        this._idleMonitor = Meta.IdleMonitor.get_core();
++        this._messageInhibitedUntilIdle = false;
++        this._oldMapWindow = Main.wm._mapWindow;
++        Main.wm._mapWindow = this._mapWindow;
++        this._windowManagerMapId = global.window_manager.connect('map', this._onWindowMap.bind(this));
++
++        if (Main.layoutManager._startingUp)
++            this._startupCompleteId = Main.layoutManager.connect('startup-complete', this._onStartupComplete.bind(this));
++        else
++            this._onStartupComplete(this);
++    }
++
++    disable() {
++        this._dismissMessage();
++
++        if (this._idleWatchId) {
++            this._idleMonitor.remove_watch(this._idleWatchId);
++            this._idleWatchId = 0;
++        }
++
++        if (this._sessionModeUpdatedId) {
++            Main.sessionMode.disconnect(this._sessionModeUpdatedId);
++            this._sessionModeUpdatedId = 0;
++        }
++
++        if (this._overviewShowingId) {
++            Main.overview.disconnect(this._overviewShowingId);
++            this._overviewShowingId = 0;
++        }
++
++        if (this._overviewHiddenId) {
++            Main.overview.disconnect(this._overviewHiddenId);
++            this._overviewHiddenId = 0;
++        }
++
++        if (this._panelConnectionId) {
++            Main.layoutManager.panelBox.disconnect(this._panelConnectionId);
++            this._panelConnectionId = 0;
++        }
++
++        if (this._oldMapWindow) {
++            Main.wm._mapWindow = this._oldMapWindow;
++            this._oldMapWindow = null;
++        }
++
++        if (this._windowManagerMapId) {
++            global.window_manager.disconnect(this._windowManagerMapId);
++            this._windowManagerMapId = 0;
++        }
++
++        if (this._startupCompleteId) {
++            Main.layoutManager.disconnect(this._startupCompleteId);
++            this._startupCompleteId = 0;
++        }
++
++        if (this._settingsChangedId) {
++            this._settings.disconnect(this._settingsChangedId);
++            this._settingsChangedId = 0;
++        }
++    }
++
++    _onWindowMap(shellwm, actor) {
++        let windowObject = actor.meta_window;
++        let windowType = windowObject.get_window_type();
++
++        if (windowType != Meta.WindowType.NORMAL)
++            return;
++
++        if (!this._message || !this._message.visible)
++            return;
++
++        let messageRect = new Meta.Rectangle({ x: this._message.x, y: this._message.y, width: this._message.width, height: this._message.height });
++        let windowRect = windowObject.get_frame_rect();
++
++        if (windowRect.intersect(messageRect)) {
++            windowObject.move_frame(false, windowRect.x, this._message.y + this._message.height);
++        }
++    }
++
++    _onStartupComplete() {
++        this._overviewShowingId = Main.overview.connect('showing', this._updateMessage.bind(this));
++        this._overviewHiddenId = Main.overview.connect('hidden', this._updateMessage.bind(this));
++        this._panelConnectionId = Main.layoutManager.panelBox.connect('notify::visible', this._updateMessage.bind(this));
++        this._sessionModeUpdatedId = Main.sessionMode.connect('updated', this._onSessionModeUpdated.bind(this));
++
++        this._updateMessage();
++    }
++
++    _onSessionModeUpdated() {
++         if (!Main.sessionMode.hasWindows)
++             this._messageInhibitedUntilIdle = false;
++         this._updateMessage();
++    }
++
++    _onIdleTimeoutChanged() {
++        if (this._idleWatchId) {
++            this._idleMonitor.remove_watch(this._idleWatchId);
++            this._idleWatchId = 0;
++        }
++        this._messageInhibitedUntilIdle = false;
++    }
++
++    _updateMessage() {
++        if (this._messageInhibitedUntilIdle) {
++            if (this._message)
++                this._dismissMessage();
++            return;
++        }
++
++        if (this._idleWatchId) {
++            this._idleMonitor.remove_watch(this._idleWatchId);
++            this._idleWatchId = 0;
++        }
++
++        if (Main.sessionMode.hasOverview && Main.overview.visible) {
++            this._dismissMessage();
++            return;
++        }
++
++        if (!Main.layoutManager.panelBox.visible) {
++            this._dismissMessage();
++            return;
++        }
++
++        let supportedModes = [];
++
++        if (this._settings.get_boolean('show-when-unlocked'))
++            supportedModes.push('user');
++
++        if (this._settings.get_boolean('show-when-unlocking'))
++            supportedModes.push('unlock-dialog');
++
++        if (this._settings.get_boolean('show-when-locked'))
++            supportedModes.push('lock-screen');
++
++        if (this._settings.get_boolean('show-on-login-screen'))
++            supportedModes.push('gdm');
++
++        if (!supportedModes.includes(Main.sessionMode.currentMode) &&
++            !supportedModes.includes(Main.sessionMode.parentMode)) {
++            this._dismissMessage();
++            return;
++        }
++
++        let heading = this._settings.get_string('message-heading');
++        let body = this._settings.get_string('message-body');
++
++        if (!heading && !body) {
++            this._dismissMessage();
++            return;
++        }
++
++        if (!this._message) {
++            this._message = new HeadsUpMessage.HeadsUpMessage(heading, body);
++
++            this._message.connect('notify::allocation', this._adaptSessionForMessage.bind(this));
++            this._message.connect('clicked', this._onMessageClicked.bind(this));
++        }
++
++        this._message.reactive = true;
++        this._message.track_hover = true;
++
++        this._message.setHeading(heading);
++        this._message.setBody(body);
++
++        if (!Main.sessionMode.hasWindows) {
++            this._message.track_hover = false;
++            this._message.reactive = false;
++        }
++    }
++
++    _onMessageClicked() {
++        if (!Main.sessionMode.hasWindows)
++          return;
++
++        if (this._idleWatchId) {
++            this._idleMonitor.remove_watch(this._idleWatchId);
++            this._idleWatchId = 0;
++        }
++
++        let idleTimeout = this._settings.get_uint('idle-timeout');
++        this._idleWatchId = this._idleMonitor.add_idle_watch(idleTimeout * 1000, this._onUserIdle.bind(this));
++        this._messageInhibitedUntilIdle = true;
++        this._updateMessage();
++    }
++
++    _onUserIdle() {
++        this._messageInhibitedUntilIdle = false;
++        this._updateMessage();
++    }
++
++    _dismissMessage() {
++        if (!this._message) {
++            return;
++        }
++
++        this._message.visible = false;
++        this._message.destroy();
++        this._message = null;
++        this._resetMessageTray();
++        this._resetLoginDialog();
++    }
++
++    _resetMessageTray() {
++        if (!Main.messageTray)
++            return;
++
++        Main.messageTray.actor.set_translation(0, 0, 0);
++    }
++
++    _alignMessageTray() {
++        if (!Main.messageTray)
++            return;
++
++        if (!this._message || !this._message.visible) {
++            this._resetMessageTray()
++            return;
++        }
++
++        let panelBottom = Main.layoutManager.panelBox.y + Main.layoutManager.panelBox.height;
++        let messageBottom = this._message.y + this._message.height;
++
++        Main.messageTray.actor.set_translation(0, messageBottom - panelBottom, 0);
++    }
++
++    _resetLoginDialog() {
++        if (!Main.sessionMode.isGreeter)
++            return;
++
++        if (!Main.screenShield || !Main.screenShield._dialog)
++            return;
++
++        let dialog = Main.screenShield._dialog;
++
++        if (this._authPromptAllocatedId) {
++            dialog.disconnect(this._authPromptAllocatedId);
++            this._authPromptAllocatedId = 0;
++        }
++
++        dialog.style = null;
++        dialog._bannerView.style = null;
++    }
++
++    _adaptLoginDialogForMessage() {
++        if (!Main.sessionMode.isGreeter)
++            return;
++
++        if (!Main.screenShield || !Main.screenShield._dialog)
++            return;
++
++        if (!this._message || !this._message.visible) {
++            this._resetLoginDialog()
++            return;
++        }
++
++        let dialog = Main.screenShield._dialog;
++
++        let messageHeight = this._message.y + this._message.height;
++        if (dialog._logoBin.visible)
++            messageHeight -= dialog._logoBin.height;
++
++        if (messageHeight <= 0) {
++            dialog.style = null;
++            dialog._bannerView.style = null;
++        } else {
++            dialog.style = `margin-top: ${messageHeight}px;`;
++
++            let bannerOnSide = dialog._bannerView.x + dialog._bannerView.width < dialog._authPrompt.actor.x;
++
++            if (bannerOnSide)
++               dialog._bannerView.style = `margin-bottom: ${messageHeight}px;`;
++            else
++               dialog._bannerView.style = `margin-top: ${messageHeight}px`;
++        }
++    }
++
++    _adaptSessionForMessage() {
++        this._alignMessageTray();
++
++        if (Main.sessionMode.isGreeter) {
++            this._adaptLoginDialogForMessage();
++            if (!this._authPromptAllocatedId) {
++                let dialog = Main.screenShield._dialog;
++                this._authPromptAllocatedId = dialog._authPrompt.actor.connect("notify::allocation", this._adaptLoginDialogForMessage.bind(this));
++            }
++        }
++    }
++}
++
++function init() {
++    return new Extension();
++}
+diff --git a/extensions/heads-up-display/headsUpMessage.js b/extensions/heads-up-display/headsUpMessage.js
+new file mode 100644
+index 00000000..d828d8c9
+--- /dev/null
++++ b/extensions/heads-up-display/headsUpMessage.js
+@@ -0,0 +1,150 @@
++const { Atk, Clutter, GObject, Pango, St } = imports.gi;
++const Layout = imports.ui.layout;
++const Main = imports.ui.main;
++const Signals = imports.signals;
++
++var HeadsUpMessageBodyLabel = GObject.registerClass({
++}, class HeadsUpMessageBodyLabel extends St.Label {
++    _init(params) {
++        super._init(params);
++
++        this.clutter_text.single_line_mode = false;
++        this.clutter_text.line_wrap = true;
++    }
++
++    vfunc_get_preferred_width(forHeight) {
++        let workArea = Main.layoutManager.getWorkAreaForMonitor(Main.layoutManager.primaryIndex);
++
++        let [labelMinimumWidth, labelNaturalWidth] = super.vfunc_get_preferred_width(forHeight);
++
++        labelMinimumWidth = Math.min(labelMinimumWidth, .75 * workArea.width);
++        labelNaturalWidth = Math.min(labelNaturalWidth, .75 * workArea.width);
++
++        return [labelMinimumWidth, labelNaturalWidth];
++    }
++
++    vfunc_get_preferred_height(forWidth) {
++        let workArea = Main.layoutManager.getWorkAreaForMonitor(Main.layoutManager.primaryIndex);
++        let labelHeightUpperBound = .25 * workArea.height;
++
++        this.clutter_text.single_line_mode = true;
++        this.clutter_text.line_wrap = false;
++        let [lineHeight] = super.vfunc_get_preferred_height(-1);
++        let numberOfLines = Math.floor(labelHeightUpperBound / lineHeight);
++        numberOfLines = Math.max(numberOfLines, 1);
++
++        let labelHeight = lineHeight * numberOfLines;
++
++        this.clutter_text.single_line_mode = false;
++        this.clutter_text.line_wrap = true;
++        let [labelMinimumHeight, labelNaturalHeight] = super.vfunc_get_preferred_height(forWidth);
++
++        labelMinimumHeight = Math.min(labelMinimumHeight, labelHeight);
++        labelNaturalHeight = Math.min(labelNaturalHeight, labelHeight);
++
++        return [labelMinimumHeight, labelNaturalHeight];
++    }
++
++    vfunc_allocate(box, flags) {
++        if (!this.visible)
++            return;
++
++        super.vfunc_allocate(box, flags);
++    }
++});
++
++var HeadsUpMessage = GObject.registerClass({
++}, class HeadsUpMessage extends St.Button {
++    _init(heading, body) {
++        super._init({
++            style_class: 'message',
++            accessible_role: Atk.Role.NOTIFICATION,
++            can_focus: false,
++        });
++
++        Main.layoutManager.addChrome(this, { affectsInputRegion: true });
++
++        this.add_style_class_name('heads-up-display-message');
++
++        this._panelAllocationId = Main.layoutManager.panelBox.connect ("notify::allocation", this._alignWithPanel.bind(this));
++        this.connect("notify::allocation", this._alignWithPanel.bind(this));
++
++        this._messageTraySnappingId = Main.messageTray.connect ("notify::y", () => {
++            if (!this.visible)
++                return;
++
++            if (!Main.messageTray.visible)
++                return;
++
++            if (Main.messageTray.y >= this.y && Main.messageTray.y < this.y + this.height)
++                Main.messageTray.y = this.y + this.height;
++        });
++
++
++        let contentsBox = new St.BoxLayout({ style_class: 'heads-up-message-content',
++                                             vertical: true,
++                                             x_align: Clutter.ActorAlign.CENTER });
++        this.add_actor(contentsBox);
++
++        this.headingLabel = new St.Label({ style_class: 'heads-up-message-heading',
++                                           x_expand: true,
++                                           x_align: Clutter.ActorAlign.CENTER });
++        this.setHeading(heading);
++        contentsBox.add_actor(this.headingLabel);
++        this.contentsBox = contentsBox;
++
++        this.bodyLabel = new HeadsUpMessageBodyLabel({ style_class: 'heads-up-message-body',
++                                                       x_expand: true,
++                                                       y_expand: true });
++        contentsBox.add_actor(this.bodyLabel);
++
++        this.setBody(body);
++        this.bodyLabel.clutter_text.label = this.bodyLabel;
++    }
++
++    _alignWithPanel() {
++        if (!this.visible)
++            return;
++
++        this.x = Main.panel.actor.x;
++        this.x += Main.panel.actor.width / 2;
++        this.x -= this.width / 2;
++        this.x = Math.floor(this.x);
++        this.y = Main.panel.actor.y + Main.panel.actor.height;
++        this.queue_relayout();
++    }
++
++    setHeading(text) {
++        if (text) {
++            let heading = text ? text.replace(/\n/g, ' ') : '';
++            this.headingLabel.text = heading;
++            this.headingLabel.visible = true;
++        } else {
++            this.headingLabel.text = text;
++            this.headingLabel.visible = false;
++        }
++    }
++
++    setBody(text) {
++        this.bodyLabel.text = text;
++        if (text) {
++            this.bodyLabel.visible = true;
++        } else {
++            this.bodyLabel.visible = false;
++        }
++    }
++
++    destroy() {
++        if (this._panelAllocationId) {
++            Main.layoutManager.panelBox.disconnect(this._panelAllocationId);
++            this._panelAllocationId = 0;
++        }
++
++        if (this._messageTraySnappingId) {
++            Main.messageTray.disconnect(this._messageTraySnappingId);
++            this._messageTraySnappingId = 0;
++        }
++
++        super.destroy();
++    }
++});
+diff --git a/extensions/heads-up-display/meson.build b/extensions/heads-up-display/meson.build
+new file mode 100644
+index 00000000..40c3de0a
+--- /dev/null
++++ b/extensions/heads-up-display/meson.build
+@@ -0,0 +1,8 @@
++extension_data += configure_file(
++  input: metadata_name + '.in',
++  output: metadata_name,
++  configuration: metadata_conf
++)
++
++extension_sources += files('headsUpMessage.js', 'prefs.js')
++extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/heads-up-display/metadata.json.in b/extensions/heads-up-display/metadata.json.in
+new file mode 100644
+index 00000000..e7ab71aa
+--- /dev/null
++++ b/extensions/heads-up-display/metadata.json.in
+@@ -0,0 +1,11 @@
++{
++"extension-id": "@extension_id@",
++"uuid": "@uuid@",
++"gettext-domain": "@gettext_domain@",
++"name": "Heads-up Display Message",
++"description": "Add a message to be displayed on screen always above all windows and chrome.",
++"original-authors": [ "rstrode@redhat.com" ],
++"shell-version": [ "@shell_current@" ],
++"url": "@url@",
++"session-modes":  [ "gdm", "lock-screen", "unlock-dialog", "user" ]
++}
+diff --git a/extensions/heads-up-display/org.gnome.shell.extensions.heads-up-display.gschema.xml b/extensions/heads-up-display/org.gnome.shell.extensions.heads-up-display.gschema.xml
+new file mode 100644
+index 00000000..ea1f3774
+--- /dev/null
++++ b/extensions/heads-up-display/org.gnome.shell.extensions.heads-up-display.gschema.xml
+@@ -0,0 +1,54 @@
++<schemalist gettext-domain="gnome-shell-extensions">
++  <schema id="org.gnome.shell.extensions.heads-up-display"
++          path="/org/gnome/shell/extensions/heads-up-display/">
++    <key name="idle-timeout" type="u">
++      <default>30</default>
++      <summary>Idle Timeout</summary>
++      <description>
++        Number of seconds until message is reshown after user goes idle.
++      </description>
++    </key>
++    <key name="message-heading" type="s">
++      <default>""</default>
++      <summary>Message to show at top of display</summary>
++      <description>
++        The top line of the heads up display message.
++      </description>
++    </key>
++    <key name="message-body" type="s">
++      <default>""</default>
++      <summary>Banner message</summary>
++      <description>
++        A message to always show at the top of the screen.
++      </description>
++    </key>
++    <key name="show-on-login-screen" type="b">
++      <default>true</default>
++      <summary>Show on login screen</summary>
++      <description>
++        Whether or not the message should display on the login screen
++      </description>
++    </key>
++    <key name="show-when-locked" type="b">
++      <default>false</default>
++      <summary>Show on screen shield</summary>
++      <description>
++        Whether or not the message should display when the screen is locked
++      </description>
++    </key>
++    <key name="show-when-unlocking" type="b">
++      <default>false</default>
++      <summary>Show on unlock screen</summary>
++      <description>
++        Whether or not the message should display on the unlock screen.
++      </description>
++    </key>
++    <key name="show-when-unlocked" type="b">
++      <default>false</default>
++      <summary>Show in user session</summary>
++      <description>
++        Whether or not the message should display when the screen is unlocked.
++      </description>
++    </key>
++  </schema>
++</schemalist>
+diff --git a/extensions/heads-up-display/prefs.js b/extensions/heads-up-display/prefs.js
+new file mode 100644
+index 00000000..b4b6f94c
+--- /dev/null
++++ b/extensions/heads-up-display/prefs.js
+@@ -0,0 +1,175 @@
++
++/* Desktop Icons GNOME Shell extension
++ *
++ * Copyright (C) 2017 Carlos Soriano <csoriano@redhat.com>
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++const { Gio, GObject, Gdk, Gtk } = imports.gi;
++const ExtensionUtils = imports.misc.extensionUtils;
++const Gettext = imports.gettext.domain('gnome-shell-extensions');
++const _ = Gettext.gettext;
++const N_ = e => e;
++const cssData = `
++   .no-border {
++       border: none;
++   }
++
++   .border {
++       border: 1px solid;
++       border-radius: 3px;
++       border-color: #b6b6b3;
++       box-shadow: inset 0 0 0 1px rgba(74, 144, 217, 0);
++       background-color: white;
++   }
++
++   .margins {
++       padding-left: 8px;
++       padding-right: 8px;
++       padding-bottom: 8px;
++   }
++
++   .message-label {
++       font-weight: bold;
++   }
++`;
++
++var settings;
++
++function init() {
++    settings = ExtensionUtils.getSettings("org.gnome.shell.extensions.heads-up-display");
++    let cssProvider = new Gtk.CssProvider();
++    cssProvider.load_from_data(cssData);
++
++    let screen = Gdk.Screen.get_default();
++    Gtk.StyleContext.add_provider_for_screen(screen, cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
++}
++
++function buildPrefsWidget() {
++    ExtensionUtils.initTranslations();
++
++    let contents = new Gtk.Box({
++        orientation: Gtk.Orientation.VERTICAL,
++        border_width: 20,
++        spacing: 10,
++    });
++
++    contents.add(buildSwitch('show-when-locked', _("Show message when screen is locked")));
++    contents.add(buildSwitch('show-when-unlocking', _("Show message on unlock screen")));
++    contents.add(buildSwitch('show-when-unlocked', _("Show message when screen is unlocked")));
++    contents.add(buildSpinButton('idle-timeout', _("Seconds after user goes idle before reshowing message")));
++
++    let outerMessageBox = new Gtk.Box({
++        orientation: Gtk.Orientation.VERTICAL,
++        border_width: 0,
++        spacing: 5,
++    });
++    contents.add(outerMessageBox);
++
++    let messageLabel = new Gtk.Label({
++        label: 'Message',
++        halign: Gtk.Align.START,
++    });
++    messageLabel.get_style_context().add_class("message-label");
++    outerMessageBox.add(messageLabel);
++
++    let innerMessageBox = new Gtk.Box({
++        orientation: Gtk.Orientation.VERTICAL,
++        border_width: 0,
++        spacing: 0,
++    });
++    innerMessageBox.get_style_context().add_class("border");
++    outerMessageBox.add(innerMessageBox);
++
++    innerMessageBox.add(buildEntry('message-heading', _("Message Heading")));
++    innerMessageBox.add(buildTextView('message-body', _("Message Body")));
++    contents.show_all();
++    return contents;
++}
++
++function buildTextView(key, labelText) {
++    let textView = new Gtk.TextView({
++        accepts_tab: false,
++        wrap_mode: Gtk.WrapMode.WORD,
++    });
++    settings.bind(key, textView.get_buffer(), 'text', Gio.SettingsBindFlags.DEFAULT);
++
++    let scrolledWindow = new Gtk.ScrolledWindow({
++        expand: true,
++    });
++    let styleContext = scrolledWindow.get_style_context();
++    styleContext.add_class("margins");
++
++    scrolledWindow.add(textView);
++    return scrolledWindow;
++}
++function buildEntry(key, labelText) {
++    let entry = new Gtk.Entry({ placeholder_text: labelText });
++    let styleContext = entry.get_style_context();
++    styleContext.add_class("no-border");
++    settings.bind(key, entry, 'text', Gio.SettingsBindFlags.DEFAULT);
++
++    entry.get_settings()['gtk-entry-select-on-focus'] = false;
++
++    return entry;
++}
++
++function buildSpinButton(key, labelText) {
++    let hbox = new Gtk.Box({
++        orientation: Gtk.Orientation.HORIZONTAL,
++        spacing: 10,
++    });
++    let label = new Gtk.Label({
++        label: labelText,
++        xalign: 0,
++    });
++    let adjustment = new Gtk.Adjustment({
++        value: 0,
++        lower: 0,
++        upper: 2147483647,
++        step_increment: 1,
++        page_increment: 60,
++        page_size: 60,
++    });
++    let spinButton = new Gtk.SpinButton({
++        adjustment: adjustment,
++        climb_rate: 1.0,
++        digits: 0,
++        max_width_chars: 3,
++        width_chars: 3,
++    });
++    settings.bind(key, spinButton, 'value', Gio.SettingsBindFlags.DEFAULT);
++    hbox.pack_start(label, true, true, 0);
++    hbox.add(spinButton);
++    return hbox;
++}
++
++function buildSwitch(key, labelText) {
++    let hbox = new Gtk.Box({
++        orientation: Gtk.Orientation.HORIZONTAL,
++        spacing: 10,
++    });
++    let label = new Gtk.Label({
++        label: labelText,
++        xalign: 0,
++    });
++    let switcher = new Gtk.Switch({
++        active: settings.get_boolean(key),
++    });
++    settings.bind(key, switcher, 'active', Gio.SettingsBindFlags.DEFAULT);
++    hbox.pack_start(label, true, true, 0);
++    hbox.add(switcher);
++    return hbox;
++}
+diff --git a/extensions/heads-up-display/stylesheet.css b/extensions/heads-up-display/stylesheet.css
+new file mode 100644
+index 00000000..93034469
+--- /dev/null
++++ b/extensions/heads-up-display/stylesheet.css
+@@ -0,0 +1,32 @@
++.heads-up-display-message {
++    background-color: rgba(0.24, 0.24, 0.24, 0.80);
++    border: 1px solid black;
++    border-radius: 6px;
++    color: #eeeeec;
++    font-size: 11pt;
++    margin-top: 0.5em;
++    margin-bottom: 0.5em;
++    padding: 0.9em;
++}
++
++.heads-up-display-message:insensitive {
++    background-color: rgba(0.24, 0.24, 0.24, 0.33);
++}
++
++.heads-up-display-message:hover {
++    background-color: rgba(0.24, 0.24, 0.24, 0.2);
++    border: 1px solid rgba(0.0, 0.0, 0.0, 0.5);
++    color: #4d4d4d;
++    transition-duration: 250ms;
++}
++
++.heads-up-message-heading {
++    height: 1.75em;
++    font-size: 1.25em;
++    font-weight: bold;
++    text-align: center;
++}
++
++.heads-up-message-body {
++    text-align: center;
++}
+diff --git a/meson.build b/meson.build
+index ba84f8f3..c5fc86ef 100644
+--- a/meson.build
++++ b/meson.build
+@@ -44,6 +44,7 @@ classic_extensions = [
+ default_extensions = classic_extensions
+ default_extensions += [
+   'drive-menu',
++  'heads-up-display',
+   'screenshot-window-sizer',
+   'windowsNavigator',
+   'workspace-indicator'
+-- 
+2.32.0
+

@@ -1,0 +1,98 @@
+From e768ad73e2d68b3f1567051675ba0539a75e3105 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sat, 18 May 2019 19:37:05 +0200
+Subject: [PATCH] Update style
+
+---
+ data/gnome-shell-sass | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Submodule data/gnome-shell-sass 1a56956..8842e57:
+diff --git a/data/gnome-shell-sass/_common.scss b/data/gnome-shell-sass/_common.scss
+index a6357ba..62d9c82 100644
+--- a/data/gnome-shell-sass/_common.scss
++++ b/data/gnome-shell-sass/_common.scss
+@@ -571,6 +571,18 @@ StScrollBar {
+   app menu inside the main app window itself rather than the top bar
+ */
+ 
++/*************
++ * App Icons *
++ *************/
++/* Outline for low res icons */
++.lowres-icon {
++    icon-shadow: 0 1px 2px rgba(0,0,0,0.3);
++}
++
++/* Drapshadow for large icons */
++.icon-dropshadow {
++  icon-shadow: 0 1px 2px rgba(0,0,0,0.4);
++}
+ 
+ /* OSD */
+ .osd-window {
+@@ -680,7 +692,8 @@ StScrollBar {
+     spacing: 8px;
+   }
+ 
+-  .ws-switcher-active-up, .ws-switcher-active-down {
++  .ws-switcher-active-up, .ws-switcher-active-down,
++  .ws-switcher-active-left, .ws-switcher-active-right {
+     height: 50px;
+     background-color: $selected_bg_color;
+     color: $selected_fg_color;
+@@ -781,6 +794,11 @@ StScrollBar {
+       color: lighten($fg_color,10%);
+     }
+ 
++    .panel-logo-icon {
++      padding-right: .4em;
++      icon-size: 1em;
++    }
++
+     .system-status-icon { icon-size: 1.09em; padding: 0 5px; }
+     .unlock-screen &,
+     .login-screen &,
+@@ -1406,6 +1424,14 @@ StScrollBar {
+ 
+   }
+ 
++  .app-well-hover-text {
++      text-align: center;
++      color: $osd_fg_color;
++      background-color: $osd_bg_color;
++      border-radius: 5px;
++      padding: 3px;
++  }
++
+   .app-well-app-running-dot { //running apps indicator
+     width: 10px; height: 3px;
+     background-color: $selected_bg_color;
+@@ -1801,7 +1827,12 @@ StScrollBar {
+   .login-dialog-banner { color: darken($osd_fg_color,10%); }
+   .login-dialog-button-box { spacing: 5px; }
+   .login-dialog-message-warning { color: $warning_color; }
+-  .login-dialog-message-hint { padding-top: 0; padding-bottom: 20px; }
++  .login-dialog-message-hint, .login-dialog-message {
++    color: darken($osd_fg_color, 20%);
++    padding-top: 0;
++    padding-bottom: 20px;
++    min-height: 2.75em;
++  }
+   .login-dialog-user-selection-box { padding: 100px 0px; }
+   .login-dialog-not-listed-label {
+     padding-left: 2px;
+@@ -1856,6 +1887,10 @@ StScrollBar {
+       padding-bottom: 12px;
+       spacing: 8px;
+       width: 23em;
++      .login-dialog-timed-login-indicator {
++          height: 2px;
++          background-color: darken($fg_color,40%);
++      }
+   }
+ 
+   .login-dialog-prompt-label {
+-- 
+2.21.0
+

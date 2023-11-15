@@ -1,0 +1,176 @@
+From 1f9f4af38f991b462ee5f872a697d88a9e115499 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 20 Jan 2021 20:18:39 +0100
+Subject: [PATCH 1/2] workspace-indicator: Add tooltips to workspace thumbnails
+
+When showing previews instead of the menu, the workspace names from
+our preferences don't appear anywhere. Some users care strongly about
+those, so expose them as tooltip on hover.
+---
+ extensions/workspace-indicator/extension.js | 40 +++++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index 69eef88c..b10e37ff 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -8,6 +8,7 @@ const ExtensionUtils = imports.misc.extensionUtils;
+ const Main = imports.ui.main;
+ const PanelMenu = imports.ui.panelMenu;
+ const PopupMenu = imports.ui.popupMenu;
++const Tweener = imports.ui.tweener;
+ 
+ const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ const _ = Gettext.gettext;
+@@ -15,6 +16,9 @@ const _ = Gettext.gettext;
+ const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
+ const WORKSPACE_KEY = 'workspace-names';
+ 
++const TOOLTIP_OFFSET = 6;
++const TOOLTIP_ANIMATION_TIME = 150;
++
+ let WindowPreview = GObject.registerClass({
+     GTypeName: 'WorkspaceIndicatorWindowPreview'
+ }, class WindowPreview extends St.Button {
+@@ -117,7 +121,14 @@ let WorkspaceThumbnail = GObject.registerClass({
+             y_fill: true
+         });
+ 
++        this._tooltip = new St.Label({
++            style_class: 'dash-label',
++            visible: false,
++        });
++        Main.uiGroup.add_child(this._tooltip);
++
+         this.connect('destroy', this._onDestroy.bind(this));
++        this.connect('notify::hover', this._syncTooltip.bind(this));
+ 
+         this._index = index;
+         this._delegate = this; // needed for DND
+@@ -204,7 +215,36 @@ let WorkspaceThumbnail = GObject.registerClass({
+             ws.activate(global.get_current_time());
+     }
+ 
++    _syncTooltip() {
++        if (this.hover) {
++            this._tooltip.text = Meta.prefs_get_workspace_name(this._index);
++            this._tooltip.opacity = 0;
++            this._tooltip.show();
++
++            const [stageX, stageY] = this.get_transformed_position();
++            const thumbWidth = this.allocation.get_width();
++            const thumbHeight = this.allocation.get_height();
++            const tipWidth = this._tooltip.width;
++            const xOffset = Math.floor((thumbWidth - tipWidth) / 2);
++            const monitor = Main.layoutManager.findMonitorForActor(this);
++            const x = Math.min(
++                Math.max(stageX + xOffset, monitor.x),
++                monitor.x + monitor.width - tipWidth);
++            const y = stageY + thumbHeight + TOOLTIP_OFFSET;
++            this._tooltip.set_position(x, y);
++        }
++
++        Tweener.addTween(this._tooltip, {
++            opacity: this.hover ? 255 : 0,
++            time: TOOLTIP_ANIMATION_TIME * 1000,
++            transition: 'easeOutQuad',
++            onComplete: () => (this._tooltip.visible = this.hover),
++        });
++    }
++
+     _onDestroy() {
++        this._tooltip.destroy();
++
+         this._workspace.disconnect(this._windowAddedId);
+         this._workspace.disconnect(this._windowRemovedId);
+         global.display.disconnect(this._restackedId);
+-- 
+2.31.1
+
+
+From 19e19e11214b6b9deae110cd6a4c9232d77c18cb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 20 Jan 2021 20:29:01 +0100
+Subject: [PATCH 2/2] window-list: Add tooltips to workspace thumbnails
+
+When showing previews instead of the menu, the workspace names
+don't appear anywhere. Some users care strongly about those, so
+expose them as tooltip on hover.
+---
+ extensions/window-list/workspaceIndicator.js | 40 ++++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index ca476111..33ec9b0e 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -5,10 +5,14 @@ const DND = imports.ui.dnd;
+ const Main = imports.ui.main;
+ const PanelMenu = imports.ui.panelMenu;
+ const PopupMenu = imports.ui.popupMenu;
++const Tweener = imports.ui.tweener;
+ 
+ const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ const _ = Gettext.gettext;
+ 
++const TOOLTIP_OFFSET = 6;
++const TOOLTIP_ANIMATION_TIME = 150;
++
+ let WindowPreview = GObject.registerClass({
+     GTypeName: 'WindowListWindowPreview'
+ }, class WindowPreview extends St.Button {
+@@ -111,7 +115,14 @@ let WorkspaceThumbnail = GObject.registerClass({
+             y_fill: true
+         });
+ 
++        this._tooltip = new St.Label({
++            style_class: 'dash-label',
++            visible: false,
++        });
++        Main.uiGroup.add_child(this._tooltip);
++
+         this.connect('destroy', this._onDestroy.bind(this));
++        this.connect('notify::hover', this._syncTooltip.bind(this));
+ 
+         this._index = index;
+         this._delegate = this; // needed for DND
+@@ -198,7 +209,36 @@ let WorkspaceThumbnail = GObject.registerClass({
+             ws.activate(global.get_current_time());
+     }
+ 
++    _syncTooltip() {
++        if (this.hover) {
++            this._tooltip.text = Meta.prefs_get_workspace_name(this._index);
++            this._tooltip.opacity = 0;
++            this._tooltip.show();
++
++            const [stageX, stageY] = this.get_transformed_position();
++            const thumbWidth = this.allocation.get_width();
++            const tipWidth = this._tooltip.width;
++            const tipHeight = this._tooltip.height;
++            const xOffset = Math.floor((thumbWidth - tipWidth) / 2);
++            const monitor = Main.layoutManager.findMonitorForActor(this);
++            const x = Math.min(
++                Math.max(stageX + xOffset, monitor.x),
++                monitor.x + monitor.width - tipWidth);
++            const y = stageY - tipHeight - TOOLTIP_OFFSET;
++            this._tooltip.set_position(x, y);
++        }
++
++        Tweener.addTween(this._tooltip, {
++            opacity: this.hover ? 255 : 0,
++            time: TOOLTIP_ANIMATION_TIME * 1000,
++            transition: 'easeOutQuad',
++            onComplete: () => (this._tooltip.visible = this.hover),
++        });
++    }
++
+     _onDestroy() {
++        this._tooltip.destroy();
++
+         this._workspace.disconnect(this._windowAddedId);
+         this._workspace.disconnect(this._windowRemovedId);
+         global.display.disconnect(this._restackedId);
+-- 
+2.31.1
+

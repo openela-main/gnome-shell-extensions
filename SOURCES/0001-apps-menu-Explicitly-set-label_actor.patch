@@ -1,0 +1,40 @@
+From 52ee25effa3debb21307e33ac223cf48ac7bc57a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 17 Mar 2016 17:15:38 +0100
+Subject: [PATCH] apps-menu: Explicitly set label_actor
+
+For some reason orca fails to pick up the label of category items,
+so set the label_actor explicitly as workaround.
+---
+ extensions/apps-menu/extension.js | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/apps-menu/extension.js b/extensions/apps-menu/extension.js
+index d62e3d7..cc399c6 100644
+--- a/extensions/apps-menu/extension.js
++++ b/extensions/apps-menu/extension.js
+@@ -29,7 +29,9 @@ class ActivitiesMenuItem extends PopupMenu.PopupBaseMenuItem {
+     constructor(button) {
+         super();
+         this._button = button;
+-        this.actor.add_child(new St.Label({ text: _('Activities Overview') }));
++        let label = new St.Label({ text: _('Activities Overview') });
++        this.actor.add_child(label);
++        this.actor.label_actor = label;
+     }
+ 
+     activate(event) {
+@@ -120,7 +122,9 @@ class CategoryMenuItem extends PopupMenu.PopupBaseMenuItem {
+         else
+             name = _('Favorites');
+ 
+-        this.actor.add_child(new St.Label({ text: name }));
++        let label = new St.Label({ text: name });
++        this.actor.add_child(label);
++        this.actor.label_actor = label;
+         this.actor.connect('motion-event', this._onMotionEvent.bind(this));
+     }
+ 
+-- 
+2.21.0
+

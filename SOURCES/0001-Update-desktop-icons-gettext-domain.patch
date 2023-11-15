@@ -1,0 +1,83 @@
+From f5e47cd8ca32ae433f6906b01a509c5a304894d9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sat, 24 Oct 2020 01:14:44 +0200
+Subject: [PATCH] Update desktop-icons gettext domain
+
+---
+ extensions/desktop-icons/createFolderDialog.js | 2 +-
+ extensions/desktop-icons/desktopGrid.js        | 2 +-
+ extensions/desktop-icons/fileItem.js           | 2 +-
+ extensions/desktop-icons/prefs.js              | 8 +++++---
+ 4 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/extensions/desktop-icons/createFolderDialog.js b/extensions/desktop-icons/createFolderDialog.js
+index f3e40e9..5038762 100644
+--- a/extensions/desktop-icons/createFolderDialog.js
++++ b/extensions/desktop-icons/createFolderDialog.js
+@@ -21,7 +21,7 @@ const { Clutter, GObject, GLib, Gio, St } = imports.gi;
+ const Signals = imports.signals;
+ 
+ const Dialog = imports.ui.dialog;
+-const Gettext = imports.gettext.domain('desktop-icons');
++const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ const ModalDialog = imports.ui.modalDialog;
+ const ShellEntry = imports.ui.shellEntry;
+ const Tweener = imports.ui.tweener;
+diff --git a/extensions/desktop-icons/desktopGrid.js b/extensions/desktop-icons/desktopGrid.js
+index a2d1f12..94d2dfd 100644
+--- a/extensions/desktop-icons/desktopGrid.js
++++ b/extensions/desktop-icons/desktopGrid.js
+@@ -44,7 +44,7 @@ const Util = imports.misc.util;
+ 
+ const Clipboard = St.Clipboard.get_default();
+ const CLIPBOARD_TYPE = St.ClipboardType.CLIPBOARD;
+-const Gettext = imports.gettext.domain('desktop-icons');
++const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ 
+ const _ = Gettext.gettext;
+ 
+diff --git a/extensions/desktop-icons/fileItem.js b/extensions/desktop-icons/fileItem.js
+index 0c6a54d..d6d43c9 100644
+--- a/extensions/desktop-icons/fileItem.js
++++ b/extensions/desktop-icons/fileItem.js
+@@ -42,7 +42,7 @@ const Prefs = Me.imports.prefs;
+ const DBusUtils = Me.imports.dbusUtils;
+ const DesktopIconsUtil = Me.imports.desktopIconsUtil;
+ 
+-const Gettext = imports.gettext.domain('desktop-icons');
++const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ 
+ const _ = Gettext.gettext;
+ 
+diff --git a/extensions/desktop-icons/prefs.js b/extensions/desktop-icons/prefs.js
+index 4b8d986..51daf15 100644
+--- a/extensions/desktop-icons/prefs.js
++++ b/extensions/desktop-icons/prefs.js
+@@ -26,7 +26,7 @@ const Gettext = imports.gettext;
+ 
+ const Config = imports.misc.config;
+ 
+-var _ = Gettext.domain('desktop-icons').gettext;
++var _ = Gettext.domain('gnome-shell-extensions').gettext;
+ 
+ const SCHEMA_NAUTILUS = 'org.gnome.nautilus.preferences';
+ const SCHEMA_GTK = 'org.gtk.Settings.FileChooser';
+@@ -51,11 +51,13 @@ var CLICK_POLICY_SINGLE = false;
+ function initTranslations() {
+     let extension = ExtensionUtils.getCurrentExtension();
+ 
++    let domain = extension.metadata['gettext-domain'] || 'desktop-icons';
++
+     let localedir = extension.dir.get_child('locale');
+     if (localedir.query_exists(null))
+-        Gettext.bindtextdomain('desktop-icons', localedir.get_path());
++        Gettext.bindtextdomain(domain, localedir.get_path());
+     else
+-        Gettext.bindtextdomain('desktop-icons', Config.LOCALEDIR);
++        Gettext.bindtextdomain(domain, Config.LOCALEDIR);
+ }
+ 
+ function init() {
+-- 
+2.21.1
+

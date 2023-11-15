@@ -1,0 +1,179 @@
+From b334c8c248f849be996963cdafb1b0b69476bdf1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jonas=20=C3=85dahl?= <jadahl@redhat.com>
+Date: Tue, 2 Nov 2021 09:20:11 +0100
+Subject: [PATCH] desktop-icons: Fix stuck grab issue with rubber banding
+
+The desktop icons extension can get into a state where the desktop no longer
+takes mouse input.
+
+This happens if a user starts a rubber banding operation and then drags
+the mouse to somewhere on screen that has a pop up menu, and then pops
+the menu up.
+
+This commit addresses the bug by limiting the grab actor to the
+backgrounds, and by explicitly ending the rubber banding operation
+when one of the icons own menus is shown.
+
+One side effect of limiting the grab actor to the backgrounds, is the
+rubber banding code never gets to see motion outside of the backgrounds
+anymore. In order to keep drag operations feeling fluid when the user moves
+toward the edge of the screen, this commit also overrides the
+grab helpers captured-event handler so those motion events keep coming.
+
+We also start to end the rubber band if for any reason the grab it had
+was released.
+---
+ extensions/desktop-icons/desktopGrid.js    |  1 +
+ extensions/desktop-icons/desktopManager.js | 75 ++++++++++++++--------
+ extensions/desktop-icons/fileItem.js       |  1 +
+ 3 files changed, 49 insertions(+), 28 deletions(-)
+
+diff --git a/extensions/desktop-icons/desktopGrid.js b/extensions/desktop-icons/desktopGrid.js
+index 602fa7f..bd27e2a 100644
+--- a/extensions/desktop-icons/desktopGrid.js
++++ b/extensions/desktop-icons/desktopGrid.js
+@@ -365,6 +365,7 @@ var DesktopGrid = class {
+     }
+ 
+     _openMenu(x, y) {
++        Extension.desktopManager.endRubberBand();
+         Main.layoutManager.setDummyCursorGeometry(x, y, 0, 0);
+         this.actor._desktopBackgroundMenu.open(BoxPointer.PopupAnimation.NONE);
+         /* Since the handler is in the press event it needs to ignore the release event
+diff --git a/extensions/desktop-icons/desktopManager.js b/extensions/desktop-icons/desktopManager.js
+index a70cd98..c37e1e7 100644
+--- a/extensions/desktop-icons/desktopManager.js
++++ b/extensions/desktop-icons/desktopManager.js
+@@ -79,6 +79,7 @@ var DesktopManager = GObject.registerClass({
+         this._queryFileInfoCancellable = null;
+         this._unixMode = null;
+         this._writableByOthers = null;
++        this._rubberBandActive = false;
+ 
+         this._monitorsChangedId = Main.layoutManager.connect('monitors-changed', () => this._recreateDesktopIcons());
+         this._rubberBand = new St.Widget({ style_class: 'rubber-band' });
+@@ -86,6 +87,20 @@ var DesktopManager = GObject.registerClass({
+         Main.layoutManager._backgroundGroup.add_child(this._rubberBand);
+         this._grabHelper = new GrabHelper.GrabHelper(global.stage);
+ 
++        let origCapturedEvent = this._grabHelper.onCapturedEvent;
++        this._grabHelper.onCapturedEvent = (event) => {
++            if (event.type() === Clutter.EventType.MOTION) {
++                /* We handle motion events from a captured event handler so we
++                 * we can see motion over actors that are on other parts of the
++                 * stage.
++                 */
++                this._handleMotion(event);
++                return Clutter.EVENT_STOP;
++            }
++
++            return origCapturedEvent.bind(this._grabHelper)(event);
++        };
++
+         this._addDesktopIcons();
+         this._monitorDesktopFolder();
+ 
+@@ -108,30 +123,15 @@ var DesktopManager = GObject.registerClass({
+         this._initRubberBandColor();
+         this._updateRubberBand(x, y);
+         this._rubberBand.show();
+-        this._grabHelper.grab({ actor: global.stage });
++        this._rubberBandActive = true;
++        this._grabHelper.grab({
++            actor: Main.layoutManager._backgroundGroup,
++            onUngrab: () => this.endRubberBand(false),
++        });
+         Extension.lockActivitiesButton = true;
+         this._stageReleaseEventId = global.stage.connect('button-release-event', (actor, event) => {
+             this.endRubberBand();
+         });
+-        this._rubberBandId = global.stage.connect('motion-event', (actor, event) => {
+-            /* In some cases, when the user starts a rubberband selection and ends it
+-             * (by releasing the left button) over a window instead of doing it over
+-             * the desktop, the stage doesn't receive the "button-release" event.
+-             * This happens currently with, at least, Dash to Dock extension, but
+-             * it probably also happens with other applications or extensions.
+-             * To fix this, we also end the rubberband selection if we detect mouse
+-             * motion in the stage without the left button pressed during a
+-             * rubberband selection.
+-             *  */
+-            let button = event.get_state();
+-            if (!(button & Clutter.ModifierType.BUTTON1_MASK)) {
+-                this.endRubberBand();
+-                return;
+-            }
+-            [x, y] = event.get_coords();
+-            this._updateRubberBand(x, y);
+-            this._updateSelection(x, y);
+-        });
+         this._rubberBandTouchId = global.stage.connect('touch-event', (actor, event) => {
+             // Let x11 pointer emulation do the job on X11
+             if (!Meta.is_wayland_compositor())
+@@ -175,14 +175,37 @@ var DesktopManager = GObject.registerClass({
+         }
+     }
+ 
+-    endRubberBand() {
++    _handleMotion(event) {
++        /* In some cases, when the user starts a rubberband selection and ends it
++         * (by releasing the left button) over a window instead of doing it over
++         * the desktop, the stage doesn't receive the "button-release" event.
++         * This happens currently with, at least, Dash to Dock extension, but
++         * it probably also happens with other applications or extensions.
++         * To fix this, we also end the rubberband selection if we detect mouse
++         * motion in the stage without the left button pressed during a
++         * rubberband selection.
++         *  */
++        let button = event.get_state();
++        if (!(button & Clutter.ModifierType.BUTTON1_MASK)) {
++            this.endRubberBand();
++            return;
++        }
++        let [x, y] = event.get_coords();
++        this._updateRubberBand(x, y);
++        this._updateSelection(x, y);
++    }
++
++    endRubberBand(ungrab=true) {
++        if (!this._rubberBandActive)
++             return;
++
++        this._rubberBandActive = false;
+         this._rubberBand.hide();
+         Extension.lockActivitiesButton = false;
+-        this._grabHelper.ungrab();
+-        global.stage.disconnect(this._rubberBandId);
++        if (ungrab)
++            this._grabHelper.ungrab();
+         global.stage.disconnect(this._rubberBandTouchId);
+         global.stage.disconnect(this._stageReleaseEventId);
+-        this._rubberBandId = 0;
+         this._rubberBandTouchId = 0;
+         this._stageReleaseEventId = 0;
+ 
+@@ -760,10 +783,6 @@ var DesktopManager = GObject.registerClass({
+             global.stage.disconnect(this._stageReleaseEventId);
+         this._stageReleaseEventId = 0;
+ 
+-        if (this._rubberBandId)
+-            global.stage.disconnect(this._rubberBandId);
+-        this._rubberBandId = 0;
+-
+         if (this._rubberBandTouchId)
+             global.stage.disconnect(this._rubberBandTouchId);
+         this._rubberBandTouchId = 0;
+diff --git a/extensions/desktop-icons/fileItem.js b/extensions/desktop-icons/fileItem.js
+index 1cb47e8..90f326d 100644
+--- a/extensions/desktop-icons/fileItem.js
++++ b/extensions/desktop-icons/fileItem.js
+@@ -676,6 +676,7 @@ var FileItem = class {
+     }
+ 
+     _onPressButton(actor, event) {
++        Extension.desktopManager.endRubberBand();
+         this._updateClickState(event);
+         let button = this._eventButton(event);
+         if (button == 3) {
+-- 
+2.31.1
+
