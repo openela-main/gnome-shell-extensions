@@ -1,0 +1,31 @@
+From 506c6d69eaa5e056d9580a28e9c200586b0e1fb0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 2 Dec 2022 15:20:40 +0100
+Subject: [PATCH] fileItem: Just destroy menus
+
+The menu manager is smart enough to remove the menu automatically,
+and the actor will be destroyed alongside the menu. Not doing those
+actions explicitly allows the automatic handling to proceed without
+confusing the grab state.
+---
+ extensions/desktop-icons/fileItem.js | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/extensions/desktop-icons/fileItem.js b/extensions/desktop-icons/fileItem.js
+index 44a93352..f2f03440 100644
+--- a/extensions/desktop-icons/fileItem.js
++++ b/extensions/desktop-icons/fileItem.js
+@@ -575,10 +575,6 @@ var FileItem = class {
+ 
+     _removeMenu() {
+         if (this._menu != null) {
+-            if (this._menuManager != null)
+-                this._menuManager.removeMenu(this._menu);
+-
+-            Main.layoutManager.uiGroup.remove_child(this._menu.actor);
+             this._menu.destroy();
+             this._menu = null;
+         }
+-- 
+2.38.1
+

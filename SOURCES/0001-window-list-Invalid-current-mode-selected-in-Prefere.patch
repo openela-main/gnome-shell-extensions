@@ -1,0 +1,55 @@
+From b4eeaf7ea12fa7d9713e80371490d8060396b3cb Mon Sep 17 00:00:00 2001
+From: Milan Crha <mcrha@redhat.com>
+Date: Fri, 17 Apr 2020 09:21:42 +0200
+Subject: [PATCH] window-list: Invalid current mode selected in Preferences
+
+It seems that gtk+ resets the active radio whenever a new radio button
+is added into the group, thus rather restore the current mode after
+the group is fully populated.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/119
+---
+ extensions/window-list/prefs.js | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/window-list/prefs.js b/extensions/window-list/prefs.js
+index 78792b5..17e9799 100644
+--- a/extensions/window-list/prefs.js
++++ b/extensions/window-list/prefs.js
+@@ -50,6 +50,7 @@ class WindowListPrefsWidget extends Gtk.Grid {
+         };
+ 
+         let radio = null;
++        let currentRadio = null;
+         for (let i = 0; i < modes.length; i++) {
+             let mode = modes[i];
+             let label = modeLabels[mode];
+@@ -59,18 +60,24 @@ class WindowListPrefsWidget extends Gtk.Grid {
+             }
+ 
+             radio = new Gtk.RadioButton({
+-                active: currentMode == mode,
++                active: !i,
+                 label: label,
+                 group: radio
+             });
+             grid.add(radio);
+ 
++            if (currentMode === mode)
++                currentRadio = radio;
++
+             radio.connect('toggled', button => {
+                 if (button.active)
+                     this._settings.set_string('grouping-mode', mode);
+             });
+         }
+ 
++        if (currentRadio)
++            currentRadio.active = true;
++
+         let check = new Gtk.CheckButton({
+             label: _('Show on all monitors'),
+             margin_top: 6
+-- 
+2.26.2
+

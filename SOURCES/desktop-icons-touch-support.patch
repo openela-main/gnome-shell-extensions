@@ -1,0 +1,267 @@
+From bcbf9709802e7644c5911615dabdee7d8ca07719 Mon Sep 17 00:00:00 2001
+From: Carlos Garnacho <carlosg@gnome.org>
+Date: Mon, 31 May 2021 19:29:34 +0200
+Subject: [PATCH 1/3] desktopManager: Handle TOUCH_UPDATE/END events explicitly
+ for rubberband
+
+These events need specific handling for Wayland, as we do not get emulated
+pointer events in that platform. Handle these for rubberband selection.
+---
+ extensions/desktop-icons/desktopManager.js | 67 ++++++++++++++++------
+ 1 file changed, 48 insertions(+), 19 deletions(-)
+
+diff --git a/extensions/desktop-icons/desktopManager.js b/extensions/desktop-icons/desktopManager.js
+index 399aee0..a70cd98 100644
+--- a/extensions/desktop-icons/desktopManager.js
++++ b/extensions/desktop-icons/desktopManager.js
+@@ -130,26 +130,49 @@ var DesktopManager = GObject.registerClass({
+             }
+             [x, y] = event.get_coords();
+             this._updateRubberBand(x, y);
+-            let x0, y0, x1, y1;
+-            if (x >= this._rubberBandInitialX) {
+-                x0 = this._rubberBandInitialX;
+-                x1 = x;
+-            } else {
+-                x1 = this._rubberBandInitialX;
+-                x0 = x;
+-            }
+-            if (y >= this._rubberBandInitialY) {
+-                y0 = this._rubberBandInitialY;
+-                y1 = y;
+-            } else {
+-                y1 = this._rubberBandInitialY;
+-                y0 = y;
+-            }
+-            for (let [fileUri, fileItem] of this._fileItems) {
+-                fileItem.emit('selected', true, true,
+-                              fileItem.intersectsWith(x0, y0, x1 - x0, y1 - y0));
+-            }
++            this._updateSelection(x, y);
+         });
++        this._rubberBandTouchId = global.stage.connect('touch-event', (actor, event) => {
++            // Let x11 pointer emulation do the job on X11
++            if (!Meta.is_wayland_compositor())
++                return Clutter.EVENT_PROPAGATE;
++            if (!global.display.is_pointer_emulating_sequence(event.get_event_sequence()))
++                return Clutter.EVENT_PROPAGATE;
++
++            if (event.type() == Clutter.EventType.TOUCH_END) {
++                this.endRubberBand();
++                return Clutter.EVENT_STOP;
++            } else if (event.type() == Clutter.EventType.TOUCH_UPDATE) {
++                [x, y] = event.get_coords();
++                this._updateRubberBand(x, y);
++                this._updateSelection(x, y);
++                return Clutter.EVENT_STOP;
++            }
++
++            return Clutter.EVENT_PROPAGATE;
++	});
++    }
++
++    _updateSelection(x, y) {
++        let x0, y0, x1, y1;
++        if (x >= this._rubberBandInitialX) {
++            x0 = this._rubberBandInitialX;
++            x1 = x;
++        } else {
++            x1 = this._rubberBandInitialX;
++            x0 = x;
++        }
++        if (y >= this._rubberBandInitialY) {
++            y0 = this._rubberBandInitialY;
++            y1 = y;
++        } else {
++            y1 = this._rubberBandInitialY;
++            y0 = y;
++        }
++        for (let [fileUri, fileItem] of this._fileItems) {
++            fileItem.emit('selected', true, true,
++                          fileItem.intersectsWith(x0, y0, x1 - x0, y1 - y0));
++        }
+     }
+ 
+     endRubberBand() {
+@@ -157,8 +180,10 @@ var DesktopManager = GObject.registerClass({
+         Extension.lockActivitiesButton = false;
+         this._grabHelper.ungrab();
+         global.stage.disconnect(this._rubberBandId);
++        global.stage.disconnect(this._rubberBandTouchId);
+         global.stage.disconnect(this._stageReleaseEventId);
+         this._rubberBandId = 0;
++        this._rubberBandTouchId = 0;
+         this._stageReleaseEventId = 0;
+ 
+         this._selection = new Set([...this._selection, ...this._currentSelection]);
+@@ -739,6 +764,10 @@ var DesktopManager = GObject.registerClass({
+             global.stage.disconnect(this._rubberBandId);
+         this._rubberBandId = 0;
+ 
++        if (this._rubberBandTouchId)
++            global.stage.disconnect(this._rubberBandTouchId);
++        this._rubberBandTouchId = 0;
++
+         this._rubberBand.destroy();
+ 
+         if (this._queryFileInfoCancellable)
+-- 
+2.31.1
+
+
+From 0733004ffeb517f7a80ff41e7181027e8b92b17e Mon Sep 17 00:00:00 2001
+From: Carlos Garnacho <carlosg@gnome.org>
+Date: Mon, 31 May 2021 19:31:03 +0200
+Subject: [PATCH 2/3] desktopGrid: Handle TOUCH_BEGIN events explicitly
+
+We do not get pointer emulated events on Wayland, so touch events should
+be handled explicitly there. Handle starting rubberband selection via
+touch.
+---
+ extensions/desktop-icons/desktopGrid.js | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/extensions/desktop-icons/desktopGrid.js b/extensions/desktop-icons/desktopGrid.js
+index 94d2dfd..602fa7f 100644
+--- a/extensions/desktop-icons/desktopGrid.js
++++ b/extensions/desktop-icons/desktopGrid.js
+@@ -21,6 +21,7 @@ const Clutter = imports.gi.Clutter;
+ const St = imports.gi.St;
+ const Gio = imports.gi.Gio;
+ const GLib = imports.gi.GLib;
++const Meta = imports.gi.Meta;
+ const Shell = imports.gi.Shell;
+ 
+ const Signals = imports.signals;
+@@ -123,6 +124,7 @@ var DesktopGrid = class {
+             () => this._backgroundDestroyed());
+ 
+         this._grid.connect('button-press-event', (actor, event) => this._onPressButton(actor, event));
++        this._grid.connect('touch-event', (actor, event) => this._onTouchEvent(actor, event));
+ 
+         this._grid.connect('key-press-event', this._onKeyPress.bind(this));
+ 
+@@ -506,6 +508,23 @@ var DesktopGrid = class {
+         return Clutter.EVENT_PROPAGATE;
+     }
+ 
++    _onTouchEvent(actor, event) {
++        // Let x11 pointer emulation do the job on X11
++        if (!Meta.is_wayland_compositor())
++            return Clutter.EVENT_PROPAGATE;
++
++	if (event.type() == Clutter.EventType.TOUCH_BEGIN &&
++	    global.display.is_pointer_emulating_sequence(event.get_event_sequence())) {
++            Extension.desktopManager.clearSelection();
++            let [x, y] = event.get_coords();
++            let [gridX, gridY] = this._grid.get_transformed_position();
++            Extension.desktopManager.startRubberBand(x, y, gridX, gridY);
++            return Clutter.EVENT_STOP;
++        }
++
++        return Clutter.EVENT_PROPAGATE;
++    }
++
+     _addDesktopBackgroundMenu() {
+         this.actor._desktopBackgroundMenu = this._createDesktopBackgroundMenu();
+         this.actor._desktopBackgroundManager = new PopupMenu.PopupMenuManager({ actor: this.actor });
+-- 
+2.31.1
+
+
+From 2d978ffc58562c4f4d00b1afb03da58be3102e29 Mon Sep 17 00:00:00 2001
+From: Carlos Garnacho <carlosg@gnome.org>
+Date: Mon, 31 May 2021 19:31:50 +0200
+Subject: [PATCH 3/3] fileItem: Handle (multi) touch explicitly via touch
+ events
+
+Wayland does not get pointer emulated events, so we must handle TOUCH_BEGIN/
+END here for file clicking/tapping to work there.
+---
+ extensions/desktop-icons/fileItem.js | 34 ++++++++++++++++++++++++----
+ 1 file changed, 30 insertions(+), 4 deletions(-)
+
+diff --git a/extensions/desktop-icons/fileItem.js b/extensions/desktop-icons/fileItem.js
+index 143cb9b..1cb47e8 100644
+--- a/extensions/desktop-icons/fileItem.js
++++ b/extensions/desktop-icons/fileItem.js
+@@ -117,6 +117,7 @@ var FileItem = class {
+         this._container.connect('motion-event', (actor, event) => this._onMotion(actor, event));
+         this._container.connect('leave-event', (actor, event) => this._onLeave(actor, event));
+         this._container.connect('button-release-event', (actor, event) => this._onReleaseButton(actor, event));
++        this._container.connect('touch-event', (actor, event) => this._onTouchEvent(actor, event));
+ 
+         /* Set the metadata and update relevant UI */
+         this._updateMetadataFromFileInfo(fileInfo);
+@@ -648,16 +649,26 @@ var FileItem = class {
+         DesktopIconsUtil.launchTerminal(this.file.get_path());
+     }
+ 
++    _eventButton(event) {
++	// Emulate button1 press on touch events
++	if (event.type() == Clutter.EventType.TOUCH_BEGIN ||
++	    event.type() == Clutter.EventType.TOUCH_END ||
++	    event.type() == Clutter.EventType.TOUCH_UPDATE)
++	    return 1;
++
++	return event.get_button();
++    }
++
+     _updateClickState(event) {
+         let settings = Clutter.Settings.get_default();
+-        if ((event.get_button() == this._lastClickButton) &&
++        if ((this._eventButton(event) == this._lastClickButton) &&
+             ((event.get_time() - this._lastClickTime) < settings.double_click_time))
+             this._clickCount++;
+         else
+             this._clickCount = 1;
+ 
+         this._lastClickTime = event.get_time();
+-        this._lastClickButton = event.get_button();
++        this._lastClickButton = this._eventButton(event);
+     }
+ 
+     _getClickCount() {
+@@ -666,7 +677,7 @@ var FileItem = class {
+ 
+     _onPressButton(actor, event) {
+         this._updateClickState(event);
+-        let button = event.get_button();
++        let button = this._eventButton(event);
+         if (button == 3) {
+             if (!this.isSelected)
+                 this.emit('selected', false, false, true);
+@@ -725,7 +736,7 @@ var FileItem = class {
+     }
+ 
+     _onReleaseButton(actor, event) {
+-        let button = event.get_button();
++        let button = this._eventButton(event);
+         if (button == 1) {
+             // primaryButtonPressed is TRUE only if the user has pressed the button
+             // over an icon, and if (s)he has not started a drag&drop operation
+@@ -744,6 +755,21 @@ var FileItem = class {
+         return Clutter.EVENT_PROPAGATE;
+     }
+ 
++    _onTouchEvent(actor, event) {
++        // Let x11 pointer emulation do the job on X11
++        if (!Meta.is_wayland_compositor())
++            return Clutter.EVENT_PROPAGATE;
++        if (!global.display.is_pointer_emulating_sequence(event.get_event_sequence()))
++            return Clutter.EVENT_PROPAGATE;
++
++        if (event.type() == Clutter.EventType.TOUCH_BEGIN)
++            this._onPressButton(actor, event);
++        else if (event.type() == Clutter.EventType.TOUCH_UPDATE)
++            this._onMotion(actor, event);
++        else if (event.type() == Clutter.EventType.TOUCH_END)
++            this._onReleaseButton(actor, event);
++    }
++
+     get savedCoordinates() {
+         return this._savedCoordinates;
+     }
+-- 
+2.31.1
+

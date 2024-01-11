@@ -1,0 +1,33 @@
+From 0bbeadadc41128b2be1f2b56c60b5a7a671d40da Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 27 Jun 2019 03:57:53 +0200
+Subject: [PATCH] apps-menu: Add missing chain-up
+
+PanelMenu.Button is a bit weird in that it also "contains" its parent
+actor. That container is supposed to be destroyed with the button, but
+as we currently don't chain up to the parent class' _onDestroy(), we
+leave behind an empty container every time the extension is disabled.
+
+Fix this by adding the missing chain-up.
+
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/merge_requests/75
+---
+ extensions/apps-menu/extension.js | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/extensions/apps-menu/extension.js b/extensions/apps-menu/extension.js
+index b9e7111..9803cc1 100644
+--- a/extensions/apps-menu/extension.js
++++ b/extensions/apps-menu/extension.js
+@@ -433,6 +433,8 @@ class ApplicationsButton extends PanelMenu.Button {
+     }
+ 
+     _onDestroy() {
++        super._onDestroy();
++
+         Main.overview.disconnect(this._showingId);
+         Main.overview.disconnect(this._hidingId);
+         appSys.disconnect(this._installedChangedId);
+-- 
+2.21.0
+

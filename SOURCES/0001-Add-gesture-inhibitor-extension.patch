@@ -1,0 +1,186 @@
+From 2a498fef3ec02d834346b545aeacba0a6224494e Mon Sep 17 00:00:00 2001
+From: rpm-build <rpm-build>
+Date: Thu, 28 Jan 2021 00:06:12 +0100
+Subject: [PATCH] Add gesture-inhibitor extension
+
+This extension may disable default GNOME Shell gestures.
+---
+ extensions/gesture-inhibitor/extension.js     | 75 +++++++++++++++++++
+ extensions/gesture-inhibitor/meson.build      |  8 ++
+ extensions/gesture-inhibitor/metadata.json.in | 12 +++
+ ...l.extensions.gesture-inhibitor.gschema.xml | 25 +++++++
+ extensions/gesture-inhibitor/stylesheet.css   |  1 +
+ meson.build                                   |  1 +
+ 6 files changed, 122 insertions(+)
+ create mode 100644 extensions/gesture-inhibitor/extension.js
+ create mode 100644 extensions/gesture-inhibitor/meson.build
+ create mode 100644 extensions/gesture-inhibitor/metadata.json.in
+ create mode 100644 extensions/gesture-inhibitor/org.gnome.shell.extensions.gesture-inhibitor.gschema.xml
+ create mode 100644 extensions/gesture-inhibitor/stylesheet.css
+
+diff --git a/extensions/gesture-inhibitor/extension.js b/extensions/gesture-inhibitor/extension.js
+new file mode 100644
+index 00000000..e74ede2f
+--- /dev/null
++++ b/extensions/gesture-inhibitor/extension.js
+@@ -0,0 +1,75 @@
++/* extension.js
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++
++/* exported init */
++
++const Clutter = imports.gi.Clutter;
++const ExtensionUtils = imports.misc.extensionUtils;
++const Me = ExtensionUtils.getCurrentExtension();
++const ViewSelector = imports.ui.viewSelector;
++const EdgeDragAction = imports.ui.edgeDragAction;
++const WindowManager = imports.ui.windowManager;
++const St = imports.gi.St;
++const Gio = imports.gi.Gio;
++
++class Extension {
++    constructor() {
++	this._settings = ExtensionUtils.getSettings();
++	let actions = global.stage.get_actions();
++
++	actions.forEach(a => {
++	    if (a instanceof ViewSelector.ShowOverviewAction)
++		this._showOverview = a;
++	    else if (a instanceof WindowManager.AppSwitchAction)
++		this._appSwitch = a;
++	    else if (a instanceof EdgeDragAction.EdgeDragAction &&
++		     a._side == St.Side.BOTTOM)
++		this._showOsk = a;
++	    else if (a instanceof EdgeDragAction.EdgeDragAction &&
++		     a._side == St.Side.TOP)
++		this._unfullscreen = a;
++	    else if (a instanceof EdgeDragAction.EdgeDragAction)
++		this._showAppGrid = a;
++	});
++
++	this._map = [
++	    { setting: 'overview', action: this._showOverview },
++	    { setting: 'app-switch', action: this._appSwitch },
++	    { setting: 'show-osk', action: this._showOsk },
++	    { setting: 'unfullscreen', action: this._unfullscreen },
++	    { setting: 'show-app-grid', action: this._showAppGrid }
++	];
++    }
++
++    enable() {
++	this._map.forEach(m => {
++	    this._settings.bind(m.setting, m.action, 'enabled',
++				Gio.SettingsBindFlags.DEFAULT);
++	});
++    }
++
++    disable() {
++	this._map.forEach(m => {
++	    m.action.enabled = true;
++	});
++    }
++}
++
++function init() {
++    return new Extension();
++}
+diff --git a/extensions/gesture-inhibitor/meson.build b/extensions/gesture-inhibitor/meson.build
+new file mode 100644
+index 00000000..fdad5cc8
+--- /dev/null
++++ b/extensions/gesture-inhibitor/meson.build
+@@ -0,0 +1,8 @@
++extension_data += configure_file(
++  input: metadata_name + '.in',
++  output: metadata_name,
++  configuration: metadata_conf
++)
++
++# extension_sources += files('prefs.js')
++extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/gesture-inhibitor/metadata.json.in b/extensions/gesture-inhibitor/metadata.json.in
+new file mode 100644
+index 00000000..37d6a117
+--- /dev/null
++++ b/extensions/gesture-inhibitor/metadata.json.in
+@@ -0,0 +1,12 @@
++{
++ "uuid": "@uuid@",
++ "extension-id": "@extension_id@",
++ "settings-schema": "@gschemaname@",
++ "gettext-domain": "@gettext_domain@",
++ "name": "Gesture Inhibitor",
++ "description": "Makes touchscreen gestures optional.",
++ "shell-version": [ "@shell_current@" ],
++ "original-authors": [ "cgarnach@redhat.com" ],
++ "url": "@url@"
++}
++
+diff --git a/extensions/gesture-inhibitor/org.gnome.shell.extensions.gesture-inhibitor.gschema.xml b/extensions/gesture-inhibitor/org.gnome.shell.extensions.gesture-inhibitor.gschema.xml
+new file mode 100644
+index 00000000..1d67dcc0
+--- /dev/null
++++ b/extensions/gesture-inhibitor/org.gnome.shell.extensions.gesture-inhibitor.gschema.xml
+@@ -0,0 +1,25 @@
++<schemalist>
++  <schema id="org.gnome.shell.extensions.gesture-inhibitor" path="/org/gnome/shell/extensions/gesture-inhibitor/">
++    <key name="show-app-grid" type="b">
++      <default>true</default>
++      <summary>Show app grid gesture</summary>
++    </key>
++    <key name="show-osk" type="b">
++      <default>true</default>
++      <summary>Show OSK gesture</summary>
++    </key>
++    <key name="overview" type="b">
++      <default>true</default>
++      <summary>Show Overview gesture</summary>
++    </key>
++    <key name="app-switch" type="b">
++      <default>true</default>
++      <summary>Application switch gesture</summary>
++    </key>
++    <key name="unfullscreen" type="b">
++      <default>true</default>
++      <summary>Unfullscreen gesture</summary>
++    </key>
++  </schema>
++</schemalist>
++
+diff --git a/extensions/gesture-inhibitor/stylesheet.css b/extensions/gesture-inhibitor/stylesheet.css
+new file mode 100644
+index 00000000..37b93f21
+--- /dev/null
++++ b/extensions/gesture-inhibitor/stylesheet.css
+@@ -0,0 +1 @@
++/* Add your custom extension styling here */
+diff --git a/meson.build b/meson.build
+index e163b84d..ba84f8f3 100644
+--- a/meson.build
++++ b/meson.build
+@@ -55,6 +55,7 @@ all_extensions += [
+   'dash-to-dock',
+   'dash-to-panel',
+   'disable-screenshield',
++  'gesture-inhibitor',
+   'native-window-placement',
+   'no-hot-corner',
+   'panel-favorites',
+-- 
+2.32.0
+

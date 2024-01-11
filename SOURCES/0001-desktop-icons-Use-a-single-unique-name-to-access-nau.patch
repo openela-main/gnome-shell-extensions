@@ -1,0 +1,28 @@
+From 81b5163b43b7d45ca8bc9205476ef67789e283a4 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Mon, 29 Nov 2021 16:48:53 +0100
+Subject: [PATCH] desktop-icons: Use a single unique name to access nautilus
+
+... otherwise dbus-daemon will assume that activating one of the
+services failed, because its executable exits early (after activating
+the primary instance).
+---
+ extensions/desktop-icons/dbusUtils.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/extensions/desktop-icons/dbusUtils.js b/extensions/desktop-icons/dbusUtils.js
+index 19fe9878..b44ffa59 100644
+--- a/extensions/desktop-icons/dbusUtils.js
++++ b/extensions/desktop-icons/dbusUtils.js
+@@ -64,7 +64,7 @@ function init() {
+ 
+     FreeDesktopFileManagerProxy = new FreeDesktopFileManagerProxyInterface(
+         Gio.DBus.session,
+-        'org.freedesktop.FileManager1',
++        'org.gnome.Nautilus',
+         '/org/freedesktop/FileManager1',
+         (proxy, error) => {
+             if (error) {
+-- 
+2.33.1
+
