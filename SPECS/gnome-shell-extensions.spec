@@ -7,7 +7,7 @@
 
 Name:           gnome-shell-extensions
 Version:        40.7
-Release:        7%{?dist}.1
+Release:        8%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 License:        GPLv2+
@@ -428,9 +428,9 @@ workspaces.
 
 
 %changelog
-* Thu Aug 17 2023 Florian Müllner <fmuellner@redhat.com> - 40.7-7.1
+* Thu Aug 17 2023 Florian Müllner <fmuellner@redhat.com> - 40.7-8
 - Rebuild for custom context menu
-  Resolves: #2232331
+  Resolves: #2232332
 
 * Wed Feb 15 2023 Florian Müllner <fmuellner@redhat.com> - 40.7-7
 - Fix crash on `dconf update`
