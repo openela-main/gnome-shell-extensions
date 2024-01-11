@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        34%{?dist}
+Release:        35%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -569,9 +569,9 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %changelog
-* Wed Aug 16 2023 Florian Müllner <fmuellner@redhat.com> - 3.32.1-34
+* Wed Aug 16 2023 Florian Müllner <fmuellner@redhat.com> - 3.32.1-35
 - Rebuild for custom context menu
-  Resolves: #2232335
+  Resolves: #2232333
 
 * Tue Jan 17 2023 Florian Müllner <fmuellner@redhat.com> - 3.32.1-33
 - Avoid blocking IO in desktop-icons
