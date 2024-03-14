@@ -7,7 +7,7 @@
 
 Name:           gnome-shell-extensions
 Version:        40.7
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 License:        GPLv2+
@@ -40,6 +40,7 @@ Patch017: 0001-desktopManager-Hook-into-LayoutManager-to-create-gri.patch
 Patch018: 0001-gesture-inhibitor-Allow-inhibiting-workspace-switch-.patch
 Patch019: 0001-desktop-icons-Don-t-use-blocking-IO.patch
 Patch020: 0001-window-list-Explicitly-dispose-settings-on-destroy.patch
+Patch022: 0001-docking-Only-remove-spacer-if-necessary.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -428,6 +429,10 @@ workspaces.
 
 
 %changelog
+* Wed Jan 17 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-9
+- Handle missing main dock when restoring dash
+  Resolves: RHEL-21873
+
 * Thu Aug 17 2023 Florian Müllner <fmuellner@redhat.com> - 40.7-8
 - Rebuild for custom context menu
   Resolves: #2232332
