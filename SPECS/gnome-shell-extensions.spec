@@ -7,7 +7,7 @@
 
 Name:           gnome-shell-extensions
 Version:        40.7
-Release:        9%{?dist}
+Release:        12%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 License:        GPLv2+
@@ -40,7 +40,9 @@ Patch017: 0001-desktopManager-Hook-into-LayoutManager-to-create-gri.patch
 Patch018: 0001-gesture-inhibitor-Allow-inhibiting-workspace-switch-.patch
 Patch019: 0001-desktop-icons-Don-t-use-blocking-IO.patch
 Patch020: 0001-window-list-Explicitly-dispose-settings-on-destroy.patch
+Patch021: 0001-desktop-icons-Don-t-try-spawn-with-non-existent-work.patch
 Patch022: 0001-docking-Only-remove-spacer-if-necessary.patch
+Patch023: 0001-classification-banner-Hide-from-picks.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -52,6 +54,7 @@ Enabled extensions:
   * classification-banner
   * custom-menu
   * dash-to-dock
+  * dash-to-panel
   * desktop-icons
   * drive-menu
   * gesture-inhibitor
@@ -145,6 +148,15 @@ Requires:       %{pkg_prefix}-common = %{version}-%{release}
 
 %description -n %{pkg_prefix}-dash-to-dock
 This GNOME Shell extension makes the dash available outside the activities overview.
+
+
+%package -n %{pkg_prefix}-dash-to-panel
+Summary:        Show the dash in the top bar
+License:        GPLv2+
+Requires:       %{pkg_prefix}-common = %{version}-%{release}
+
+%description -n %{pkg_prefix}-dash-to-panel
+This GNOME Shell extension makes the dash available in the top bar
 
 
 %package -n %{pkg_prefix}-desktop-icons
@@ -356,6 +368,11 @@ workspaces.
 %{_datadir}/gnome-shell/extensions/dash-to-dock*/
 
 
+%files -n %{pkg_prefix}-dash-to-panel
+%{_datadir}/glib-2.0/schemas/org.gnome.shell.extensions.dash-to-panel.gschema.xml
+%{_datadir}/gnome-shell/extensions/dash-to-panel*/
+
+
 %files -n %{pkg_prefix}-desktop-icons
 %{_datadir}/glib-2.0/schemas/org.gnome.shell.extensions.desktop-icons.gschema.xml
 %{_datadir}/gnome-shell/extensions/desktop-icons*/
@@ -429,9 +446,21 @@ workspaces.
 
 
 %changelog
-* Wed Jan 17 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-9
+* Fri Feb 02 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-12
+- Hide classification banners from picks
+  Resolves: RHEL-22789
+
+* Thu Dec 14 2023 Florian Müllner <fmuellner@redhat.com> - 40.7-11
 - Handle missing main dock when restoring dash
-  Resolves: RHEL-21873
+  Resolves: RHEL-16723
+
+* Tue Nov 07 2023 Florian Müllner <fmuellner@redhat.com> - 40.7-10
+- Include dash-to-panel extension
+  Resolves: RHEL-14935
+
+* Thu Nov 02 2023 Florian Müllner <fmuellner@redhat.com> - 40.7-9
+- Fix spawning terminal without desktop directory
+  Resolves: RHEL-15366
 
 * Thu Aug 17 2023 Florian Müllner <fmuellner@redhat.com> - 40.7-8
 - Rebuild for custom context menu

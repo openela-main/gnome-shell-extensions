@@ -1,4 +1,4 @@
-From 2e00e631c7def6d58bdb1eb0fa3254ae82a37574 Mon Sep 17 00:00:00 2001
+From c5e26a4c25754dc74e5f2aa9953bc2e30cfea94e Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 17 May 2017 19:13:50 +0200
 Subject: [PATCH 1/6] extensions: Resurrect systemMonitor extension
@@ -26,7 +26,7 @@ This reverts commit c9a6421f362cd156cf731289eadc11f44f6970ac.
 
 diff --git a/extensions/systemMonitor/extension.js b/extensions/systemMonitor/extension.js
 new file mode 100644
-index 0000000..7b09df0
+index 00000000..7b09df01
 --- /dev/null
 +++ b/extensions/systemMonitor/extension.js
 @@ -0,0 +1,376 @@
@@ -408,7 +408,7 @@ index 0000000..7b09df0
 +}
 diff --git a/extensions/systemMonitor/meson.build b/extensions/systemMonitor/meson.build
 new file mode 100644
-index 0000000..48504f6
+index 00000000..48504f63
 --- /dev/null
 +++ b/extensions/systemMonitor/meson.build
 @@ -0,0 +1,5 @@
@@ -419,7 +419,7 @@ index 0000000..48504f6
 +)
 diff --git a/extensions/systemMonitor/metadata.json.in b/extensions/systemMonitor/metadata.json.in
 new file mode 100644
-index 0000000..fa75007
+index 00000000..fa750074
 --- /dev/null
 +++ b/extensions/systemMonitor/metadata.json.in
 @@ -0,0 +1,11 @@
@@ -436,7 +436,7 @@ index 0000000..fa75007
 +}
 diff --git a/extensions/systemMonitor/stylesheet.css b/extensions/systemMonitor/stylesheet.css
 new file mode 100644
-index 0000000..13f95ec
+index 00000000..13f95ec7
 --- /dev/null
 +++ b/extensions/systemMonitor/stylesheet.css
 @@ -0,0 +1,35 @@
@@ -476,11 +476,11 @@ index 0000000..13f95ec
 +    font-weight: bold;
 +}
 diff --git a/meson.build b/meson.build
-index 6a2fdf0..afc0133 100644
+index fa9e622a..70dbf007 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -48,6 +48,7 @@ all_extensions += [
-   'dash-to-dock',
+@@ -51,6 +51,7 @@ all_extensions += [
+   'dash-to-panel',
    'native-window-placement',
    'panel-favorites',
 +  'systemMonitor',
@@ -488,10 +488,10 @@ index 6a2fdf0..afc0133 100644
    'updates-dialog',
    'user-theme'
 -- 
-2.32.0
+2.41.0
 
 
-From 59927edac1f40239d7926f0285249c933ea42caf Mon Sep 17 00:00:00 2001
+From efe89316c5ae1721306defcdbb80227fe61414c4 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 17 May 2019 22:55:48 +0000
 Subject: [PATCH 2/6] systemMonitor: Modernise code
@@ -507,7 +507,7 @@ Subject: [PATCH 2/6] systemMonitor: Modernise code
  1 file changed, 212 insertions(+), 210 deletions(-)
 
 diff --git a/extensions/systemMonitor/extension.js b/extensions/systemMonitor/extension.js
-index 7b09df0..f7c6a4a 100644
+index 7b09df01..f7c6a4a9 100644
 --- a/extensions/systemMonitor/extension.js
 +++ b/extensions/systemMonitor/extension.js
 @@ -1,56 +1,57 @@
@@ -1081,10 +1081,10 @@ index 7b09df0..f7c6a4a 100644
  function init() {
      return new Extension();
 -- 
-2.32.0
+2.41.0
 
 
-From 71e275ba45b09c5f8c6ca5445a459196dc65474b Mon Sep 17 00:00:00 2001
+From fe1916c1b29ab64c73179ab4c86e106ff69f977d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 26 May 2021 19:50:37 +0200
 Subject: [PATCH 3/6] systemMonitor: Make label property private
@@ -1096,7 +1096,7 @@ clash when we subclass St.Button.
  1 file changed, 18 insertions(+), 17 deletions(-)
 
 diff --git a/extensions/systemMonitor/extension.js b/extensions/systemMonitor/extension.js
-index f7c6a4a..bde25a1 100644
+index f7c6a4a9..bde25a1d 100644
 --- a/extensions/systemMonitor/extension.js
 +++ b/extensions/systemMonitor/extension.js
 @@ -19,6 +19,7 @@ const ITEM_HOVER_TIMEOUT = 300;
@@ -1187,10 +1187,10 @@ index f7c6a4a..bde25a1 100644
  
      _initValues() {
 -- 
-2.32.0
+2.41.0
 
 
-From b310c3a5b532a18af38390021daa332961e404ef Mon Sep 17 00:00:00 2001
+From b8457707c2b05b88d443587b729e1893cf8b8d3d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 17 May 2017 19:31:58 +0200
 Subject: [PATCH 4/6] systemMonitor: Move indicators to calendar
@@ -1206,7 +1206,7 @@ it up quickly).
  2 files changed, 50 insertions(+), 70 deletions(-)
 
 diff --git a/extensions/systemMonitor/extension.js b/extensions/systemMonitor/extension.js
-index bde25a1..1fd01ab 100644
+index bde25a1d..1fd01ab4 100644
 --- a/extensions/systemMonitor/extension.js
 +++ b/extensions/systemMonitor/extension.js
 @@ -2,10 +2,11 @@
@@ -1418,7 +1418,7 @@ index bde25a1..1fd01ab 100644
                  return;
  
 diff --git a/extensions/systemMonitor/stylesheet.css b/extensions/systemMonitor/stylesheet.css
-index 13f95ec..978ac12 100644
+index 13f95ec7..978ac12a 100644
 --- a/extensions/systemMonitor/stylesheet.css
 +++ b/extensions/systemMonitor/stylesheet.css
 @@ -1,17 +1,4 @@
@@ -1448,10 +1448,10 @@ index 13f95ec..978ac12 100644
  
  .extension-systemMonitor-indicator-label {
 -- 
-2.32.0
+2.41.0
 
 
-From 432f525336a5da1a545546ab40f882f44ac42bb7 Mon Sep 17 00:00:00 2001
+From bc05d47dbd45f761b14d90f60fd16259486bcb53 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 18 May 2017 16:20:07 +0200
 Subject: [PATCH 5/6] systemMonitor: Handle clicks on section title
@@ -1467,7 +1467,7 @@ Fixes: https://gitlab.gnome.org/GNOME/gnome-shell-extensions3
  1 file changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/extensions/systemMonitor/extension.js b/extensions/systemMonitor/extension.js
-index 1fd01ab..57bdb51 100644
+index 1fd01ab4..57bdb51f 100644
 --- a/extensions/systemMonitor/extension.js
 +++ b/extensions/systemMonitor/extension.js
 @@ -300,6 +300,22 @@ class MemoryIndicator extends Indicator {
@@ -1503,10 +1503,10 @@ index 1fd01ab..57bdb51 100644
          for (let i = 0; i < INDICATORS.length; i++) {
              let indicator = new INDICATORS[i]();
 -- 
-2.32.0
+2.41.0
 
 
-From 657155f8f37a8d0ddf7c39dbff954d87202c681e Mon Sep 17 00:00:00 2001
+From 597086c27823a7eb0b2124bfbe2c0572bbd1783d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 18 May 2017 18:00:17 +0200
 Subject: [PATCH 6/6] systemMonitor: Provide classic styling
@@ -1524,7 +1524,7 @@ Fixes: #4
 
 diff --git a/extensions/systemMonitor/classic.css b/extensions/systemMonitor/classic.css
 new file mode 100644
-index 0000000..946863d
+index 00000000..946863dc
 --- /dev/null
 +++ b/extensions/systemMonitor/classic.css
 @@ -0,0 +1,6 @@
@@ -1535,7 +1535,7 @@ index 0000000..946863d
 +    border: 1px solid #a1a1a1;
 +}
 diff --git a/extensions/systemMonitor/meson.build b/extensions/systemMonitor/meson.build
-index 48504f6..b6548b1 100644
+index 48504f63..b6548b14 100644
 --- a/extensions/systemMonitor/meson.build
 +++ b/extensions/systemMonitor/meson.build
 @@ -3,3 +3,7 @@ extension_data += configure_file(
@@ -1547,5 +1547,5 @@ index 48504f6..b6548b1 100644
 +  extension_data += files('classic.css')
 +endif
 -- 
-2.32.0
+2.41.0
 

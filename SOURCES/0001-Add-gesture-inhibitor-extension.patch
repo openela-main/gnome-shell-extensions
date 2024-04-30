@@ -1,4 +1,4 @@
-From 38c4fc02dea622f198b078eb4003c777d982119c Mon Sep 17 00:00:00 2001
+From cca3ca69a5b5a5551a9130ab4b9ea6909666108a Mon Sep 17 00:00:00 2001
 From: rpm-build <rpm-build>
 Date: Thu, 28 Jan 2021 00:06:12 +0100
 Subject: [PATCH 1/5] Add gesture-inhibitor extension
@@ -170,22 +170,22 @@ index 00000000..37b93f21
 @@ -0,0 +1 @@
 +/* Add your custom extension styling here */
 diff --git a/meson.build b/meson.build
-index 3600e824..b3812b8d 100644
+index ec600041..615dc5b0 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -49,6 +49,7 @@ all_extensions += [
-   'classification-banner',
+@@ -50,6 +50,7 @@ all_extensions += [
    'custom-menu',
    'dash-to-dock',
+   'dash-to-panel',
 +  'gesture-inhibitor',
    'native-window-placement',
    'panel-favorites',
    'systemMonitor',
 -- 
-2.38.1
+2.41.0
 
 
-From aff83154aa639e33e5ba925b5ddcc824a9beaf6e Mon Sep 17 00:00:00 2001
+From 45e88e7b5bb9537c44384a23af7d00f023d55793 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 20 Oct 2021 19:48:46 +0200
 Subject: [PATCH 2/5] gesture-inhibitor: Fix up indentation
@@ -273,10 +273,10 @@ index e74ede2f..734d61cc 100644
  }
  
 -- 
-2.38.1
+2.41.0
 
 
-From 5c8b087e99f79cc6bd83b5e7ad0775f8510e1a5d Mon Sep 17 00:00:00 2001
+From fe0dd05f0c8c5cfeb5edbc6b9bb73417d42f6ee8 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 20 Oct 2021 19:47:05 +0200
 Subject: [PATCH 3/5] gesture-inhibitor: Adjust for GNOME 40 changes
@@ -344,10 +344,10 @@ index 1d67dcc0..4bdf9260 100644
        <default>true</default>
        <summary>Show OSK gesture</summary>
 -- 
-2.38.1
+2.41.0
 
 
-From 7f8031a97046a18ebb39972150376b9f1cf9a70b Mon Sep 17 00:00:00 2001
+From 952fa19311faecf50b02ab0f8807c2bc890848be Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 18 Nov 2021 15:54:23 +0100
 Subject: [PATCH 4/5] gesture-inhibitor: Unbind setting on disable
@@ -374,10 +374,10 @@ index 13586108..02b34ec4 100644
  }
  
 -- 
-2.38.1
+2.41.0
 
 
-From 15b4dde292cd1dd33c881289e6182d7261bee544 Mon Sep 17 00:00:00 2001
+From ef7a6cb1eac7b3d6d4d047174502d88f4e78959e Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 18 Nov 2021 16:06:09 +0100
 Subject: [PATCH 5/5] gesture-inhibitor: Override :enabled property
@@ -434,5 +434,5 @@ index 02b34ec4..fb8a6dc0 100644
          });
      }
 -- 
-2.38.1
+2.41.0
 
