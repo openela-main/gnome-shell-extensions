@@ -1,0 +1,70 @@
+From 34d8854677513b016a08a04cdd9973b165146215 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 19 Mar 2024 13:16:50 +0100
+Subject: [PATCH 1/2] window-list: Use more appropriate fallback icon
+
+'icon-missing' is not an actual icon name. It somewhat works
+because an invalid icon name will fallback to the correct
+'image-missing', however for apps the generic app icon is
+a better fallback.
+---
+ extensions/window-list/extension.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 91ee3e6b..1f112548 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -188,7 +188,7 @@ class WindowTitle extends St.BoxLayout {
+             this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
+         } else {
+             this._icon.child = new St.Icon({
+-                icon_name: 'icon-missing',
++                icon_name: 'application-x-executable',
+                 icon_size: ICON_TEXTURE_SIZE,
+             });
+         }
+-- 
+2.44.0
+
+
+From 032cfb3593651c8344a59828a9c674f148329889 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 19 Mar 2024 14:07:12 +0100
+Subject: [PATCH 2/2] window-list: Override with window icon if available
+
+---
+ extensions/window-list/extension.js | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 1f112548..0c28692d 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -192,6 +192,23 @@ class WindowTitle extends St.BoxLayout {
+                 icon_size: ICON_TEXTURE_SIZE,
+             });
+         }
++
++        // Override with window icon if available
++        if (this._hasWindowIcon()) {
++            const textureCache = St.TextureCache.get_default();
++            this._icon.child.gicon = textureCache.bind_cairo_surface_property(
++                this._metaWindow, 'icon');
++        }
++    }
++
++    _hasWindowIcon() {
++        // HACK: GI cannot handle CairoSurface, so this
++        // will throw if the icon property is null
++        try {
++            return this._metaWindow.icon !== null;
++        } catch (e) {
++            return true;
++        }
+     }
+ 
+     _onDestroy() {
+-- 
+2.44.0
+

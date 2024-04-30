@@ -7,7 +7,7 @@
 
 Name:           gnome-shell-extensions
 Version:        40.7
-Release:        12%{?dist}
+Release:        15%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 License:        GPLv2+
@@ -43,6 +43,8 @@ Patch020: 0001-window-list-Explicitly-dispose-settings-on-destroy.patch
 Patch021: 0001-desktop-icons-Don-t-try-spawn-with-non-existent-work.patch
 Patch022: 0001-docking-Only-remove-spacer-if-necessary.patch
 Patch023: 0001-classification-banner-Hide-from-picks.patch
+Patch024: prefer-window-icon.patch
+Patch025: more-ws-previews.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -443,9 +445,22 @@ workspaces.
 
 %files -n %{pkg_prefix}-workspace-indicator
 %{_datadir}/gnome-shell/extensions/workspace-indicator*/
+%{_datadir}/glib-2.0/schemas/org.gnome.shell.extensions.workspace-indicator.gschema.xml
 
 
 %changelog
+* Fri Apr 19 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-15
+- Fix downstream stylesheets
+  Resolves: RHEL-31885
+
+* Thu Apr 18 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-14
+- Improve workspace previews
+  Resolves: RHEL-31885
+
+* Tue Mar 19 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-13
+- Prefer window icons in window list
+  Resolves: RHEL-29659
+
 * Fri Feb 02 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-12
 - Hide classification banners from picks
   Resolves: RHEL-22789

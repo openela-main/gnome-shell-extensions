@@ -1,0 +1,4002 @@
+From c4fafbcf01fc3c3846e5fe7d60d9aac623afdd9f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 18 Apr 2024 18:09:40 +0200
+Subject: [PATCH 01/29] prefs: Fix loading custom CSS
+
+GTK changed the annotation of `gtk_css_provider_load_from_data()`,
+and as a result the `length` parameter is no longer interpreted
+as an implicit array length, but has to be specified explicitly.
+---
+ extensions/auto-move-windows/prefs.js     | 2 +-
+ extensions/classification-banner/prefs.js | 2 +-
+ extensions/heads-up-display/prefs.js      | 2 +-
+ extensions/window-list/prefs.js           | 2 +-
+ extensions/workspace-indicator/prefs.js   | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/extensions/auto-move-windows/prefs.js b/extensions/auto-move-windows/prefs.js
+index 2c529067..db09c28b 100644
+--- a/extensions/auto-move-windows/prefs.js
++++ b/extensions/auto-move-windows/prefs.js
+@@ -48,7 +48,7 @@ class AutoMoveSettingsWidget extends Gtk.ScrolledWindow {
+         const context = this._list.get_style_context();
+         const cssProvider = new Gtk.CssProvider();
+         cssProvider.load_from_data(
+-            'list { min-width: 30em; }');
++            'list { min-width: 30em; }', -1);
+ 
+         context.add_provider(cssProvider,
+             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+diff --git a/extensions/classification-banner/prefs.js b/extensions/classification-banner/prefs.js
+index a5dd8af1..0a91a5da 100644
+--- a/extensions/classification-banner/prefs.js
++++ b/extensions/classification-banner/prefs.js
+@@ -137,7 +137,7 @@ class AppearancePrefs extends Adw.PreferencesGroup {
+                 padding: 6px;
+                 color: ${item.color};
+                 background-color: ${item.background_color};
+-            }`);
++            }`, -1);
+             child.get_style_context().add_provider(provider,
+                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+             child.label = item.message;
+diff --git a/extensions/heads-up-display/prefs.js b/extensions/heads-up-display/prefs.js
+index a7106e07..9262c11a 100644
+--- a/extensions/heads-up-display/prefs.js
++++ b/extensions/heads-up-display/prefs.js
+@@ -55,7 +55,7 @@ var settings;
+ function init() {
+     settings = ExtensionUtils.getSettings("org.gnome.shell.extensions.heads-up-display");
+     const cssProvider = new Gtk.CssProvider();
+-    cssProvider.load_from_data(cssData);
++    cssProvider.load_from_data(cssData, -1);
+ 
+     const display = Gdk.Display.get_default();
+     Gtk.StyleContext.add_provider_for_display(display, cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+diff --git a/extensions/window-list/prefs.js b/extensions/window-list/prefs.js
+index aec8cc9d..e35990ff 100644
+--- a/extensions/window-list/prefs.js
++++ b/extensions/window-list/prefs.js
+@@ -43,7 +43,7 @@ class WindowListPrefsWidget extends Gtk.Box {
+         const context = box.get_style_context();
+         const cssProvider = new Gtk.CssProvider();
+         cssProvider.load_from_data(
+-            'box { padding: 12px; }');
++            'box { padding: 12px; }', -1);
+ 
+         context.add_provider(cssProvider,
+             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+diff --git a/extensions/workspace-indicator/prefs.js b/extensions/workspace-indicator/prefs.js
+index 567f3e99..d307dcac 100644
+--- a/extensions/workspace-indicator/prefs.js
++++ b/extensions/workspace-indicator/prefs.js
+@@ -48,7 +48,7 @@ class WorkspaceSettingsWidget extends Gtk.ScrolledWindow {
+         const context = this._list.get_style_context();
+         const cssProvider = new Gtk.CssProvider();
+         cssProvider.load_from_data(
+-            'list { min-width: 25em; }');
++            'list { min-width: 25em; }', -1);
+ 
+         context.add_provider(cssProvider,
+             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+-- 
+2.44.0
+
+
+From a6e988875f52a49289677ca4d883a98b5515033f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 23 Mar 2022 19:59:14 +0100
+Subject: [PATCH 02/29] build: Remove unused stylesheets
+
+The only reason for installing empty stylesheets is minimizing
+build system differences between extensions. That's not a very
+good reason and we don't do this for other optional files like
+schemas.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/223>
+---
+ extensions/apps-menu/meson.build                  | 1 +
+ extensions/auto-move-windows/stylesheet.css       | 1 -
+ extensions/classification-banner/meson.build      | 1 +
+ extensions/custom-menu/stylesheet.css             | 1 -
+ extensions/dash-to-dock/meson.build               | 1 +
+ extensions/dash-to-panel/meson.build              | 1 +
+ extensions/desktop-icons/meson.build              | 1 +
+ extensions/drive-menu/meson.build                 | 1 +
+ extensions/gesture-inhibitor/stylesheet.css       | 1 -
+ extensions/heads-up-display/meson.build           | 1 +
+ extensions/launch-new-instance/stylesheet.css     | 1 -
+ extensions/meson.build                            | 2 +-
+ extensions/meson.build.template                   | 1 +
+ extensions/native-window-placement/stylesheet.css | 1 -
+ extensions/panel-favorites/meson.build            | 1 +
+ extensions/places-menu/meson.build                | 1 +
+ extensions/screenshot-window-sizer/meson.build    | 1 +
+ extensions/systemMonitor/meson.build              | 1 +
+ extensions/top-icons/stylesheet.css               | 1 -
+ extensions/updates-dialog/stylesheet.css          | 1 -
+ extensions/user-theme/stylesheet.css              | 1 -
+ extensions/window-list/meson.build                | 1 +
+ extensions/windowsNavigator/meson.build           | 1 +
+ extensions/workspace-indicator/meson.build        | 1 +
+ 24 files changed, 16 insertions(+), 9 deletions(-)
+ delete mode 100644 extensions/auto-move-windows/stylesheet.css
+ delete mode 100644 extensions/custom-menu/stylesheet.css
+ delete mode 100644 extensions/gesture-inhibitor/stylesheet.css
+ delete mode 100644 extensions/launch-new-instance/stylesheet.css
+ delete mode 100644 extensions/native-window-placement/stylesheet.css
+ delete mode 100644 extensions/top-icons/stylesheet.css
+ delete mode 100644 extensions/updates-dialog/stylesheet.css
+ delete mode 100644 extensions/user-theme/stylesheet.css
+
+diff --git a/extensions/apps-menu/meson.build b/extensions/apps-menu/meson.build
+index 48504f63..6b9bb19c 100644
+--- a/extensions/apps-menu/meson.build
++++ b/extensions/apps-menu/meson.build
+@@ -3,3 +3,4 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+diff --git a/extensions/auto-move-windows/stylesheet.css b/extensions/auto-move-windows/stylesheet.css
+deleted file mode 100644
+index 25134b65..00000000
+--- a/extensions/auto-move-windows/stylesheet.css
++++ /dev/null
+@@ -1 +0,0 @@
+-/* This extensions requires no special styling */
+diff --git a/extensions/classification-banner/meson.build b/extensions/classification-banner/meson.build
+index b027381d..20406845 100644
+--- a/extensions/classification-banner/meson.build
++++ b/extensions/classification-banner/meson.build
+@@ -3,6 +3,7 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+ 
+ extension_sources += files('adwShim.js', 'prefs.js')
+ extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/custom-menu/stylesheet.css b/extensions/custom-menu/stylesheet.css
+deleted file mode 100644
+index 25134b65..00000000
+--- a/extensions/custom-menu/stylesheet.css
++++ /dev/null
+@@ -1 +0,0 @@
+-/* This extensions requires no special styling */
+diff --git a/extensions/dash-to-dock/meson.build b/extensions/dash-to-dock/meson.build
+index 35ba2ecf..5f2ebe7e 100644
+--- a/extensions/dash-to-dock/meson.build
++++ b/extensions/dash-to-dock/meson.build
+@@ -3,6 +3,7 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+ 
+ extension_sources += files(
+   'appIconIndicators.js',
+diff --git a/extensions/dash-to-panel/meson.build b/extensions/dash-to-panel/meson.build
+index 70680479..0cae5eef 100644
+--- a/extensions/dash-to-panel/meson.build
++++ b/extensions/dash-to-panel/meson.build
+@@ -3,6 +3,7 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+ 
+ extension_sources += files(
+   'appIcons.js',
+diff --git a/extensions/desktop-icons/meson.build b/extensions/desktop-icons/meson.build
+index 8e691426..3961141c 100644
+--- a/extensions/desktop-icons/meson.build
++++ b/extensions/desktop-icons/meson.build
+@@ -3,6 +3,7 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+ 
+ extension_schemas += files(join_paths('schemas', metadata_conf.get('gschemaname') + '.gschema.xml'))
+ 
+diff --git a/extensions/drive-menu/meson.build b/extensions/drive-menu/meson.build
+index 48504f63..6b9bb19c 100644
+--- a/extensions/drive-menu/meson.build
++++ b/extensions/drive-menu/meson.build
+@@ -3,3 +3,4 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+diff --git a/extensions/gesture-inhibitor/stylesheet.css b/extensions/gesture-inhibitor/stylesheet.css
+deleted file mode 100644
+index 37b93f21..00000000
+--- a/extensions/gesture-inhibitor/stylesheet.css
++++ /dev/null
+@@ -1 +0,0 @@
+-/* Add your custom extension styling here */
+diff --git a/extensions/heads-up-display/meson.build b/extensions/heads-up-display/meson.build
+index 40c3de0a..678fd325 100644
+--- a/extensions/heads-up-display/meson.build
++++ b/extensions/heads-up-display/meson.build
+@@ -3,6 +3,7 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+ 
+ extension_sources += files('headsUpMessage.js', 'prefs.js')
+ extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/launch-new-instance/stylesheet.css b/extensions/launch-new-instance/stylesheet.css
+deleted file mode 100644
+index 25134b65..00000000
+--- a/extensions/launch-new-instance/stylesheet.css
++++ /dev/null
+@@ -1 +0,0 @@
+-/* This extensions requires no special styling */
+diff --git a/extensions/meson.build b/extensions/meson.build
+index ca00d01a..6f60b08d 100644
+--- a/extensions/meson.build
++++ b/extensions/meson.build
+@@ -15,7 +15,7 @@ foreach e : enabled_extensions
+   metadata_conf.set('url', 'https://gitlab.gnome.org/GNOME/gnome-shell-extensions')
+ 
+   extension_sources = files(e + '/extension.js')
+-  extension_data = files(e + '/stylesheet.css')
++  extension_data = []
+ 
+   subdir(e)
+ 
+diff --git a/extensions/meson.build.template b/extensions/meson.build.template
+index e83e528b..a9915994 100644
+--- a/extensions/meson.build.template
++++ b/extensions/meson.build.template
+@@ -4,5 +4,6 @@ extension_data += configure_file(
+   configuration: metadata_conf
+ )
+ 
++# extension_data += files('stylesheet.css')
+ # extension_sources += files('prefs.js')
+ # extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/native-window-placement/stylesheet.css b/extensions/native-window-placement/stylesheet.css
+deleted file mode 100644
+index 25134b65..00000000
+--- a/extensions/native-window-placement/stylesheet.css
++++ /dev/null
+@@ -1 +0,0 @@
+-/* This extensions requires no special styling */
+diff --git a/extensions/panel-favorites/meson.build b/extensions/panel-favorites/meson.build
+index 48504f63..6b9bb19c 100644
+--- a/extensions/panel-favorites/meson.build
++++ b/extensions/panel-favorites/meson.build
+@@ -3,3 +3,4 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+diff --git a/extensions/places-menu/meson.build b/extensions/places-menu/meson.build
+index d9a59691..cbc2a02b 100644
+--- a/extensions/places-menu/meson.build
++++ b/extensions/places-menu/meson.build
+@@ -3,5 +3,6 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+ 
+ extension_sources += files('placeDisplay.js')
+diff --git a/extensions/screenshot-window-sizer/meson.build b/extensions/screenshot-window-sizer/meson.build
+index 585c02da..8257dee0 100644
+--- a/extensions/screenshot-window-sizer/meson.build
++++ b/extensions/screenshot-window-sizer/meson.build
+@@ -3,5 +3,6 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+ 
+ extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/systemMonitor/meson.build b/extensions/systemMonitor/meson.build
+index b6548b14..bd3a8484 100644
+--- a/extensions/systemMonitor/meson.build
++++ b/extensions/systemMonitor/meson.build
+@@ -3,6 +3,7 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+ 
+ if classic_mode_enabled
+   extension_data += files('classic.css')
+diff --git a/extensions/top-icons/stylesheet.css b/extensions/top-icons/stylesheet.css
+deleted file mode 100644
+index 25134b65..00000000
+--- a/extensions/top-icons/stylesheet.css
++++ /dev/null
+@@ -1 +0,0 @@
+-/* This extensions requires no special styling */
+diff --git a/extensions/updates-dialog/stylesheet.css b/extensions/updates-dialog/stylesheet.css
+deleted file mode 100644
+index 25134b65..00000000
+--- a/extensions/updates-dialog/stylesheet.css
++++ /dev/null
+@@ -1 +0,0 @@
+-/* This extensions requires no special styling */
+diff --git a/extensions/user-theme/stylesheet.css b/extensions/user-theme/stylesheet.css
+deleted file mode 100644
+index 6d914832..00000000
+--- a/extensions/user-theme/stylesheet.css
++++ /dev/null
+@@ -1 +0,0 @@
+-/* none used */
+diff --git a/extensions/window-list/meson.build b/extensions/window-list/meson.build
+index 34d7c3fd..599f45e1 100644
+--- a/extensions/window-list/meson.build
++++ b/extensions/window-list/meson.build
+@@ -3,6 +3,7 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+ 
+ extension_sources += files('prefs.js', 'windowPicker.js', 'workspaceIndicator.js')
+ extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/windowsNavigator/meson.build b/extensions/windowsNavigator/meson.build
+index 48504f63..6b9bb19c 100644
+--- a/extensions/windowsNavigator/meson.build
++++ b/extensions/windowsNavigator/meson.build
+@@ -3,3 +3,4 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+diff --git a/extensions/workspace-indicator/meson.build b/extensions/workspace-indicator/meson.build
+index 71efa039..19858a39 100644
+--- a/extensions/workspace-indicator/meson.build
++++ b/extensions/workspace-indicator/meson.build
+@@ -3,5 +3,6 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++extension_data += files('stylesheet.css')
+ 
+ extension_sources += files('prefs.js')
+-- 
+2.44.0
+
+
+From 071226445e95d1a5551378aaf3c83db625fc2422 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 12:38:33 +0100
+Subject: [PATCH 03/29] workspace-indicator: Move indicator code into separate
+ file
+
+Shortly after the window-list extension was added, it gained a
+workspace switcher based on the workspace indicator extension.
+
+Duplicating the code wasn't a big issue while the switcher was
+a simple menu, but since it gained previews with a fair bit of
+custom styling, syncing changes between the two extensions has
+become tedious, in particular as the two copies have slightly
+diverged over time.
+
+In order to allow the two copies to converge again, the indicator
+code needs to be separate from the extension boilerplate, so
+split out the code into a separate module.
+---
+ extensions/workspace-indicator/extension.js   | 440 +----------------
+ extensions/workspace-indicator/meson.build    |   2 +-
+ .../workspace-indicator/workspaceIndicator.js | 454 ++++++++++++++++++
+ po/POTFILES.in                                |   2 +-
+ 4 files changed, 457 insertions(+), 441 deletions(-)
+ create mode 100644 extensions/workspace-indicator/workspaceIndicator.js
+
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index 6974062b..5e1ed8e5 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -1,449 +1,11 @@
+ // -*- mode: js2; indent-tabs-mode: nil; js2-basic-offset: 4 -*-
+ /* exported init enable disable */
+ 
+-const { Clutter, Gio, GObject, Meta, St } = imports.gi;
+-
+-const DND = imports.ui.dnd;
+ const ExtensionUtils = imports.misc.extensionUtils;
+ const Main = imports.ui.main;
+-const PanelMenu = imports.ui.panelMenu;
+-const PopupMenu = imports.ui.popupMenu;
+ 
+ const Me = ExtensionUtils.getCurrentExtension();
+-
+-const Gettext = imports.gettext.domain(Me.metadata['gettext-domain']);
+-const _ = Gettext.gettext;
+-
+-const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
+-const WORKSPACE_KEY = 'workspace-names';
+-
+-const TOOLTIP_OFFSET = 6;
+-const TOOLTIP_ANIMATION_TIME = 150;
+-
+-const MAX_THUMBNAILS = 6;
+-
+-let WindowPreview = GObject.registerClass(
+-class WindowPreview extends St.Button {
+-    _init(window) {
+-        super._init({
+-            style_class: 'workspace-indicator-window-preview',
+-        });
+-
+-        this._delegate = this;
+-        DND.makeDraggable(this, { restoreOnSuccess: true });
+-
+-        this._window = window;
+-
+-        this.connect('destroy', this._onDestroy.bind(this));
+-
+-        this._sizeChangedId = this._window.connect('size-changed',
+-            () => this.queue_relayout());
+-        this._positionChangedId = this._window.connect('position-changed',
+-            () => {
+-                this._updateVisible();
+-                this.queue_relayout();
+-            });
+-        this._minimizedChangedId = this._window.connect('notify::minimized',
+-            this._updateVisible.bind(this));
+-
+-        this._focusChangedId = global.display.connect('notify::focus-window',
+-            this._onFocusChanged.bind(this));
+-        this._onFocusChanged();
+-    }
+-
+-    // needed for DND
+-    get metaWindow() {
+-        return this._window;
+-    }
+-
+-    _onDestroy() {
+-        this._window.disconnect(this._sizeChangedId);
+-        this._window.disconnect(this._positionChangedId);
+-        this._window.disconnect(this._minimizedChangedId);
+-        global.display.disconnect(this._focusChangedId);
+-    }
+-
+-    _onFocusChanged() {
+-        if (global.display.focus_window === this._window)
+-            this.add_style_class_name('active');
+-        else
+-            this.remove_style_class_name('active');
+-    }
+-
+-    _updateVisible() {
+-        const monitor = Main.layoutManager.findIndexForActor(this);
+-        const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor);
+-        this.visible = this._window.get_frame_rect().overlap(workArea) &&
+-            this._window.window_type !== Meta.WindowType.DESKTOP &&
+-            this._window.showing_on_its_workspace();
+-    }
+-});
+-
+-let WorkspaceLayout = GObject.registerClass(
+-class WorkspaceLayout extends Clutter.LayoutManager {
+-    vfunc_get_preferred_width() {
+-        return [0, 0];
+-    }
+-
+-    vfunc_get_preferred_height() {
+-        return [0, 0];
+-    }
+-
+-    vfunc_allocate(container, box) {
+-        const monitor = Main.layoutManager.findIndexForActor(container);
+-        const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor);
+-        const hscale = box.get_width() / workArea.width;
+-        const vscale = box.get_height() / workArea.height;
+-
+-        for (const child of container) {
+-            const childBox = new Clutter.ActorBox();
+-            const frameRect = child.metaWindow.get_frame_rect();
+-            childBox.set_size(
+-                Math.round(Math.min(frameRect.width, workArea.width) * hscale),
+-                Math.round(Math.min(frameRect.height, workArea.height) * vscale));
+-            childBox.set_origin(
+-                Math.round((frameRect.x - workArea.x) * hscale),
+-                Math.round((frameRect.y - workArea.y) * vscale));
+-            child.allocate(childBox);
+-        }
+-    }
+-});
+-
+-let WorkspaceThumbnail = GObject.registerClass(
+-class WorkspaceThumbnail extends St.Button {
+-    _init(index) {
+-        super._init({
+-            style_class: 'workspace',
+-            child: new Clutter.Actor({
+-                layout_manager: new WorkspaceLayout(),
+-                clip_to_allocation: true,
+-            }),
+-        });
+-
+-        this._tooltip = new St.Label({
+-            style_class: 'dash-label',
+-            visible: false,
+-        });
+-        Main.uiGroup.add_child(this._tooltip);
+-
+-        this.connect('destroy', this._onDestroy.bind(this));
+-        this.connect('notify::hover', this._syncTooltip.bind(this));
+-
+-        this._index = index;
+-        this._delegate = this; // needed for DND
+-
+-        this._windowPreviews = new Map();
+-
+-        let workspaceManager = global.workspace_manager;
+-        this._workspace = workspaceManager.get_workspace_by_index(index);
+-
+-        this._windowAddedId = this._workspace.connect('window-added',
+-            (ws, window) => {
+-                this._addWindow(window);
+-            });
+-        this._windowRemovedId = this._workspace.connect('window-removed',
+-            (ws, window) => {
+-                this._removeWindow(window);
+-            });
+-        this._restackedId = global.display.connect('restacked',
+-            this._onRestacked.bind(this));
+-
+-        this._workspace.list_windows().forEach(w => this._addWindow(w));
+-        this._onRestacked();
+-    }
+-
+-    acceptDrop(source) {
+-        if (!source.metaWindow)
+-            return false;
+-
+-        this._moveWindow(source.metaWindow);
+-        return true;
+-    }
+-
+-    handleDragOver(source) {
+-        if (source.metaWindow)
+-            return DND.DragMotionResult.MOVE_DROP;
+-        else
+-            return DND.DragMotionResult.CONTINUE;
+-    }
+-
+-    _addWindow(window) {
+-        if (this._windowPreviews.has(window))
+-            return;
+-
+-        let preview = new WindowPreview(window);
+-        preview.connect('clicked', (a, btn) => this.emit('clicked', btn));
+-        this._windowPreviews.set(window, preview);
+-        this.child.add_child(preview);
+-    }
+-
+-    _removeWindow(window) {
+-        let preview = this._windowPreviews.get(window);
+-        if (!preview)
+-            return;
+-
+-        this._windowPreviews.delete(window);
+-        preview.destroy();
+-    }
+-
+-    _onRestacked() {
+-        let lastPreview = null;
+-        let windows = global.get_window_actors().map(a => a.meta_window);
+-        for (let i = 0; i < windows.length; i++) {
+-            let preview = this._windowPreviews.get(windows[i]);
+-            if (!preview)
+-                continue;
+-
+-            this.child.set_child_above_sibling(preview, lastPreview);
+-            lastPreview = preview;
+-        }
+-    }
+-
+-    _moveWindow(window) {
+-        let monitorIndex = Main.layoutManager.findIndexForActor(this);
+-        if (monitorIndex !== window.get_monitor())
+-            window.move_to_monitor(monitorIndex);
+-        window.change_workspace_by_index(this._index, false);
+-    }
+-
+-    on_clicked() {
+-        let ws = global.workspace_manager.get_workspace_by_index(this._index);
+-        if (ws)
+-            ws.activate(global.get_current_time());
+-    }
+-
+-    _syncTooltip() {
+-        if (this.hover) {
+-            this._tooltip.set({
+-                text: Meta.prefs_get_workspace_name(this._index),
+-                visible: true,
+-                opacity: 0,
+-            });
+-
+-            const [stageX, stageY] = this.get_transformed_position();
+-            const thumbWidth = this.allocation.get_width();
+-            const thumbHeight = this.allocation.get_height();
+-            const tipWidth = this._tooltip.width;
+-            const xOffset = Math.floor((thumbWidth - tipWidth) / 2);
+-            const monitor = Main.layoutManager.findMonitorForActor(this);
+-            const x = Math.clamp(
+-                stageX + xOffset,
+-                monitor.x,
+-                monitor.x + monitor.width - tipWidth);
+-            const y = stageY + thumbHeight + TOOLTIP_OFFSET;
+-            this._tooltip.set_position(x, y);
+-        }
+-
+-        this._tooltip.ease({
+-            opacity: this.hover ? 255 : 0,
+-            duration: TOOLTIP_ANIMATION_TIME,
+-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+-            onComplete: () => (this._tooltip.visible = this.hover),
+-        });
+-    }
+-
+-    _onDestroy() {
+-        this._tooltip.destroy();
+-
+-        this._workspace.disconnect(this._windowAddedId);
+-        this._workspace.disconnect(this._windowRemovedId);
+-        global.display.disconnect(this._restackedId);
+-    }
+-});
+-
+-let WorkspaceIndicator = GObject.registerClass(
+-class WorkspaceIndicator extends PanelMenu.Button {
+-    _init() {
+-        super._init(0.0, _('Workspace Indicator'));
+-
+-        let container = new St.Widget({
+-            layout_manager: new Clutter.BinLayout(),
+-            x_expand: true,
+-            y_expand: true,
+-        });
+-        this.add_actor(container);
+-
+-        let workspaceManager = global.workspace_manager;
+-
+-        this._currentWorkspace = workspaceManager.get_active_workspace_index();
+-        this._statusLabel = new St.Label({
+-            style_class: 'panel-workspace-indicator',
+-            y_align: Clutter.ActorAlign.CENTER,
+-            text: this._labelText(),
+-        });
+-
+-        container.add_actor(this._statusLabel);
+-
+-        this._thumbnailsBox = new St.BoxLayout({
+-            style_class: 'panel-workspace-indicator-box',
+-            y_expand: true,
+-            reactive: true,
+-        });
+-
+-        container.add_actor(this._thumbnailsBox);
+-
+-        this._workspacesItems = [];
+-        this._workspaceSection = new PopupMenu.PopupMenuSection();
+-        this.menu.addMenuItem(this._workspaceSection);
+-
+-        this._workspaceManagerSignals = [
+-            workspaceManager.connect_after('notify::n-workspaces',
+-                this._nWorkspacesChanged.bind(this)),
+-            workspaceManager.connect_after('workspace-switched',
+-                this._onWorkspaceSwitched.bind(this)),
+-            workspaceManager.connect('notify::layout-rows',
+-                this._updateThumbnailVisibility.bind(this)),
+-        ];
+-
+-        this.connect('scroll-event', this._onScrollEvent.bind(this));
+-        this._thumbnailsBox.connect('scroll-event', this._onScrollEvent.bind(this));
+-        this._createWorkspacesSection();
+-        this._updateThumbnails();
+-        this._updateThumbnailVisibility();
+-
+-        this._settings = new Gio.Settings({ schema_id: WORKSPACE_SCHEMA });
+-        this._settingsChangedId = this._settings.connect(
+-            `changed::${WORKSPACE_KEY}`,
+-            this._updateMenuLabels.bind(this));
+-    }
+-
+-    _onDestroy() {
+-        for (let i = 0; i < this._workspaceManagerSignals.length; i++)
+-            global.workspace_manager.disconnect(this._workspaceManagerSignals[i]);
+-
+-        if (this._settingsChangedId) {
+-            this._settings.disconnect(this._settingsChangedId);
+-            this._settingsChangedId = 0;
+-        }
+-
+-        Main.panel.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
+-
+-        super._onDestroy();
+-    }
+-
+-    _updateThumbnailVisibility() {
+-        const { workspaceManager } = global;
+-        const vertical = workspaceManager.layout_rows === -1;
+-        const useMenu =
+-            vertical || workspaceManager.n_workspaces > MAX_THUMBNAILS;
+-        this.reactive = useMenu;
+-
+-        this._statusLabel.visible = useMenu;
+-        this._thumbnailsBox.visible = !useMenu;
+-
+-        // Disable offscreen-redirect when showing the workspace switcher
+-        // so that clip-to-allocation works
+-        Main.panel.set_offscreen_redirect(useMenu
+-            ? Clutter.OffscreenRedirect.ALWAYS
+-            : Clutter.OffscreenRedirect.AUTOMATIC_FOR_OPACITY);
+-    }
+-
+-    _onWorkspaceSwitched() {
+-        this._currentWorkspace = global.workspace_manager.get_active_workspace_index();
+-
+-        this._updateMenuOrnament();
+-        this._updateActiveThumbnail();
+-
+-        this._statusLabel.set_text(this._labelText());
+-    }
+-
+-    _nWorkspacesChanged() {
+-        this._createWorkspacesSection();
+-        this._updateThumbnails();
+-        this._updateThumbnailVisibility();
+-    }
+-
+-    _updateMenuOrnament() {
+-        for (let i = 0; i < this._workspacesItems.length; i++) {
+-            this._workspacesItems[i].setOrnament(i === this._currentWorkspace
+-                ? PopupMenu.Ornament.DOT
+-                : PopupMenu.Ornament.NONE);
+-        }
+-    }
+-
+-    _updateActiveThumbnail() {
+-        let thumbs = this._thumbnailsBox.get_children();
+-        for (let i = 0; i < thumbs.length; i++) {
+-            if (i === this._currentWorkspace)
+-                thumbs[i].add_style_class_name('active');
+-            else
+-                thumbs[i].remove_style_class_name('active');
+-        }
+-    }
+-
+-    _labelText(workspaceIndex) {
+-        if (workspaceIndex === undefined) {
+-            workspaceIndex = this._currentWorkspace;
+-            return (workspaceIndex + 1).toString();
+-        }
+-        return Meta.prefs_get_workspace_name(workspaceIndex);
+-    }
+-
+-    _updateMenuLabels() {
+-        for (let i = 0; i < this._workspacesItems.length; i++)
+-            this._workspacesItems[i].label.text = this._labelText(i);
+-    }
+-
+-    _createWorkspacesSection() {
+-        let workspaceManager = global.workspace_manager;
+-
+-        this._workspaceSection.removeAll();
+-        this._workspacesItems = [];
+-        this._currentWorkspace = workspaceManager.get_active_workspace_index();
+-
+-        let i = 0;
+-        for (; i < workspaceManager.n_workspaces; i++) {
+-            this._workspacesItems[i] = new PopupMenu.PopupMenuItem(this._labelText(i));
+-            this._workspaceSection.addMenuItem(this._workspacesItems[i]);
+-            this._workspacesItems[i].workspaceId = i;
+-            this._workspacesItems[i].label_actor = this._statusLabel;
+-            this._workspacesItems[i].connect('activate', (actor, _event) => {
+-                this._activate(actor.workspaceId);
+-            });
+-
+-            if (i === this._currentWorkspace)
+-                this._workspacesItems[i].setOrnament(PopupMenu.Ornament.DOT);
+-        }
+-
+-        this._statusLabel.set_text(this._labelText());
+-    }
+-
+-    _updateThumbnails() {
+-        let workspaceManager = global.workspace_manager;
+-
+-        this._thumbnailsBox.destroy_all_children();
+-
+-        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
+-            let thumb = new WorkspaceThumbnail(i);
+-            this._thumbnailsBox.add_actor(thumb);
+-        }
+-        this._updateActiveThumbnail();
+-    }
+-
+-    _activate(index) {
+-        let workspaceManager = global.workspace_manager;
+-
+-        if (index >= 0 && index < workspaceManager.n_workspaces) {
+-            let metaWorkspace = workspaceManager.get_workspace_by_index(index);
+-            metaWorkspace.activate(global.get_current_time());
+-        }
+-    }
+-
+-    _onScrollEvent(actor, event) {
+-        let direction = event.get_scroll_direction();
+-        let diff = 0;
+-        if (direction === Clutter.ScrollDirection.DOWN)
+-            diff = 1;
+-        else if (direction === Clutter.ScrollDirection.UP)
+-            diff = -1;
+-        else
+-            return;
+-
+-
+-        let newIndex = global.workspace_manager.get_active_workspace_index() + diff;
+-        this._activate(newIndex);
+-    }
+-});
++const { WorkspaceIndicator } = Me.imports.workspaceIndicator;
+ 
+ function init() {
+     ExtensionUtils.initTranslations();
+diff --git a/extensions/workspace-indicator/meson.build b/extensions/workspace-indicator/meson.build
+index 19858a39..eb25b9cc 100644
+--- a/extensions/workspace-indicator/meson.build
++++ b/extensions/workspace-indicator/meson.build
+@@ -5,4 +5,4 @@ extension_data += configure_file(
+ )
+ extension_data += files('stylesheet.css')
+ 
+-extension_sources += files('prefs.js')
++extension_sources += files('prefs.js', 'workspaceIndicator.js')
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+new file mode 100644
+index 00000000..b98de047
+--- /dev/null
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -0,0 +1,454 @@
++// SPDX-FileCopyrightText: 2011 Erick Pérez Castellanos <erick.red@gmail.com>
++// SPDX-FileCopyrightText: 2011 Giovanni Campagna <gcampagna@src.gnome.org>
++// SPDX-FileCopyrightText: 2017 Florian Müllner <fmuellner@gnome.org>
++//
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++const { Clutter, Gio, GObject, Meta, St } = imports.gi;
++
++const ExtensionUtils = imports.misc.extensionUtils;
++const Me = ExtensionUtils.getCurrentExtension();
++
++const Gettext = imports.gettext.domain(Me.metadata['gettext-domain']);
++const _ = Gettext.gettext;
++
++const DND = imports.ui.dnd;
++const Main = imports.ui.main;
++const PanelMenu = imports.ui.panelMenu;
++const PopupMenu = imports.ui.popupMenu;
++
++const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
++const WORKSPACE_KEY = 'workspace-names';
++
++const TOOLTIP_OFFSET = 6;
++const TOOLTIP_ANIMATION_TIME = 150;
++
++const MAX_THUMBNAILS = 6;
++
++const WindowPreview = GObject.registerClass(
++class WindowPreview extends St.Button {
++    _init(window) {
++        super._init({
++            style_class: 'workspace-indicator-window-preview',
++        });
++
++        this._delegate = this;
++        DND.makeDraggable(this, {restoreOnSuccess: true});
++
++        this._window = window;
++
++        this.connect('destroy', this._onDestroy.bind(this));
++
++        this._sizeChangedId = this._window.connect('size-changed',
++            () => this._checkRelayout());
++        this._positionChangedId = this._window.connect('position-changed',
++            () => this._checkRelayout());
++        this._minimizedChangedId = this._window.connect('notify::minimized',
++            () => this._updateVisible());
++        this._typeChangedId = this._window.connect('notify::window-type',
++            () => this._updateVisible());
++        this._updateVisible();
++
++        this._focusChangedId = global.display.connect('notify::focus-window',
++            this._onFocusChanged.bind(this));
++        this._onFocusChanged();
++    }
++
++    // needed for DND
++    get metaWindow() {
++        return this._window;
++    }
++
++    _onDestroy() {
++        this._window.disconnect(this._sizeChangedId);
++        this._window.disconnect(this._positionChangedId);
++        this._window.disconnect(this._minimizedChangedId);
++        this._window.disconnect(this._typeChangedId);
++        global.display.disconnect(this._focusChangedId);
++    }
++
++    _onFocusChanged() {
++        if (global.display.focus_window === this._window)
++            this.add_style_class_name('active');
++        else
++            this.remove_style_class_name('active');
++    }
++
++    _checkRelayout() {
++        const monitor = Main.layoutManager.findIndexForActor(this);
++        const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor);
++        if (this._window.get_frame_rect().overlap(workArea))
++            this.queue_relayout();
++    }
++
++    _updateVisible() {
++        this.visible = this._window.window_type !== Meta.WindowType.DESKTOP &&
++            this._window.showing_on_its_workspace();
++    }
++});
++
++const WorkspaceLayout = GObject.registerClass(
++class WorkspaceLayout extends Clutter.LayoutManager {
++    vfunc_get_preferred_width() {
++        return [0, 0];
++    }
++
++    vfunc_get_preferred_height() {
++        return [0, 0];
++    }
++
++    vfunc_allocate(container, box) {
++        const monitor = Main.layoutManager.findIndexForActor(container);
++        const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor);
++        const hscale = box.get_width() / workArea.width;
++        const vscale = box.get_height() / workArea.height;
++
++        for (const child of container) {
++            const childBox = new Clutter.ActorBox();
++            const frameRect = child.metaWindow.get_frame_rect();
++            childBox.set_size(
++                Math.round(Math.min(frameRect.width, workArea.width) * hscale),
++                Math.round(Math.min(frameRect.height, workArea.height) * vscale));
++            childBox.set_origin(
++                Math.round((frameRect.x - workArea.x) * hscale),
++                Math.round((frameRect.y - workArea.y) * vscale));
++            child.allocate(childBox);
++        }
++    }
++});
++
++const WorkspaceThumbnail = GObject.registerClass(
++class WorkspaceThumbnail extends St.Button {
++    _init(index) {
++        super._init({
++            style_class: 'workspace',
++            child: new Clutter.Actor({
++                layout_manager: new WorkspaceLayout(),
++                clip_to_allocation: true,
++                x_expand: true,
++                y_expand: true,
++            }),
++        });
++
++        this._tooltip = new St.Label({
++            style_class: 'dash-label',
++            visible: false,
++        });
++        Main.uiGroup.add_child(this._tooltip);
++
++        this.connect('destroy', this._onDestroy.bind(this));
++        this.connect('notify::hover', this._syncTooltip.bind(this));
++
++        this._index = index;
++        this._delegate = this; // needed for DND
++
++        this._windowPreviews = new Map();
++
++        let workspaceManager = global.workspace_manager;
++        this._workspace = workspaceManager.get_workspace_by_index(index);
++
++        this._windowAddedId = this._workspace.connect('window-added',
++            (ws, window) => this._addWindow(window));
++        this._windowRemovedId = this._workspace.connect('window-removed',
++            (ws, window) => this._removeWindow(window));
++
++        this._restackedId = global.display.connect('restacked',
++            this._onRestacked.bind(this));
++
++        this._workspace.list_windows().forEach(w => this._addWindow(w));
++        this._onRestacked();
++    }
++
++    acceptDrop(source) {
++        if (!source.metaWindow)
++            return false;
++
++        this._moveWindow(source.metaWindow);
++        return true;
++    }
++
++    handleDragOver(source) {
++        if (source.metaWindow)
++            return DND.DragMotionResult.MOVE_DROP;
++        else
++            return DND.DragMotionResult.CONTINUE;
++    }
++
++    _addWindow(window) {
++        if (this._windowPreviews.has(window))
++            return;
++
++        let preview = new WindowPreview(window);
++        preview.connect('clicked', (a, btn) => this.emit('clicked', btn));
++        this._windowPreviews.set(window, preview);
++        this.child.add_child(preview);
++    }
++
++    _removeWindow(window) {
++        let preview = this._windowPreviews.get(window);
++        if (!preview)
++            return;
++
++        this._windowPreviews.delete(window);
++        preview.destroy();
++    }
++
++    _onRestacked() {
++        let lastPreview = null;
++        let windows = global.get_window_actors().map(a => a.meta_window);
++        for (let i = 0; i < windows.length; i++) {
++            let preview = this._windowPreviews.get(windows[i]);
++            if (!preview)
++                continue;
++
++            this.child.set_child_above_sibling(preview, lastPreview);
++            lastPreview = preview;
++        }
++    }
++
++    _moveWindow(window) {
++        let monitorIndex = Main.layoutManager.findIndexForActor(this);
++        if (monitorIndex !== window.get_monitor())
++            window.move_to_monitor(monitorIndex);
++        window.change_workspace_by_index(this._index, false);
++    }
++
++    on_clicked() {
++        let ws = global.workspace_manager.get_workspace_by_index(this._index);
++        if (ws)
++            ws.activate(global.get_current_time());
++    }
++
++    _syncTooltip() {
++        if (this.hover) {
++            this._tooltip.set({
++                text: Meta.prefs_get_workspace_name(this._index),
++                visible: true,
++                opacity: 0,
++            });
++
++            const [stageX, stageY] = this.get_transformed_position();
++            const thumbWidth = this.allocation.get_width();
++            const thumbHeight = this.allocation.get_height();
++            const tipWidth = this._tooltip.width;
++            const xOffset = Math.floor((thumbWidth - tipWidth) / 2);
++            const monitor = Main.layoutManager.findMonitorForActor(this);
++            const x = Math.clamp(
++                stageX + xOffset,
++                monitor.x,
++                monitor.x + monitor.width - tipWidth);
++            const y = stageY + thumbHeight + TOOLTIP_OFFSET;
++            this._tooltip.set_position(x, y);
++        }
++
++        this._tooltip.ease({
++            opacity: this.hover ? 255 : 0,
++            duration: TOOLTIP_ANIMATION_TIME,
++            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
++            onComplete: () => (this._tooltip.visible = this.hover),
++        });
++    }
++
++    _onDestroy() {
++        this._tooltip.destroy();
++
++        this._workspace.disconnect(this._windowAddedId);
++        this._workspace.disconnect(this._windowRemovedId);
++        global.display.disconnect(this._restackedId);
++    }
++});
++
++var WorkspaceIndicator = GObject.registerClass(
++class WorkspaceIndicator extends PanelMenu.Button {
++    _init() {
++        super._init(0.5, _('Workspace Indicator'));
++
++        let container = new St.Widget({
++            layout_manager: new Clutter.BinLayout(),
++            x_expand: true,
++            y_expand: true,
++        });
++        this.add_child(container);
++
++        let workspaceManager = global.workspace_manager;
++
++        this._currentWorkspace = workspaceManager.get_active_workspace_index();
++        this._statusLabel = new St.Label({
++            style_class: 'panel-workspace-indicator',
++            y_align: Clutter.ActorAlign.CENTER,
++            text: this._labelText(),
++        });
++
++        container.add_child(this._statusLabel);
++
++        this._thumbnailsBox = new St.BoxLayout({
++            style_class: 'panel-workspace-indicator-box',
++            y_expand: true,
++            reactive: true,
++        });
++
++        container.add_child(this._thumbnailsBox);
++
++        this._workspacesItems = [];
++        this._workspaceSection = new PopupMenu.PopupMenuSection();
++        this.menu.addMenuItem(this._workspaceSection);
++
++        this._workspaceManagerSignals = [
++            workspaceManager.connect_after('notify::n-workspaces',
++                this._nWorkspacesChanged.bind(this)),
++            workspaceManager.connect_after('workspace-switched',
++                this._onWorkspaceSwitched.bind(this)),
++            workspaceManager.connect('notify::layout-rows',
++                this._updateThumbnailVisibility.bind(this)),
++        ];
++
++        this.connect('scroll-event', this._onScrollEvent.bind(this));
++        this._thumbnailsBox.connect('scroll-event', this._onScrollEvent.bind(this));
++        this._createWorkspacesSection();
++        this._updateThumbnails();
++        this._updateThumbnailVisibility();
++
++        this._settings = new Gio.Settings({schema_id: WORKSPACE_SCHEMA});
++        this._settingsChangedId = this._settings.connect(
++            `changed::${WORKSPACE_KEY}`,
++            this._updateMenuLabels.bind(this));
++    }
++
++    _onDestroy() {
++        for (let i = i; i < this._workspaceManagerSignals.length; i++)
++            global.workspace_manager.disconnect(this._workspaceManagerSignals[i]);
++
++        if (this._settingsChangedId) {
++            this._settings.disconnect(this._settingsChangedId);
++            this._settingsChangedId = 0;
++        }
++
++        Main.panel.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
++
++        super._onDestroy();
++    }
++
++    _updateThumbnailVisibility() {
++        const {workspaceManager} = global;
++        const vertical = workspaceManager.layout_rows === -1;
++        const useMenu =
++            vertical || workspaceManager.n_workspaces > MAX_THUMBNAILS;
++        this.reactive = useMenu;
++
++        this._statusLabel.visible = useMenu;
++        this._thumbnailsBox.visible = !useMenu;
++
++        // Disable offscreen-redirect when showing the workspace switcher
++        // so that clip-to-allocation works
++        Main.panel.set_offscreen_redirect(useMenu
++            ? Clutter.OffscreenRedirect.ALWAYS
++            : Clutter.OffscreenRedirect.AUTOMATIC_FOR_OPACITY);
++    }
++
++    _onWorkspaceSwitched() {
++        this._currentWorkspace = global.workspace_manager.get_active_workspace_index();
++
++        this._updateMenuOrnament();
++        this._updateActiveThumbnail();
++
++        this._statusLabel.set_text(this._labelText());
++    }
++
++    _nWorkspacesChanged() {
++        this._createWorkspacesSection();
++        this._updateThumbnails();
++        this._updateThumbnailVisibility();
++    }
++
++    _updateMenuOrnament() {
++        for (let i = 0; i < this._workspacesItems.length; i++) {
++            this._workspacesItems[i].setOrnament(i === this._currentWorkspace
++                ? PopupMenu.Ornament.DOT
++                : PopupMenu.Ornament.NO_DOT);
++        }
++    }
++
++    _updateActiveThumbnail() {
++        let thumbs = this._thumbnailsBox.get_children();
++        for (let i = 0; i < thumbs.length; i++) {
++            if (i === this._currentWorkspace)
++                thumbs[i].add_style_class_name('active');
++            else
++                thumbs[i].remove_style_class_name('active');
++        }
++    }
++
++    _labelText(workspaceIndex) {
++        if (workspaceIndex === undefined) {
++            workspaceIndex = this._currentWorkspace;
++            return (workspaceIndex + 1).toString();
++        }
++        return Meta.prefs_get_workspace_name(workspaceIndex);
++    }
++
++    _updateMenuLabels() {
++        for (let i = 0; i < this._workspacesItems.length; i++)
++            this._workspacesItems[i].label.text = this._labelText(i);
++    }
++
++    _createWorkspacesSection() {
++        let workspaceManager = global.workspace_manager;
++
++        this._workspaceSection.removeAll();
++        this._workspacesItems = [];
++        this._currentWorkspace = workspaceManager.get_active_workspace_index();
++
++        let i = 0;
++        for (; i < workspaceManager.n_workspaces; i++) {
++            this._workspacesItems[i] = new PopupMenu.PopupMenuItem(this._labelText(i));
++            this._workspaceSection.addMenuItem(this._workspacesItems[i]);
++            this._workspacesItems[i].workspaceId = i;
++            this._workspacesItems[i].label_actor = this._statusLabel;
++            this._workspacesItems[i].connect('activate', (actor, _event) => {
++                this._activate(actor.workspaceId);
++            });
++
++            this._workspacesItems[i].setOrnament(i === this._currentWorkspace
++                ? PopupMenu.Ornament.DOT
++                : PopupMenu.Ornament.NO_DOT);
++        }
++
++        this._statusLabel.set_text(this._labelText());
++    }
++
++    _updateThumbnails() {
++        let workspaceManager = global.workspace_manager;
++
++        this._thumbnailsBox.destroy_all_children();
++
++        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
++            let thumb = new WorkspaceThumbnail(i);
++            this._thumbnailsBox.add_child(thumb);
++        }
++        this._updateActiveThumbnail();
++    }
++
++    _activate(index) {
++        let workspaceManager = global.workspace_manager;
++
++        if (index >= 0 && index < workspaceManager.n_workspaces) {
++            let metaWorkspace = workspaceManager.get_workspace_by_index(index);
++            metaWorkspace.activate(global.get_current_time());
++        }
++    }
++
++    _onScrollEvent(actor, event) {
++        let direction = event.get_scroll_direction();
++        let diff = 0;
++        if (direction === Clutter.ScrollDirection.DOWN)
++            diff = 1;
++        else if (direction === Clutter.ScrollDirection.UP)
++            diff = -1;
++        else
++            return;
++
++
++        let newIndex = global.workspace_manager.get_active_workspace_index() + diff;
++        this._activate(newIndex);
++    }
++});
+diff --git a/po/POTFILES.in b/po/POTFILES.in
+index 10b1d517..bd39ab61 100644
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -17,5 +17,5 @@ extensions/window-list/org.gnome.shell.extensions.window-list.gschema.xml
+ extensions/window-list/prefs.js
+ extensions/window-list/workspaceIndicator.js
+ extensions/windowsNavigator/extension.js
+-extensions/workspace-indicator/extension.js
+ extensions/workspace-indicator/prefs.js
++extensions/workspace-indicator/workspaceIndicator.js
+-- 
+2.44.0
+
+
+From 4720bf9f69c91c6fa39897534921eb4f2eceb8eb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 19:09:38 +0100
+Subject: [PATCH 04/29] workspace-indicator: Use descendant style selectors
+
+Add a style class to the indicator itself, and only select
+descendant elements. This allows using the briefer class names
+from the window-list extension without too much risk of conflicts.
+---
+ extensions/workspace-indicator/stylesheet.css        | 8 ++++----
+ extensions/workspace-indicator/workspaceIndicator.js | 6 ++++--
+ 2 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/extensions/workspace-indicator/stylesheet.css b/extensions/workspace-indicator/stylesheet.css
+index 84aaf454..4e12cce4 100644
+--- a/extensions/workspace-indicator/stylesheet.css
++++ b/extensions/workspace-indicator/stylesheet.css
+@@ -1,20 +1,20 @@
+-.panel-workspace-indicator {
++.workspace-indicator .status-label {
+   padding: 0 8px;
+ }
+ 
+-.panel-workspace-indicator-box {
++.workspace-indicator .workspaces-box {
+   padding: 4px 0;
+   spacing: 4px;
+ }
+ 
+-.panel-workspace-indicator-box .workspace {
++.workspace-indicator .workspace {
+   width: 40px;
+   border: 2px solid #000;
+   border-radius: 2px;
+   background-color: #595959;
+ }
+ 
+-.panel-workspace-indicator-box .workspace.active {
++.workspace-indicator .workspace.active {
+   border-color: #fff;
+ }
+ 
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index b98de047..101c89c6 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -263,6 +263,8 @@ class WorkspaceIndicator extends PanelMenu.Button {
+     _init() {
+         super._init(0.5, _('Workspace Indicator'));
+ 
++        this.add_style_class_name('workspace-indicator');
++
+         let container = new St.Widget({
+             layout_manager: new Clutter.BinLayout(),
+             x_expand: true,
+@@ -274,7 +276,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+         this._currentWorkspace = workspaceManager.get_active_workspace_index();
+         this._statusLabel = new St.Label({
+-            style_class: 'panel-workspace-indicator',
++            style_class: 'status-label',
+             y_align: Clutter.ActorAlign.CENTER,
+             text: this._labelText(),
+         });
+@@ -282,7 +284,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         container.add_child(this._statusLabel);
+ 
+         this._thumbnailsBox = new St.BoxLayout({
+-            style_class: 'panel-workspace-indicator-box',
++            style_class: 'workspaces-box',
+             y_expand: true,
+             reactive: true,
+         });
+-- 
+2.44.0
+
+
+From 22f44ae9f21337a11a09447763fbd223e37f3d56 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 12:48:43 +0100
+Subject: [PATCH 05/29] window-list: Use consistent style class prefix
+
+This will eventually allow us to re-use the workspace-indicator
+extension without changing anything but the used prefix.
+---
+ extensions/window-list/classic.css           | 4 ++--
+ extensions/window-list/stylesheet.css        | 4 ++--
+ extensions/window-list/workspaceIndicator.js | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
+index 375a33e1..ab982b92 100644
+--- a/extensions/window-list/classic.css
++++ b/extensions/window-list/classic.css
+@@ -58,11 +58,11 @@
+   border-color: #888;
+ }
+ 
+-.window-list-window-preview {
++.window-list-workspace-indicator-window-preview {
+   background-color: #ededed;
+   border: 1px solid #ccc;
+ }
+ 
+-.window-list-window-preview.active {
++.window-list-workspace-indicator-window-preview.active {
+   background-color: #f6f5f4;
+ }
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index 87813a42..a13f72d8 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -101,12 +101,12 @@
+   border-color: #fff;
+ }
+ 
+-.window-list-window-preview {
++.window-list-workspace-indicator-window-preview {
+   background-color: #bebebe;
+   border: 1px solid #828282;
+ }
+ 
+-.window-list-window-preview.active {
++.window-list-workspace-indicator-window-preview.active {
+   background-color: #d4d4d4;
+ }
+ 
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index cdfe5b61..c24f159f 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -21,7 +21,7 @@ let WindowPreview = GObject.registerClass(
+ class WindowPreview extends St.Button {
+     _init(window) {
+         super._init({
+-            style_class: 'window-list-window-preview',
++            style_class: 'window-list-workspace-indicator-window-preview',
+         });
+ 
+         this._delegate = this;
+-- 
+2.44.0
+
+
+From c8bb217d2053cf8d7db5f4866f834b6d06250427 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 23 Feb 2024 01:59:15 +0100
+Subject: [PATCH 06/29] workspace-indicator: Allow overriding base style class
+
+This will allow reusing the code from the window-list extension
+without limiting the ability to specify styling that only applies
+to one of the extensions.
+---
+ .../workspace-indicator/workspaceIndicator.js       | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 101c89c6..ba1e05d7 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -25,11 +25,13 @@ const TOOLTIP_ANIMATION_TIME = 150;
+ 
+ const MAX_THUMBNAILS = 6;
+ 
++let baseStyleClassName = '';
++
+ const WindowPreview = GObject.registerClass(
+ class WindowPreview extends St.Button {
+     _init(window) {
+         super._init({
+-            style_class: 'workspace-indicator-window-preview',
++            style_class: `${baseStyleClassName}-window-preview`,
+         });
+ 
+         this._delegate = this;
+@@ -260,10 +262,15 @@ class WorkspaceThumbnail extends St.Button {
+ 
+ var WorkspaceIndicator = GObject.registerClass(
+ class WorkspaceIndicator extends PanelMenu.Button {
+-    _init() {
++    _init(params = {}) {
+         super._init(0.5, _('Workspace Indicator'));
+ 
+-        this.add_style_class_name('workspace-indicator');
++        const {
++            baseStyleClass = 'workspace-indicator',
++        } = params;
++
++        baseStyleClassName = baseStyleClass;
++        this.add_style_class_name(baseStyleClassName);
+ 
+         let container = new St.Widget({
+             layout_manager: new Clutter.BinLayout(),
+-- 
+2.44.0
+
+
+From fc27a7f0e6da8647380b5bbe901b27ec0e5aa728 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 23 Feb 2024 01:58:50 +0100
+Subject: [PATCH 07/29] window-list: Override base style class
+
+Apply the changes from the last commit to the workspace-indicator
+copy, and override the base style class from the extension.
+
+This will eventually allow us to share the exact same code between
+the two extensions, but still use individual styling if necessary.
+---
+ extensions/window-list/extension.js          |  5 ++++-
+ extensions/window-list/workspaceIndicator.js | 15 ++++++++++++---
+ 2 files changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 0c28692d..41a0c143 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -774,7 +774,10 @@ class WindowList extends St.Widget {
+         let indicatorsBox = new St.BoxLayout({ x_align: Clutter.ActorAlign.END });
+         box.add(indicatorsBox);
+ 
+-        this._workspaceIndicator = new WorkspaceIndicator();
++        this._workspaceIndicator = new WorkspaceIndicator({
++            baseStyleClass: 'window-list-workspace-indicator',
++        });
++
+         indicatorsBox.add_child(this._workspaceIndicator.container);
+ 
+         this._mutterSettings = new Gio.Settings({ schema_id: 'org.gnome.mutter' });
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index c24f159f..1a1d15cd 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -17,11 +17,13 @@ const TOOLTIP_ANIMATION_TIME = 150;
+ 
+ const MAX_THUMBNAILS = 6;
+ 
++let baseStyleClassName = '';
++
+ let WindowPreview = GObject.registerClass(
+ class WindowPreview extends St.Button {
+     _init(window) {
+         super._init({
+-            style_class: 'window-list-workspace-indicator-window-preview',
++            style_class: `${baseStyleClassName}-window-preview`,
+         });
+ 
+         this._delegate = this;
+@@ -248,10 +250,17 @@ class WorkspaceThumbnail extends St.Button {
+ 
+ var WorkspaceIndicator = GObject.registerClass(
+ class WorkspaceIndicator extends PanelMenu.Button {
+-    _init() {
++    _init(params = {}) {
+         super._init(0.0, _('Workspace Indicator'), true);
++
++        const {
++            baseStyleClass = 'workspace-indicator',
++        } = params;
++
++        baseStyleClassName = baseStyleClass;
++        this.add_style_class_name(baseStyleClassName);
++
+         this.setMenu(new PopupMenu.PopupMenu(this, 0.0, St.Side.BOTTOM));
+-        this.add_style_class_name('window-list-workspace-indicator');
+         this.remove_style_class_name('panel-button');
+         this.menu.actor.remove_style_class_name('panel-menu');
+ 
+-- 
+2.44.0
+
+
+From 3838a915d953b910aa2d9ec82cd22dcf2e0f7440 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 12:48:43 +0100
+Subject: [PATCH 08/29] window-list: Externally adjust workspace menu
+
+In order to use a PanelMenu.Button in the bottom bar, we have
+to tweak its menu a bit.
+
+We currently handle this inside the indicator, but that means the
+code diverges from the original code in the workspace-indicator
+extension.
+
+Avoid this by using a small subclass that handles the adjustments.
+---
+ extensions/window-list/extension.js          | 22 ++++++++++++++++++--
+ extensions/window-list/workspaceIndicator.js |  6 +-----
+ 2 files changed, 21 insertions(+), 7 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 41a0c143..c58df434 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -774,10 +774,9 @@ class WindowList extends St.Widget {
+         let indicatorsBox = new St.BoxLayout({ x_align: Clutter.ActorAlign.END });
+         box.add(indicatorsBox);
+ 
+-        this._workspaceIndicator = new WorkspaceIndicator({
++        this._workspaceIndicator = new BottomWorkspaceIndicator({
+             baseStyleClass: 'window-list-workspace-indicator',
+         });
+-
+         indicatorsBox.add_child(this._workspaceIndicator.container);
+ 
+         this._mutterSettings = new Gio.Settings({ schema_id: 'org.gnome.mutter' });
+@@ -1140,6 +1139,25 @@ class WindowList extends St.Widget {
+     }
+ });
+ 
++const BottomWorkspaceIndicator = GObject.registerClass(
++class BottomWorkspaceIndicator extends WorkspaceIndicator {
++    _init(params) {
++        super._init(params);
++
++        this.remove_style_class_name('panel-button');
++    }
++
++    setMenu(menu) {
++        super.setMenu(menu);
++
++        if (!menu)
++            return;
++
++        this.menu.actor.updateArrowSide(St.Side.BOTTOM);
++        this.menu.actor.remove_style_class_name('panel-menu');
++    }
++});
++
+ class Extension {
+     constructor() {
+         ExtensionUtils.initTranslations();
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+index 1a1d15cd..4290d58a 100644
+--- a/extensions/window-list/workspaceIndicator.js
++++ b/extensions/window-list/workspaceIndicator.js
+@@ -251,7 +251,7 @@ class WorkspaceThumbnail extends St.Button {
+ var WorkspaceIndicator = GObject.registerClass(
+ class WorkspaceIndicator extends PanelMenu.Button {
+     _init(params = {}) {
+-        super._init(0.0, _('Workspace Indicator'), true);
++        super._init(0.0, _('Workspace Indicator'));
+ 
+         const {
+             baseStyleClass = 'workspace-indicator',
+@@ -260,10 +260,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         baseStyleClassName = baseStyleClass;
+         this.add_style_class_name(baseStyleClassName);
+ 
+-        this.setMenu(new PopupMenu.PopupMenu(this, 0.0, St.Side.BOTTOM));
+-        this.remove_style_class_name('panel-button');
+-        this.menu.actor.remove_style_class_name('panel-menu');
+-
+         let container = new St.Widget({
+             layout_manager: new Clutter.BinLayout(),
+             x_expand: true,
+-- 
+2.44.0
+
+
+From 7d2abee5e5de19bba95e4fb66692e08ace67c972 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 21 Mar 2024 16:49:35 +0100
+Subject: [PATCH 09/29] window-list: Handle changes to workspace menu
+
+For now the menu is always set at construction time, however this
+will change in the future. Prepare for that by handling the
+`menu-set` signal, similar to the top bar.
+---
+ extensions/window-list/extension.js | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index c58df434..a011bc90 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -789,7 +789,9 @@ class WindowList extends St.Widget {
+         this._updateWorkspaceIndicatorVisibility();
+ 
+         this._menuManager = new PopupMenu.PopupMenuManager(this);
+-        this._menuManager.addMenu(this._workspaceIndicator.menu);
++        this._workspaceIndicator.connect('menu-set',
++            () => this._onWorkspaceMenuSet());
++        this._onWorkspaceMenuSet();
+ 
+         Main.layoutManager.addChrome(this, {
+             affectsStruts: true,
+@@ -884,6 +886,11 @@ class WindowList extends St.Widget {
+         children[newActive].activate();
+     }
+ 
++    _onWorkspaceMenuSet() {
++        if (this._workspaceIndicator.menu)
++            this._menuManager.addMenu(this._workspaceIndicator.menu);
++    }
++
+     _updatePosition() {
+         this.set_position(
+             this._monitor.x,
+-- 
+2.44.0
+
+
+From bc71e5e7a21249868a481238193e1ca15eba5699 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 15:58:39 +0100
+Subject: [PATCH 10/29] workspace-indicator: Don't use SCHEMA/KEY constants
+
+Each constant is only used once, so all they do is disconnect
+the actual value from the code that uses it.
+
+The copy in the window-list extension just uses the strings directly,
+do the same here.
+---
+ extensions/workspace-indicator/workspaceIndicator.js | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index ba1e05d7..60e084e2 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -17,9 +17,6 @@ const Main = imports.ui.main;
+ const PanelMenu = imports.ui.panelMenu;
+ const PopupMenu = imports.ui.popupMenu;
+ 
+-const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
+-const WORKSPACE_KEY = 'workspace-names';
+-
+ const TOOLTIP_OFFSET = 6;
+ const TOOLTIP_ANIMATION_TIME = 150;
+ 
+@@ -317,9 +314,9 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._updateThumbnails();
+         this._updateThumbnailVisibility();
+ 
+-        this._settings = new Gio.Settings({schema_id: WORKSPACE_SCHEMA});
++        this._settings = new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'});
+         this._settingsChangedId = this._settings.connect(
+-            `changed::${WORKSPACE_KEY}`,
++            'changed::workspace-names',
+             this._updateMenuLabels.bind(this));
+     }
+ 
+-- 
+2.44.0
+
+
+From 66cf82e0676179a2565a75bbad1c31bb539c065c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 18:59:23 +0100
+Subject: [PATCH 11/29] workspace-indicator: Use existing property
+
+We already track the current workspace index, use that
+instead of getting it from the workspace manager again.
+---
+ extensions/workspace-indicator/workspaceIndicator.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 60e084e2..4f2188be 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -454,7 +454,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             return;
+ 
+ 
+-        let newIndex = global.workspace_manager.get_active_workspace_index() + diff;
++        const newIndex = this._currentWorkspace + diff;
+         this._activate(newIndex);
+     }
+ });
+-- 
+2.44.0
+
+
+From c51f0d790c7e4d575d770b63ad7c9632b4af79b1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 16:14:24 +0100
+Subject: [PATCH 12/29] workspace-indicator: Don't use menu section
+
+We never added anything else to the menu, so we can just operate
+on the entire menu instead of an intermediate section.
+
+This removes another difference with the window-list copy.
+---
+ extensions/workspace-indicator/workspaceIndicator.js | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 4f2188be..66b71cd6 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -296,8 +296,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         container.add_child(this._thumbnailsBox);
+ 
+         this._workspacesItems = [];
+-        this._workspaceSection = new PopupMenu.PopupMenuSection();
+-        this.menu.addMenuItem(this._workspaceSection);
+ 
+         this._workspaceManagerSignals = [
+             workspaceManager.connect_after('notify::n-workspaces',
+@@ -310,7 +308,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+         this.connect('scroll-event', this._onScrollEvent.bind(this));
+         this._thumbnailsBox.connect('scroll-event', this._onScrollEvent.bind(this));
+-        this._createWorkspacesSection();
++        this._updateMenu();
+         this._updateThumbnails();
+         this._updateThumbnailVisibility();
+ 
+@@ -361,7 +359,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+     }
+ 
+     _nWorkspacesChanged() {
+-        this._createWorkspacesSection();
++        this._updateMenu();
+         this._updateThumbnails();
+         this._updateThumbnailVisibility();
+     }
+@@ -397,17 +395,17 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             this._workspacesItems[i].label.text = this._labelText(i);
+     }
+ 
+-    _createWorkspacesSection() {
++    _updateMenu() {
+         let workspaceManager = global.workspace_manager;
+ 
+-        this._workspaceSection.removeAll();
++        this.menu.removeAll();
+         this._workspacesItems = [];
+         this._currentWorkspace = workspaceManager.get_active_workspace_index();
+ 
+         let i = 0;
+         for (; i < workspaceManager.n_workspaces; i++) {
+             this._workspacesItems[i] = new PopupMenu.PopupMenuItem(this._labelText(i));
+-            this._workspaceSection.addMenuItem(this._workspacesItems[i]);
++            this.menu.addMenuItem(this._workspacesItems[i]);
+             this._workspacesItems[i].workspaceId = i;
+             this._workspacesItems[i].label_actor = this._statusLabel;
+             this._workspacesItems[i].connect('activate', (actor, _event) => {
+-- 
+2.44.0
+
+
+From ef3a5860782e67dffcb63c705422102f68bd68ad Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 13:05:15 +0100
+Subject: [PATCH 13/29] workspace-indicator: Support showing tooltips above
+
+The indicator is located in the top bar, so tooltips are always
+shown below the previews. However supporting showing tooltips
+above previews when space permits allows the same code to be
+used in the copy that is included with the window-list extension.
+---
+ extensions/workspace-indicator/workspaceIndicator.js | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 66b71cd6..bc9e222b 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -227,16 +227,17 @@ class WorkspaceThumbnail extends St.Button {
+             });
+ 
+             const [stageX, stageY] = this.get_transformed_position();
+-            const thumbWidth = this.allocation.get_width();
+-            const thumbHeight = this.allocation.get_height();
+-            const tipWidth = this._tooltip.width;
++            const [thumbWidth, thumbHeight] = this.allocation.get_size();
++            const [tipWidth, tipHeight] = this._tooltip.get_size();
+             const xOffset = Math.floor((thumbWidth - tipWidth) / 2);
+             const monitor = Main.layoutManager.findMonitorForActor(this);
+             const x = Math.clamp(
+                 stageX + xOffset,
+                 monitor.x,
+                 monitor.x + monitor.width - tipWidth);
+-            const y = stageY + thumbHeight + TOOLTIP_OFFSET;
++            const y = stageY - monitor.y > thumbHeight + TOOLTIP_OFFSET
++                ? stageY - tipHeight - TOOLTIP_OFFSET // show above
++                : stageY + thumbHeight + TOOLTIP_OFFSET; // show below
+             this._tooltip.set_position(x, y);
+         }
+ 
+-- 
+2.44.0
+
+
+From 3161d6c59fc8f7dd1b5c5f21082a5fd00cbcf5a9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 17:37:16 +0100
+Subject: [PATCH 14/29] workspace-indicator: Only change top bar redirect when
+ in top bar
+
+While this is always the case for the workspace indicator, adding
+the check will allow to use the same code in the window list.
+---
+ .../workspace-indicator/workspaceIndicator.js | 23 +++++++++++++++++--
+ 1 file changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index bc9e222b..ac270d64 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -309,6 +309,16 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+         this.connect('scroll-event', this._onScrollEvent.bind(this));
+         this._thumbnailsBox.connect('scroll-event', this._onScrollEvent.bind(this));
++
++        this._inTopBar = false;
++        this.connect('notify::realized', () => {
++            if (!this.realized)
++                return;
++
++            this._inTopBar = Main.panel.contains(this);
++            this._updateTopBarRedirect();
++        });
++
+         this._updateMenu();
+         this._updateThumbnails();
+         this._updateThumbnailVisibility();
+@@ -328,7 +338,9 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             this._settingsChangedId = 0;
+         }
+ 
+-        Main.panel.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
++        if (this._inTopBar)
++            Main.panel.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
++        this._inTopBar = false;
+ 
+         super._onDestroy();
+     }
+@@ -343,9 +355,16 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._statusLabel.visible = useMenu;
+         this._thumbnailsBox.visible = !useMenu;
+ 
++        this._updateTopBarRedirect();
++    }
++
++    _updateTopBarRedirect() {
++        if (!this._inTopBar)
++            return;
++
+         // Disable offscreen-redirect when showing the workspace switcher
+         // so that clip-to-allocation works
+-        Main.panel.set_offscreen_redirect(useMenu
++        Main.panel.set_offscreen_redirect(this._thumbnailsBox.visible
+             ? Clutter.OffscreenRedirect.ALWAYS
+             : Clutter.OffscreenRedirect.AUTOMATIC_FOR_OPACITY);
+     }
+-- 
+2.44.0
+
+
+From 3afe55799368e1f899d2949bcc981718c6498623 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 16:13:00 +0100
+Subject: [PATCH 15/29] workspace-indicator: Small cleanup
+
+The code to update the menu labels is a bit cleaner in the
+window-list extension, so use that.
+---
+ .../workspace-indicator/workspaceIndicator.js | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index ac270d64..9b22102a 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -422,19 +422,18 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._workspacesItems = [];
+         this._currentWorkspace = workspaceManager.get_active_workspace_index();
+ 
+-        let i = 0;
+-        for (; i < workspaceManager.n_workspaces; i++) {
+-            this._workspacesItems[i] = new PopupMenu.PopupMenuItem(this._labelText(i));
+-            this.menu.addMenuItem(this._workspacesItems[i]);
+-            this._workspacesItems[i].workspaceId = i;
+-            this._workspacesItems[i].label_actor = this._statusLabel;
+-            this._workspacesItems[i].connect('activate', (actor, _event) => {
+-                this._activate(actor.workspaceId);
+-            });
++        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
++            const item = new PopupMenu.PopupMenuItem(this._labelText(i));
+ 
+-            this._workspacesItems[i].setOrnament(i === this._currentWorkspace
++            item.connect('activate',
++                () => this._activate(i));
++
++            item.setOrnament(i === this._currentWorkspace
+                 ? PopupMenu.Ornament.DOT
+                 : PopupMenu.Ornament.NO_DOT);
++
++            this.menu.addMenuItem(item);
++            this._workspacesItems[i] = item;
+         }
+ 
+         this._statusLabel.set_text(this._labelText());
+-- 
+2.44.0
+
+
+From 2eef4f6dd803021303be7c4f15775a41389debb3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 16:13:00 +0100
+Subject: [PATCH 16/29] workspace-indicator: Simplify getting status text
+
+Currently the same method is used to get the label text for the
+indicator itself and for the menu items.
+
+A method that behaves significantly different depending on whether
+a parameter is passed is confusing, so only deal with the indicator
+label and directly use the mutter API to get the workspace names
+for menu items.
+---
+ .../workspace-indicator/workspaceIndicator.js | 24 +++++++++----------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 9b22102a..d8b29f58 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -283,7 +283,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._statusLabel = new St.Label({
+             style_class: 'status-label',
+             y_align: Clutter.ActorAlign.CENTER,
+-            text: this._labelText(),
++            text: this._getStatusText(),
+         });
+ 
+         container.add_child(this._statusLabel);
+@@ -375,7 +375,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._updateMenuOrnament();
+         this._updateActiveThumbnail();
+ 
+-        this._statusLabel.set_text(this._labelText());
++        this._statusLabel.set_text(this._getStatusText());
+     }
+ 
+     _nWorkspacesChanged() {
+@@ -402,17 +402,16 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         }
+     }
+ 
+-    _labelText(workspaceIndex) {
+-        if (workspaceIndex === undefined) {
+-            workspaceIndex = this._currentWorkspace;
+-            return (workspaceIndex + 1).toString();
+-        }
+-        return Meta.prefs_get_workspace_name(workspaceIndex);
++    _getStatusText() {
++        const current = this._currentWorkspace + 1;
++        return `${current}`;
+     }
+ 
+     _updateMenuLabels() {
+-        for (let i = 0; i < this._workspacesItems.length; i++)
+-            this._workspacesItems[i].label.text = this._labelText(i);
++        for (let i = 0; i < this._workspacesItems.length; i++) {
++            const item = this._workspacesItems[i];
++            item.label.text = Meta.prefs_get_workspace_name(i);
++        }
+     }
+ 
+     _updateMenu() {
+@@ -423,7 +422,8 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._currentWorkspace = workspaceManager.get_active_workspace_index();
+ 
+         for (let i = 0; i < workspaceManager.n_workspaces; i++) {
+-            const item = new PopupMenu.PopupMenuItem(this._labelText(i));
++            const name = Meta.prefs_get_workspace_name(i);
++            const item = new PopupMenu.PopupMenuItem(name);
+ 
+             item.connect('activate',
+                 () => this._activate(i));
+@@ -436,7 +436,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             this._workspacesItems[i] = item;
+         }
+ 
+-        this._statusLabel.set_text(this._labelText());
++        this._statusLabel.set_text(this._getStatusText());
+     }
+ 
+     _updateThumbnails() {
+-- 
+2.44.0
+
+
+From 8785f56bf69272e664c207856bfb7417342550c6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 16:35:09 +0100
+Subject: [PATCH 17/29] workspace-indicator: Include n-workspaces in status
+ label
+
+The two extensions currently use a slightly different label
+in menu mode:
+The workspace indicator uses the plain workspace number ("2"),
+while the window list includes the number of workspaces ("2 / 4").
+
+The additional information seem useful, as well as the slightly
+bigger click/touch target, so copy the window-list behavior.
+---
+ extensions/workspace-indicator/workspaceIndicator.js | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index d8b29f58..756758b3 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -403,8 +403,9 @@ class WorkspaceIndicator extends PanelMenu.Button {
+     }
+ 
+     _getStatusText() {
++        const {nWorkspaces} = global.workspace_manager;
+         const current = this._currentWorkspace + 1;
+-        return `${current}`;
++        return `${current} / ${nWorkspaces}`;
+     }
+ 
+     _updateMenuLabels() {
+-- 
+2.44.0
+
+
+From 6e483b472fa4b5a7be8f00b1ef87f28658f815aa Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 22 Feb 2024 04:45:23 +0100
+Subject: [PATCH 18/29] workspace-indicator: Tweak preview style
+
+Sync sizes and padding with the window-list previews.
+
+Tone down the colors a bit, but less then the current window-list
+style where workspaces blend too much into the background and
+the selection is unclear.
+---
+ extensions/workspace-indicator/stylesheet.css | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/extensions/workspace-indicator/stylesheet.css b/extensions/workspace-indicator/stylesheet.css
+index 4e12cce4..f74f7e88 100644
+--- a/extensions/workspace-indicator/stylesheet.css
++++ b/extensions/workspace-indicator/stylesheet.css
+@@ -3,24 +3,25 @@
+ }
+ 
+ .workspace-indicator .workspaces-box {
+-  padding: 4px 0;
+-  spacing: 4px;
++  padding: 5px;
++  spacing: 3px;
+ }
+ 
+ .workspace-indicator .workspace {
+-  width: 40px;
+-  border: 2px solid #000;
+-  border-radius: 2px;
+-  background-color: #595959;
++  width: 52px;
++  border: 2px solid transparent;
++  border-radius: 4px;
++  background-color: #3f3f3f;
+ }
+ 
+ .workspace-indicator .workspace.active {
+-  border-color: #fff;
++  border-color: #9f9f9f;
+ }
+ 
+ .workspace-indicator-window-preview {
+   background-color: #bebebe;
+   border: 1px solid #828282;
++  border-radius: 1px;
+ }
+ 
+ .workspace-indicator-window-preview.active {
+-- 
+2.44.0
+
+
+From cf06ac2f9b7e2412fc555721b9c6d34fea7e0b45 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 23:22:58 +0100
+Subject: [PATCH 19/29] workspace-indicator: Support light style
+
+The window-list extension already includes light styling for
+its copy of the workspace indicator. Just copy that over to
+support the light variant here as well.
+---
+ extensions/workspace-indicator/meson.build    |  6 +++-
+ .../workspace-indicator/stylesheet-dark.css   | 29 ++++++++++++++++++
+ .../workspace-indicator/stylesheet-light.css  | 25 ++++++++++++++++
+ extensions/workspace-indicator/stylesheet.css | 30 +------------------
+ 4 files changed, 60 insertions(+), 30 deletions(-)
+ create mode 100644 extensions/workspace-indicator/stylesheet-dark.css
+ create mode 100644 extensions/workspace-indicator/stylesheet-light.css
+
+diff --git a/extensions/workspace-indicator/meson.build b/extensions/workspace-indicator/meson.build
+index eb25b9cc..0bf9f023 100644
+--- a/extensions/workspace-indicator/meson.build
++++ b/extensions/workspace-indicator/meson.build
+@@ -3,6 +3,10 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
+-extension_data += files('stylesheet.css')
++extension_data += files(
++  'stylesheet.css',
++  'stylesheet-dark.css',
++  'stylesheet-light.css',
++)
+ 
+ extension_sources += files('prefs.js', 'workspaceIndicator.js')
+diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
+new file mode 100644
+index 00000000..f74f7e88
+--- /dev/null
++++ b/extensions/workspace-indicator/stylesheet-dark.css
+@@ -0,0 +1,29 @@
++.workspace-indicator .status-label {
++  padding: 0 8px;
++}
++
++.workspace-indicator .workspaces-box {
++  padding: 5px;
++  spacing: 3px;
++}
++
++.workspace-indicator .workspace {
++  width: 52px;
++  border: 2px solid transparent;
++  border-radius: 4px;
++  background-color: #3f3f3f;
++}
++
++.workspace-indicator .workspace.active {
++  border-color: #9f9f9f;
++}
++
++.workspace-indicator-window-preview {
++  background-color: #bebebe;
++  border: 1px solid #828282;
++  border-radius: 1px;
++}
++
++.workspace-indicator-window-preview.active {
++  background-color: #d4d4d4;
++}
+diff --git a/extensions/workspace-indicator/stylesheet-light.css b/extensions/workspace-indicator/stylesheet-light.css
+new file mode 100644
+index 00000000..049b6a38
+--- /dev/null
++++ b/extensions/workspace-indicator/stylesheet-light.css
+@@ -0,0 +1,25 @@
++/*
++ * SPDX-FileCopyrightText: 2013 Florian Müllner <fmuellner@gnome.org>
++ * SPDX-FileCopyrightText: 2015 Jakub Steiner <jimmac@gmail.com>
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++
++@import url("stylesheet-dark.css");
++
++.workspace-indicator .workspace {
++  background-color: #ccc;
++}
++
++.workspace-indicator .workspace.active {
++  border-color: #888;
++}
++
++.workspace-indicator-window-preview {
++  background-color: #ededed;
++  border: 1px solid #ccc;
++}
++
++.workspace-indicator-window-preview.active {
++  background-color: #f6f5f4;
++}
+diff --git a/extensions/workspace-indicator/stylesheet.css b/extensions/workspace-indicator/stylesheet.css
+index f74f7e88..b0f7d171 100644
+--- a/extensions/workspace-indicator/stylesheet.css
++++ b/extensions/workspace-indicator/stylesheet.css
+@@ -1,29 +1 @@
+-.workspace-indicator .status-label {
+-  padding: 0 8px;
+-}
+-
+-.workspace-indicator .workspaces-box {
+-  padding: 5px;
+-  spacing: 3px;
+-}
+-
+-.workspace-indicator .workspace {
+-  width: 52px;
+-  border: 2px solid transparent;
+-  border-radius: 4px;
+-  background-color: #3f3f3f;
+-}
+-
+-.workspace-indicator .workspace.active {
+-  border-color: #9f9f9f;
+-}
+-
+-.workspace-indicator-window-preview {
+-  background-color: #bebebe;
+-  border: 1px solid #828282;
+-  border-radius: 1px;
+-}
+-
+-.workspace-indicator-window-preview.active {
+-  background-color: #d4d4d4;
+-}
++@import url("stylesheet-dark.css");
+-- 
+2.44.0
+
+
+From a5fd131564600f3117f0dbd27a1bb82592ec1132 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 21 Feb 2024 13:08:52 +0100
+Subject: [PATCH 20/29] window-list: Use actual copy of workspace-indicator
+
+We are now at a point where the code from the workspace-indicator
+extension is usable from the window-list.
+
+However instead of updating the copy, go one step further and
+remove it altogether, and copy the required files at build time.
+
+This ensures that future changes are picked up by both extensions
+without duplicating any work.
+---
+ extensions/window-list/classic.css           |  20 +-
+ extensions/window-list/meson.build           |  29 +-
+ extensions/window-list/stylesheet.css        |   2 +
+ extensions/window-list/workspaceIndicator.js | 447 -------------------
+ 4 files changed, 31 insertions(+), 467 deletions(-)
+ delete mode 100644 extensions/window-list/workspaceIndicator.js
+
+diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
+index ab982b92..d7ceb062 100644
+--- a/extensions/window-list/classic.css
++++ b/extensions/window-list/classic.css
+@@ -1,4 +1,5 @@
+ @import url("stylesheet.css");
++@import url("stylesheet-workspace-switcher-light.css");
+ 
+ #panel.bottom-panel {
+     border-top-width: 1px;
+@@ -47,22 +48,3 @@
+     color: #888;
+     box-shadow: none;
+   }
+-
+-/* workspace switcher */
+-.window-list-workspace-indicator .workspace {
+-  border: 2px solid #f6f5f4;
+-  background-color: #ccc;
+-}
+-
+-.window-list-workspace-indicator .workspace.active {
+-  border-color: #888;
+-}
+-
+-.window-list-workspace-indicator-window-preview {
+-  background-color: #ededed;
+-  border: 1px solid #ccc;
+-}
+-
+-.window-list-workspace-indicator-window-preview.active {
+-  background-color: #f6f5f4;
+-}
+diff --git a/extensions/window-list/meson.build b/extensions/window-list/meson.build
+index 599f45e1..12d2b174 100644
+--- a/extensions/window-list/meson.build
++++ b/extensions/window-list/meson.build
+@@ -5,7 +5,34 @@ extension_data += configure_file(
+ )
+ extension_data += files('stylesheet.css')
+ 
+-extension_sources += files('prefs.js', 'windowPicker.js', 'workspaceIndicator.js')
++transform_stylesheet = [
++   'sed', '-E',
++   '-e', 's:^\.(workspace-indicator):.window-list-\\1:',
++   '-e', '/^@import/d',
++   '@INPUT@',
++ ]
++
++workspaceIndicatorSources = [
++  configure_file(
++    input: '../workspace-indicator/workspaceIndicator.js',
++    output: '@PLAINNAME@',
++    copy: true,
++  ),
++ configure_file(
++   input: '../workspace-indicator/stylesheet-dark.css',
++   output: 'stylesheet-workspace-switcher-dark.css',
++   command: transform_stylesheet,
++   capture: true,
++ ),
++ configure_file(
++   input: '../workspace-indicator/stylesheet-light.css',
++   output: 'stylesheet-workspace-switcher-light.css',
++   command: transform_stylesheet,
++   capture: true,
++ ),
++]
++
++extension_sources += files('prefs.js', 'windowPicker.js') + workspaceIndicatorSources
+ extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+ 
+ if classic_mode_enabled
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index a13f72d8..4ba47f07 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -1,3 +1,5 @@
++@import url("stylesheet-workspace-switcher-dark.css");
++
+ .window-list {
+   spacing: 2px;
+   font-size: 10pt;
+diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
+deleted file mode 100644
+index 4290d58a..00000000
+--- a/extensions/window-list/workspaceIndicator.js
++++ /dev/null
+@@ -1,447 +0,0 @@
+-/* exported WorkspaceIndicator */
+-const { Clutter, Gio, GObject, Meta, St } = imports.gi;
+-
+-const DND = imports.ui.dnd;
+-const ExtensionUtils = imports.misc.extensionUtils;
+-const Main = imports.ui.main;
+-const PanelMenu = imports.ui.panelMenu;
+-const PopupMenu = imports.ui.popupMenu;
+-
+-const Me = ExtensionUtils.getCurrentExtension();
+-
+-const Gettext = imports.gettext.domain(Me.metadata['gettext-domain']);
+-const _ = Gettext.gettext;
+-
+-const TOOLTIP_OFFSET = 6;
+-const TOOLTIP_ANIMATION_TIME = 150;
+-
+-const MAX_THUMBNAILS = 6;
+-
+-let baseStyleClassName = '';
+-
+-let WindowPreview = GObject.registerClass(
+-class WindowPreview extends St.Button {
+-    _init(window) {
+-        super._init({
+-            style_class: `${baseStyleClassName}-window-preview`,
+-        });
+-
+-        this._delegate = this;
+-        DND.makeDraggable(this, { restoreOnSuccess: true });
+-
+-        this._window = window;
+-
+-        this.connect('destroy', this._onDestroy.bind(this));
+-
+-        this._sizeChangedId = this._window.connect('size-changed',
+-            () => this.queue_relayout());
+-        this._positionChangedId = this._window.connect('position-changed',
+-            () => {
+-                this._updateVisible();
+-                this.queue_relayout();
+-            });
+-        this._minimizedChangedId = this._window.connect('notify::minimized',
+-            this._updateVisible.bind(this));
+-
+-        this._focusChangedId = global.display.connect('notify::focus-window',
+-            this._onFocusChanged.bind(this));
+-        this._onFocusChanged();
+-    }
+-
+-    // needed for DND
+-    get metaWindow() {
+-        return this._window;
+-    }
+-
+-    _onDestroy() {
+-        this._window.disconnect(this._sizeChangedId);
+-        this._window.disconnect(this._positionChangedId);
+-        this._window.disconnect(this._minimizedChangedId);
+-        global.display.disconnect(this._focusChangedId);
+-    }
+-
+-    _onFocusChanged() {
+-        if (global.display.focus_window === this._window)
+-            this.add_style_class_name('active');
+-        else
+-            this.remove_style_class_name('active');
+-    }
+-
+-    _updateVisible() {
+-        const monitor = Main.layoutManager.findIndexForActor(this);
+-        const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor);
+-        this.visible = this._window.get_frame_rect().overlap(workArea) &&
+-            this._window.window_type !== Meta.WindowType.DESKTOP &&
+-            this._window.showing_on_its_workspace();
+-    }
+-});
+-
+-let WorkspaceLayout = GObject.registerClass(
+-class WorkspaceLayout extends Clutter.LayoutManager {
+-    vfunc_get_preferred_width() {
+-        return [0, 0];
+-    }
+-
+-    vfunc_get_preferred_height() {
+-        return [0, 0];
+-    }
+-
+-    vfunc_allocate(container, box) {
+-        const monitor = Main.layoutManager.findIndexForActor(container);
+-        const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor);
+-        const hscale = box.get_width() / workArea.width;
+-        const vscale = box.get_height() / workArea.height;
+-
+-        for (const child of container) {
+-            const childBox = new Clutter.ActorBox();
+-            const frameRect = child.metaWindow.get_frame_rect();
+-            childBox.set_size(
+-                Math.round(Math.min(frameRect.width, workArea.width) * hscale),
+-                Math.round(Math.min(frameRect.height, workArea.height) * vscale));
+-            childBox.set_origin(
+-                Math.round((frameRect.x - workArea.x) * hscale),
+-                Math.round((frameRect.y - workArea.y)  * vscale));
+-            child.allocate(childBox);
+-        }
+-    }
+-});
+-
+-let WorkspaceThumbnail = GObject.registerClass(
+-class WorkspaceThumbnail extends St.Button {
+-    _init(index) {
+-        super._init({
+-            style_class: 'workspace',
+-            child: new Clutter.Actor({
+-                layout_manager: new WorkspaceLayout(),
+-                clip_to_allocation: true,
+-            }),
+-        });
+-
+-        this._tooltip = new St.Label({
+-            style_class: 'dash-label',
+-            visible: false,
+-        });
+-        Main.uiGroup.add_child(this._tooltip);
+-
+-        this.connect('destroy', this._onDestroy.bind(this));
+-        this.connect('notify::hover', this._syncTooltip.bind(this));
+-
+-        this._index = index;
+-        this._delegate = this; // needed for DND
+-
+-        this._windowPreviews = new Map();
+-
+-        let workspaceManager = global.workspace_manager;
+-        this._workspace = workspaceManager.get_workspace_by_index(index);
+-
+-        this._windowAddedId = this._workspace.connect('window-added',
+-            (ws, window) => {
+-                this._addWindow(window);
+-            });
+-        this._windowRemovedId = this._workspace.connect('window-removed',
+-            (ws, window) => {
+-                this._removeWindow(window);
+-            });
+-        this._restackedId = global.display.connect('restacked',
+-            this._onRestacked.bind(this));
+-
+-        this._workspace.list_windows().forEach(w => this._addWindow(w));
+-        this._onRestacked();
+-    }
+-
+-    acceptDrop(source) {
+-        if (!source.metaWindow)
+-            return false;
+-
+-        this._moveWindow(source.metaWindow);
+-        return true;
+-    }
+-
+-    handleDragOver(source) {
+-        if (source.metaWindow)
+-            return DND.DragMotionResult.MOVE_DROP;
+-        else
+-            return DND.DragMotionResult.CONTINUE;
+-    }
+-
+-    _addWindow(window) {
+-        if (this._windowPreviews.has(window))
+-            return;
+-
+-        let preview = new WindowPreview(window);
+-        preview.connect('clicked', (a, btn) => this.emit('clicked', btn));
+-        this._windowPreviews.set(window, preview);
+-        this.child.add_child(preview);
+-    }
+-
+-    _removeWindow(window) {
+-        let preview = this._windowPreviews.get(window);
+-        if (!preview)
+-            return;
+-
+-        this._windowPreviews.delete(window);
+-        preview.destroy();
+-    }
+-
+-    _onRestacked() {
+-        let lastPreview = null;
+-        let windows = global.get_window_actors().map(a => a.meta_window);
+-        for (let i = 0; i < windows.length; i++) {
+-            let preview = this._windowPreviews.get(windows[i]);
+-            if (!preview)
+-                continue;
+-
+-            this.child.set_child_above_sibling(preview, lastPreview);
+-            lastPreview = preview;
+-        }
+-    }
+-
+-    _moveWindow(window) {
+-        let monitorIndex = Main.layoutManager.findIndexForActor(this);
+-        if (monitorIndex !== window.get_monitor())
+-            window.move_to_monitor(monitorIndex);
+-        window.change_workspace_by_index(this._index, false);
+-    }
+-
+-    on_clicked() {
+-        let ws = global.workspace_manager.get_workspace_by_index(this._index);
+-        if (ws)
+-            ws.activate(global.get_current_time());
+-    }
+-
+-    _syncTooltip() {
+-        if (this.hover) {
+-            this._tooltip.set({
+-                text: Meta.prefs_get_workspace_name(this._index),
+-                visible: true,
+-                opacity: 0,
+-            });
+-
+-            const [stageX, stageY] = this.get_transformed_position();
+-            const thumbWidth = this.allocation.get_width();
+-            const tipWidth = this._tooltip.width;
+-            const tipHeight = this._tooltip.height;
+-            const xOffset = Math.floor((thumbWidth - tipWidth) / 2);
+-            const monitor = Main.layoutManager.findMonitorForActor(this);
+-            const x = Math.clamp(
+-                stageX + xOffset,
+-                monitor.x,
+-                monitor.x + monitor.width - tipWidth);
+-            const y = stageY - tipHeight - TOOLTIP_OFFSET;
+-            this._tooltip.set_position(x, y);
+-        }
+-
+-        this._tooltip.ease({
+-            opacity: this.hover ? 255 : 0,
+-            duration: TOOLTIP_ANIMATION_TIME,
+-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+-            onComplete: () => (this._tooltip.visible = this.hover),
+-        });
+-    }
+-
+-    _onDestroy() {
+-        this._tooltip.destroy();
+-
+-        this._workspace.disconnect(this._windowAddedId);
+-        this._workspace.disconnect(this._windowRemovedId);
+-        global.display.disconnect(this._restackedId);
+-    }
+-});
+-
+-var WorkspaceIndicator = GObject.registerClass(
+-class WorkspaceIndicator extends PanelMenu.Button {
+-    _init(params = {}) {
+-        super._init(0.0, _('Workspace Indicator'));
+-
+-        const {
+-            baseStyleClass = 'workspace-indicator',
+-        } = params;
+-
+-        baseStyleClassName = baseStyleClass;
+-        this.add_style_class_name(baseStyleClassName);
+-
+-        let container = new St.Widget({
+-            layout_manager: new Clutter.BinLayout(),
+-            x_expand: true,
+-            y_expand: true,
+-        });
+-        this.add_actor(container);
+-
+-        let workspaceManager = global.workspace_manager;
+-
+-        this._currentWorkspace = workspaceManager.get_active_workspace_index();
+-        this._statusLabel = new St.Label({ text: this._getStatusText() });
+-
+-        this._statusBin = new St.Bin({
+-            style_class: 'status-label-bin',
+-            x_expand: true,
+-            y_expand: true,
+-            child: this._statusLabel,
+-        });
+-        container.add_actor(this._statusBin);
+-
+-        this._thumbnailsBox = new St.BoxLayout({
+-            style_class: 'workspaces-box',
+-            y_expand: true,
+-            reactive: true,
+-        });
+-        this._thumbnailsBox.connect('scroll-event',
+-            this._onScrollEvent.bind(this));
+-        container.add_actor(this._thumbnailsBox);
+-
+-        this._workspacesItems = [];
+-
+-        this._workspaceManagerSignals = [
+-            workspaceManager.connect('notify::n-workspaces',
+-                this._nWorkspacesChanged.bind(this)),
+-            workspaceManager.connect_after('workspace-switched',
+-                this._onWorkspaceSwitched.bind(this)),
+-            workspaceManager.connect('notify::layout-rows',
+-                this._updateThumbnailVisibility.bind(this)),
+-        ];
+-
+-        this.connect('scroll-event', this._onScrollEvent.bind(this));
+-        this._updateMenu();
+-        this._updateThumbnails();
+-        this._updateThumbnailVisibility();
+-
+-        this._settings = new Gio.Settings({ schema_id: 'org.gnome.desktop.wm.preferences' });
+-        this._settingsChangedId = this._settings.connect(
+-            'changed::workspace-names', this._updateMenuLabels.bind(this));
+-    }
+-
+-    _onDestroy() {
+-        for (let i = 0; i < this._workspaceManagerSignals.length; i++)
+-            global.workspace_manager.disconnect(this._workspaceManagerSignals[i]);
+-
+-        if (this._settingsChangedId) {
+-            this._settings.disconnect(this._settingsChangedId);
+-            this._settingsChangedId = 0;
+-        }
+-
+-        super._onDestroy();
+-    }
+-
+-    _updateThumbnailVisibility() {
+-        const { workspaceManager } = global;
+-        const vertical = workspaceManager.layout_rows === -1;
+-        const useMenu =
+-            vertical || workspaceManager.n_workspaces > MAX_THUMBNAILS;
+-        this.reactive = useMenu;
+-
+-        this._statusBin.visible = useMenu;
+-        this._thumbnailsBox.visible = !useMenu;
+-    }
+-
+-    _onWorkspaceSwitched() {
+-        let workspaceManager = global.workspace_manager;
+-        this._currentWorkspace = workspaceManager.get_active_workspace_index();
+-
+-        this._updateMenuOrnament();
+-        this._updateActiveThumbnail();
+-
+-        this._statusLabel.set_text(this._getStatusText());
+-    }
+-
+-    _nWorkspacesChanged() {
+-        this._updateMenu();
+-        this._updateThumbnails();
+-        this._updateThumbnailVisibility();
+-    }
+-
+-    _updateMenuOrnament() {
+-        for (let i = 0; i < this._workspacesItems.length; i++) {
+-            this._workspacesItems[i].setOrnament(i === this._currentWorkspace
+-                ? PopupMenu.Ornament.DOT
+-                : PopupMenu.Ornament.NONE);
+-        }
+-    }
+-
+-    _updateActiveThumbnail() {
+-        let thumbs = this._thumbnailsBox.get_children();
+-        for (let i = 0; i < thumbs.length; i++) {
+-            if (i === this._currentWorkspace)
+-                thumbs[i].add_style_class_name('active');
+-            else
+-                thumbs[i].remove_style_class_name('active');
+-        }
+-    }
+-
+-    _getStatusText() {
+-        let workspaceManager = global.workspace_manager;
+-        let current = workspaceManager.get_active_workspace_index();
+-        let total = workspaceManager.n_workspaces;
+-
+-        return '%d / %d'.format(current + 1, total);
+-    }
+-
+-    _updateMenuLabels() {
+-        for (let i = 0; i < this._workspacesItems.length; i++) {
+-            let item = this._workspacesItems[i];
+-            let name = Meta.prefs_get_workspace_name(i);
+-            item.label.text = name;
+-        }
+-    }
+-
+-    _updateMenu() {
+-        let workspaceManager = global.workspace_manager;
+-
+-        this.menu.removeAll();
+-        this._workspacesItems = [];
+-        this._currentWorkspace = workspaceManager.get_active_workspace_index();
+-
+-        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
+-            let name = Meta.prefs_get_workspace_name(i);
+-            let item = new PopupMenu.PopupMenuItem(name);
+-            item.workspaceId = i;
+-
+-            item.connect('activate', () => {
+-                this._activate(item.workspaceId);
+-            });
+-
+-            if (i === this._currentWorkspace)
+-                item.setOrnament(PopupMenu.Ornament.DOT);
+-
+-            this.menu.addMenuItem(item);
+-            this._workspacesItems[i] = item;
+-        }
+-
+-        this._statusLabel.set_text(this._getStatusText());
+-    }
+-
+-    _updateThumbnails() {
+-        let workspaceManager = global.workspace_manager;
+-
+-        this._thumbnailsBox.destroy_all_children();
+-
+-        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
+-            let thumb = new WorkspaceThumbnail(i);
+-            this._thumbnailsBox.add_actor(thumb);
+-        }
+-        this._updateActiveThumbnail();
+-    }
+-
+-    _activate(index) {
+-        let workspaceManager = global.workspace_manager;
+-
+-        if (index >= 0 && index < workspaceManager.n_workspaces) {
+-            let metaWorkspace = workspaceManager.get_workspace_by_index(index);
+-            metaWorkspace.activate(global.get_current_time());
+-        }
+-    }
+-
+-    _onScrollEvent(actor, event) {
+-        let direction = event.get_scroll_direction();
+-        let diff = 0;
+-        if (direction === Clutter.ScrollDirection.DOWN)
+-            diff = 1;
+-        else if (direction === Clutter.ScrollDirection.UP)
+-            diff = -1;
+-        else
+-            return;
+-
+-        let newIndex = this._currentWorkspace + diff;
+-        this._activate(newIndex);
+-    }
+-});
+-
+-- 
+2.44.0
+
+
+From fbcf6cb317b58dc32c67952b54cec925adfbad34 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 20 Feb 2024 17:39:49 +0100
+Subject: [PATCH 21/29] workspace-indicator: Simplify scroll handling
+
+gnome-shell already includes a method for switching workspaces
+via scroll events. Use that instead of implementing our own.
+---
+ .../workspace-indicator/workspaceIndicator.js | 21 ++++---------------
+ 1 file changed, 4 insertions(+), 17 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 756758b3..8e3fec56 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -307,8 +307,10 @@ class WorkspaceIndicator extends PanelMenu.Button {
+                 this._updateThumbnailVisibility.bind(this)),
+         ];
+ 
+-        this.connect('scroll-event', this._onScrollEvent.bind(this));
+-        this._thumbnailsBox.connect('scroll-event', this._onScrollEvent.bind(this));
++        this.connect('scroll-event',
++            (a, event) => Main.wm.handleWorkspaceScroll(event));
++        this._thumbnailsBox.connect('scroll-event',
++            (a, event) => Main.wm.handleWorkspaceScroll(event));
+ 
+         this._inTopBar = false;
+         this.connect('notify::realized', () => {
+@@ -460,19 +462,4 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             metaWorkspace.activate(global.get_current_time());
+         }
+     }
+-
+-    _onScrollEvent(actor, event) {
+-        let direction = event.get_scroll_direction();
+-        let diff = 0;
+-        if (direction === Clutter.ScrollDirection.DOWN)
+-            diff = 1;
+-        else if (direction === Clutter.ScrollDirection.UP)
+-            diff = -1;
+-        else
+-            return;
+-
+-
+-        const newIndex = this._currentWorkspace + diff;
+-        this._activate(newIndex);
+-    }
+ });
+-- 
+2.44.0
+
+
+From 346960098322af549c55a6eaf1628f1743585df1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 27 Feb 2024 21:20:45 +0100
+Subject: [PATCH 22/29] workspace-indicator: Handle active indication in
+ thumbnail
+
+Meta.Workspace has had an `active` property for a while now, so
+we can use a property binding instead of tracking the active
+workspace ourselves.
+---
+ .../workspace-indicator/workspaceIndicator.js | 38 ++++++++++++-------
+ 1 file changed, 24 insertions(+), 14 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 8e3fec56..01b831f7 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -116,8 +116,14 @@ class WorkspaceLayout extends Clutter.LayoutManager {
+     }
+ });
+ 
+-const WorkspaceThumbnail = GObject.registerClass(
+-class WorkspaceThumbnail extends St.Button {
++const WorkspaceThumbnail = GObject.registerClass({
++    Properties: {
++        'active': GObject.ParamSpec.boolean(
++            'active', '', '',
++            GObject.ParamFlags.READWRITE,
++            false),
++    },
++}, class WorkspaceThumbnail extends St.Button {
+     _init(index) {
+         super._init({
+             style_class: 'workspace',
+@@ -146,6 +152,10 @@ class WorkspaceThumbnail extends St.Button {
+         let workspaceManager = global.workspace_manager;
+         this._workspace = workspaceManager.get_workspace_by_index(index);
+ 
++        this._workspace.bind_property('active',
++            this, 'active',
++            GObject.BindingFlags.SYNC_CREATE);
++
+         this._windowAddedId = this._workspace.connect('window-added',
+             (ws, window) => this._addWindow(window));
+         this._windowRemovedId = this._workspace.connect('window-removed',
+@@ -158,6 +168,18 @@ class WorkspaceThumbnail extends St.Button {
+         this._onRestacked();
+     }
+ 
++    get active() {
++        return this.has_style_class_name('active');
++    }
++
++    set active(active) {
++        if (active)
++            this.add_style_class_name('active');
++        else
++            this.remove_style_class_name('active');
++        this.notify('active');
++    }
++
+     acceptDrop(source) {
+         if (!source.metaWindow)
+             return false;
+@@ -375,7 +397,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._currentWorkspace = global.workspace_manager.get_active_workspace_index();
+ 
+         this._updateMenuOrnament();
+-        this._updateActiveThumbnail();
+ 
+         this._statusLabel.set_text(this._getStatusText());
+     }
+@@ -394,16 +415,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         }
+     }
+ 
+-    _updateActiveThumbnail() {
+-        let thumbs = this._thumbnailsBox.get_children();
+-        for (let i = 0; i < thumbs.length; i++) {
+-            if (i === this._currentWorkspace)
+-                thumbs[i].add_style_class_name('active');
+-            else
+-                thumbs[i].remove_style_class_name('active');
+-        }
+-    }
+-
+     _getStatusText() {
+         const {nWorkspaces} = global.workspace_manager;
+         const current = this._currentWorkspace + 1;
+@@ -451,7 +462,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             let thumb = new WorkspaceThumbnail(i);
+             this._thumbnailsBox.add_child(thumb);
+         }
+-        this._updateActiveThumbnail();
+     }
+ 
+     _activate(index) {
+-- 
+2.44.0
+
+
+From 76ec37876c295b9150e98c04e11189e464af7a94 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 20 Feb 2024 17:27:57 +0100
+Subject: [PATCH 23/29] workspace-indicator: Split out WorkspacePreviews
+
+The previews will become a bit more complex soon, so spit them out
+into a dedicated class.
+---
+ .../workspace-indicator/workspaceIndicator.js | 74 ++++++++++++-------
+ 1 file changed, 49 insertions(+), 25 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 01b831f7..a559b8e2 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -280,6 +280,51 @@ const WorkspaceThumbnail = GObject.registerClass({
+     }
+ });
+ 
++const WorkspacePreviews = GObject.registerClass(
++class WorkspacePreviews extends Clutter.Actor {
++    _init(params) {
++        super._init({
++            ...params,
++            layout_manager: new Clutter.BinLayout(),
++            reactive: true,
++            y_expand: true,
++        });
++
++        this.connect('scroll-event',
++            (a, event) => Main.wm.handleWorkspaceScroll(event));
++        this.connect('destroy', () => this._onDestroy());
++
++        const {workspaceManager} = global;
++
++        this._nWorkspacesChanged =
++            workspaceManager.connect_after('notify::n-workspaces',
++                () => this._updateThumbnails());
++
++        this._thumbnailsBox = new St.BoxLayout({
++            style_class: 'workspaces-box',
++            y_expand: true,
++        });
++        this.add_child(this._thumbnailsBox);
++
++        this._updateThumbnails();
++    }
++
++    _updateThumbnails() {
++        const {nWorkspaces} = global.workspace_manager;
++
++        this._thumbnailsBox.destroy_all_children();
++
++        for (let i = 0; i < nWorkspaces; i++) {
++            const thumb = new WorkspaceThumbnail(i);
++            this._thumbnailsBox.add_child(thumb);
++        }
++    }
++
++    _onDestroy() {
++        global.workspace_manager.disconnect(this._nWorkspacesChanged);
++    }
++});
++
+ var WorkspaceIndicator = GObject.registerClass(
+ class WorkspaceIndicator extends PanelMenu.Button {
+     _init(params = {}) {
+@@ -307,16 +352,10 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             y_align: Clutter.ActorAlign.CENTER,
+             text: this._getStatusText(),
+         });
+-
+         container.add_child(this._statusLabel);
+ 
+-        this._thumbnailsBox = new St.BoxLayout({
+-            style_class: 'workspaces-box',
+-            y_expand: true,
+-            reactive: true,
+-        });
+-
+-        container.add_child(this._thumbnailsBox);
++        this._thumbnails = new WorkspacePreviews();
++        container.add_child(this._thumbnails);
+ 
+         this._workspacesItems = [];
+ 
+@@ -331,8 +370,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+         this.connect('scroll-event',
+             (a, event) => Main.wm.handleWorkspaceScroll(event));
+-        this._thumbnailsBox.connect('scroll-event',
+-            (a, event) => Main.wm.handleWorkspaceScroll(event));
+ 
+         this._inTopBar = false;
+         this.connect('notify::realized', () => {
+@@ -344,7 +381,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         });
+ 
+         this._updateMenu();
+-        this._updateThumbnails();
+         this._updateThumbnailVisibility();
+ 
+         this._settings = new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'});
+@@ -377,7 +413,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this.reactive = useMenu;
+ 
+         this._statusLabel.visible = useMenu;
+-        this._thumbnailsBox.visible = !useMenu;
++        this._thumbnails.visible = !useMenu;
+ 
+         this._updateTopBarRedirect();
+     }
+@@ -388,7 +424,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+         // Disable offscreen-redirect when showing the workspace switcher
+         // so that clip-to-allocation works
+-        Main.panel.set_offscreen_redirect(this._thumbnailsBox.visible
++        Main.panel.set_offscreen_redirect(this._thumbnails.visible
+             ? Clutter.OffscreenRedirect.ALWAYS
+             : Clutter.OffscreenRedirect.AUTOMATIC_FOR_OPACITY);
+     }
+@@ -403,7 +439,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+     _nWorkspacesChanged() {
+         this._updateMenu();
+-        this._updateThumbnails();
+         this._updateThumbnailVisibility();
+     }
+ 
+@@ -453,17 +488,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._statusLabel.set_text(this._getStatusText());
+     }
+ 
+-    _updateThumbnails() {
+-        let workspaceManager = global.workspace_manager;
+-
+-        this._thumbnailsBox.destroy_all_children();
+-
+-        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
+-            let thumb = new WorkspaceThumbnail(i);
+-            this._thumbnailsBox.add_child(thumb);
+-        }
+-    }
+-
+     _activate(index) {
+         let workspaceManager = global.workspace_manager;
+ 
+-- 
+2.44.0
+
+
+From 69c5eefbca44f58d10072115dd46ffada862cd48 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Mon, 19 Feb 2024 14:42:04 +0100
+Subject: [PATCH 24/29] workspace-indicator: Handle preview overflow
+
+We currently avoid previews from overflowing in most setups by
+artificially limiting them to a maximum of six workspaces.
+
+Add some proper handling to also cover cases where space is more
+limited, and to allow removing the restriction in the future.
+
+For that, wrap the previews in an auto-scrolling scroll view
+and add overflow indicators on each side.
+---
+ .../workspace-indicator/stylesheet-dark.css   |  4 ++
+ .../workspace-indicator/workspaceIndicator.js | 66 ++++++++++++++++++-
+ 2 files changed, 69 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
+index f74f7e88..61d1e982 100644
+--- a/extensions/workspace-indicator/stylesheet-dark.css
++++ b/extensions/workspace-indicator/stylesheet-dark.css
+@@ -2,6 +2,10 @@
+   padding: 0 8px;
+ }
+ 
++.workspace-indicator .workspaces-view.hfade {
++  -st-hfade-offset: 20px;
++}
++
+ .workspace-indicator .workspaces-box {
+   padding: 5px;
+   spacing: 3px;
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index a559b8e2..17cf7c89 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -20,6 +20,8 @@ const PopupMenu = imports.ui.popupMenu;
+ const TOOLTIP_OFFSET = 6;
+ const TOOLTIP_ANIMATION_TIME = 150;
+ 
++const SCROLL_TIME = 100;
++
+ const MAX_THUMBNAILS = 6;
+ 
+ let baseStyleClassName = '';
+@@ -299,12 +301,30 @@ class WorkspacePreviews extends Clutter.Actor {
+         this._nWorkspacesChanged =
+             workspaceManager.connect_after('notify::n-workspaces',
+                 () => this._updateThumbnails());
++        this._workspaceSwitchedId =
++            workspaceManager.connect('workspace-switched',
++                () => this._updateScrollPosition());
++
++        this.connect('notify::mapped', () => {
++            if (this.mapped)
++                this._updateScrollPosition();
++        });
+ 
+         this._thumbnailsBox = new St.BoxLayout({
+             style_class: 'workspaces-box',
+             y_expand: true,
+         });
+-        this.add_child(this._thumbnailsBox);
++
++        this._scrollView = new St.ScrollView({
++            style_class: 'workspaces-view hfade',
++            enable_mouse_scrolling: false,
++            hscrollbar_policy: St.PolicyType.EXTERNAL,
++            vscrollbar_policy: St.PolicyType.NEVER,
++            y_expand: true,
++        });
++        this._scrollView.add_actor(this._thumbnailsBox);
++
++        this.add_child(this._scrollView);
+ 
+         this._updateThumbnails();
+     }
+@@ -318,6 +338,50 @@ class WorkspacePreviews extends Clutter.Actor {
+             const thumb = new WorkspaceThumbnail(i);
+             this._thumbnailsBox.add_child(thumb);
+         }
++
++        if (this.mapped)
++            this._updateScrollPosition();
++    }
++
++    _updateScrollPosition() {
++        const adjustment = this._scrollView.hscroll.adjustment;
++        const {upper, pageSize} = adjustment;
++        let {value} = adjustment;
++
++        const activeWorkspace =
++            [...this._thumbnailsBox].find(a => a.active);
++
++        if (!activeWorkspace)
++            return;
++
++        let offset = 0;
++        const hfade = this._scrollView.get_effect('fade');
++        if (hfade)
++            offset = hfade.fade_margins.left;
++
++        let {x1, x2} = activeWorkspace.get_allocation_box();
++        let parent = activeWorkspace.get_parent();
++        while (parent !== this._scrollView) {
++            if (!parent)
++                throw new Error('actor not in scroll view');
++
++            const box = parent.get_allocation_box();
++            x1 += box.x1;
++            x2 += box.x1;
++            parent = parent.get_parent();
++        }
++
++        if (x1 < value + offset)
++            value = Math.max(0, x1 - offset);
++        else if (x2 > value + pageSize - offset)
++            value = Math.min(upper, x2 + offset - pageSize);
++        else
++            return;
++
++        adjustment.ease(value, {
++            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
++            duration: SCROLL_TIME,
++        });
+     }
+ 
+     _onDestroy() {
+-- 
+2.44.0
+
+
+From 609674b2763bfd1536e8854b79d3c1bf265f00b9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sun, 3 Mar 2024 15:05:23 +0100
+Subject: [PATCH 25/29] workspace-indicator: Support labels in previews
+
+The space in the top bar is too limited to include the workspace
+names. However we'll soon replace the textual menu with a preview
+popover. We can use bigger previews there, so we can include the
+names to not lose functionality with regards to the current menu.
+---
+ .../workspace-indicator/workspaceIndicator.js | 63 ++++++++++++++++---
+ 1 file changed, 55 insertions(+), 8 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 17cf7c89..5e6d6300 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -124,10 +124,23 @@ const WorkspaceThumbnail = GObject.registerClass({
+             'active', '', '',
+             GObject.ParamFlags.READWRITE,
+             false),
++        'show-label': GObject.ParamSpec.boolean(
++            'show-label', '', '',
++            GObject.ParamFlags.READWRITE,
++            false),
+     },
+ }, class WorkspaceThumbnail extends St.Button {
+     _init(index) {
+-        super._init({
++        super._init();
++
++        const box = new St.BoxLayout({
++            style_class: 'workspace-box',
++            y_expand: true,
++            vertical: true,
++        });
++        this.set_child(box);
++
++        this._preview = new St.Bin({
+             style_class: 'workspace',
+             child: new Clutter.Actor({
+                 layout_manager: new WorkspaceLayout(),
+@@ -135,7 +148,15 @@ const WorkspaceThumbnail = GObject.registerClass({
+                 x_expand: true,
+                 y_expand: true,
+             }),
++            y_expand: true,
+         });
++        box.add_child(this._preview);
++
++        this._label = new St.Label({
++            x_align: Clutter.ActorAlign.CENTER,
++            text: Meta.prefs_get_workspace_name(index),
++        });
++        box.add_child(this._label);
+ 
+         this._tooltip = new St.Label({
+             style_class: 'dash-label',
+@@ -143,9 +164,20 @@ const WorkspaceThumbnail = GObject.registerClass({
+         });
+         Main.uiGroup.add_child(this._tooltip);
+ 
++        this.bind_property('show-label',
++            this._label, 'visible',
++            GObject.BindingFlags.SYNC_CREATE);
++
+         this.connect('destroy', this._onDestroy.bind(this));
+         this.connect('notify::hover', this._syncTooltip.bind(this));
+ 
++        this._desktopSettings =
++            new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'});
++        this._namesChangedId =
++            this._desktopSettings.connect('changed::workspace-names', () => {
++                this._label.text = Meta.prefs_get_workspace_name(index);
++            });
++
+         this._index = index;
+         this._delegate = this; // needed for DND
+ 
+@@ -171,14 +203,14 @@ const WorkspaceThumbnail = GObject.registerClass({
+     }
+ 
+     get active() {
+-        return this.has_style_class_name('active');
++        return this._preview.has_style_class_name('active');
+     }
+ 
+     set active(active) {
+         if (active)
+-            this.add_style_class_name('active');
++            this._preview.add_style_class_name('active');
+         else
+-            this.remove_style_class_name('active');
++            this._preview.remove_style_class_name('active');
+         this.notify('active');
+     }
+ 
+@@ -204,7 +236,7 @@ const WorkspaceThumbnail = GObject.registerClass({
+         let preview = new WindowPreview(window);
+         preview.connect('clicked', (a, btn) => this.emit('clicked', btn));
+         this._windowPreviews.set(window, preview);
+-        this.child.add_child(preview);
++        this._preview.child.add_child(preview);
+     }
+ 
+     _removeWindow(window) {
+@@ -224,7 +256,7 @@ const WorkspaceThumbnail = GObject.registerClass({
+             if (!preview)
+                 continue;
+ 
+-            this.child.set_child_above_sibling(preview, lastPreview);
++            this._preview.child.set_child_above_sibling(preview, lastPreview);
+             lastPreview = preview;
+         }
+     }
+@@ -243,6 +275,9 @@ const WorkspaceThumbnail = GObject.registerClass({
+     }
+ 
+     _syncTooltip() {
++        if (this.showLabel)
++            return;
++
+         if (this.hover) {
+             this._tooltip.set({
+                 text: Meta.prefs_get_workspace_name(this._index),
+@@ -279,11 +314,20 @@ const WorkspaceThumbnail = GObject.registerClass({
+         this._workspace.disconnect(this._windowAddedId);
+         this._workspace.disconnect(this._windowRemovedId);
+         global.display.disconnect(this._restackedId);
++
++        this._desktopSettings.disconnect(this._namesChangedId);
++        this._desktopSettings = null;
+     }
+ });
+ 
+-const WorkspacePreviews = GObject.registerClass(
+-class WorkspacePreviews extends Clutter.Actor {
++const WorkspacePreviews = GObject.registerClass({
++    Properties: {
++        'show-labels': GObject.ParamSpec.boolean(
++            'show-labels', '', '',
++            GObject.ParamFlags.READWRITE | GObject.ParamFlags.CONSTRUCT_ONLY,
++            false),
++    },
++}, class WorkspacePreviews extends Clutter.Actor {
+     _init(params) {
+         super._init({
+             ...params,
+@@ -336,6 +380,9 @@ class WorkspacePreviews extends Clutter.Actor {
+ 
+         for (let i = 0; i < nWorkspaces; i++) {
+             const thumb = new WorkspaceThumbnail(i);
++            this.bind_property('show-labels',
++                thumb, 'show-label',
++                GObject.BindingFlags.SYNC_CREATE);
+             this._thumbnailsBox.add_child(thumb);
+         }
+ 
+-- 
+2.44.0
+
+
+From 40cfe3a41fa3823fce06824b82e663b8f63f4e6d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 20 Feb 2024 21:43:55 +0100
+Subject: [PATCH 26/29] workspace-indicator: Stop handling vertical layouts
+
+Both the regular session and GNOME classic use a horizontal layout
+nowadays, so it doesn't seem worth to specifically handle vertical
+layouts anymore.
+
+The extension will still work when the layout is changed (by some
+other extension), there will simply be a mismatch between horizontal
+previews and the actual layout.
+---
+ extensions/workspace-indicator/workspaceIndicator.js | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 5e6d6300..aad2716a 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -475,8 +475,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+                 this._nWorkspacesChanged.bind(this)),
+             workspaceManager.connect_after('workspace-switched',
+                 this._onWorkspaceSwitched.bind(this)),
+-            workspaceManager.connect('notify::layout-rows',
+-                this._updateThumbnailVisibility.bind(this)),
+         ];
+ 
+         this.connect('scroll-event',
+@@ -518,9 +516,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+     _updateThumbnailVisibility() {
+         const {workspaceManager} = global;
+-        const vertical = workspaceManager.layout_rows === -1;
+-        const useMenu =
+-            vertical || workspaceManager.n_workspaces > MAX_THUMBNAILS;
++        const useMenu = workspaceManager.n_workspaces > MAX_THUMBNAILS;
+         this.reactive = useMenu;
+ 
+         this._statusLabel.visible = useMenu;
+-- 
+2.44.0
+
+
+From 1cad76230f8f70a08a8ccbe0970641a7b6a717b5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sun, 3 Mar 2024 15:05:23 +0100
+Subject: [PATCH 27/29] workspace-indicator: Also show previews in menu
+
+Since the regular session also switched to horizontal workspaces,
+using a vertical menu has been a bit awkward.
+
+Now that our previews have become more flexible, we can use them
+in the collapsed state as well as when embedded into the top bar.
+---
+ .../workspace-indicator/stylesheet-dark.css   | 25 +++++-
+ .../workspace-indicator/workspaceIndicator.js | 79 +++----------------
+ 2 files changed, 36 insertions(+), 68 deletions(-)
+
+diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
+index 61d1e982..fb0e8b1a 100644
+--- a/extensions/workspace-indicator/stylesheet-dark.css
++++ b/extensions/workspace-indicator/stylesheet-dark.css
+@@ -6,18 +6,41 @@
+   -st-hfade-offset: 20px;
+ }
+ 
++.workspace-indicator-menu .workspaces-view {
++  max-width: 480px;
++}
++
+ .workspace-indicator .workspaces-box {
+   padding: 5px;
+   spacing: 3px;
+ }
+ 
++.workspace-indicator-menu .workspaces-box {
++  padding: 5px;
++  spacing: 6px;
++}
++
++.workspace-indicator-menu .workspace-box {
++  spacing: 6px;
++}
++
++.workspace-indicator-menu .workspace,
+ .workspace-indicator .workspace {
+-  width: 52px;
+   border: 2px solid transparent;
+   border-radius: 4px;
+   background-color: #3f3f3f;
+ }
+ 
++.workspace-indicator .workspace {
++  width: 52px;
++}
++
++.workspace-indicator-menu .workspace {
++  height: 80px;
++  width: 160px;
++}
++
++.workspace-indicator-menu .workspace.active,
+ .workspace-indicator .workspace.active {
+   border-color: #9f9f9f;
+ }
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index aad2716a..7b3c6fbe 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -439,7 +439,7 @@ const WorkspacePreviews = GObject.registerClass({
+ var WorkspaceIndicator = GObject.registerClass(
+ class WorkspaceIndicator extends PanelMenu.Button {
+     _init(params = {}) {
+-        super._init(0.5, _('Workspace Indicator'));
++        super(0.5, _('Workspace Indicator'), true);
+ 
+         const {
+             baseStyleClass = 'workspace-indicator',
+@@ -472,7 +472,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+         this._workspaceManagerSignals = [
+             workspaceManager.connect_after('notify::n-workspaces',
+-                this._nWorkspacesChanged.bind(this)),
++                this._updateThumbnailVisibility.bind(this)),
+             workspaceManager.connect_after('workspace-switched',
+                 this._onWorkspaceSwitched.bind(this)),
+         ];
+@@ -489,24 +489,13 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             this._updateTopBarRedirect();
+         });
+ 
+-        this._updateMenu();
+         this._updateThumbnailVisibility();
+-
+-        this._settings = new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'});
+-        this._settingsChangedId = this._settings.connect(
+-            'changed::workspace-names',
+-            this._updateMenuLabels.bind(this));
+     }
+ 
+     _onDestroy() {
+         for (let i = i; i < this._workspaceManagerSignals.length; i++)
+             global.workspace_manager.disconnect(this._workspaceManagerSignals[i]);
+ 
+-        if (this._settingsChangedId) {
+-            this._settings.disconnect(this._settingsChangedId);
+-            this._settingsChangedId = 0;
+-        }
+-
+         if (this._inTopBar)
+             Main.panel.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
+         this._inTopBar = false;
+@@ -522,6 +511,10 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._statusLabel.visible = useMenu;
+         this._thumbnails.visible = !useMenu;
+ 
++        this.setMenu(useMenu
++            ? this._createPreviewMenu()
++            : null);
++
+         this._updateTopBarRedirect();
+     }
+ 
+@@ -538,69 +531,21 @@ class WorkspaceIndicator extends PanelMenu.Button {
+ 
+     _onWorkspaceSwitched() {
+         this._currentWorkspace = global.workspace_manager.get_active_workspace_index();
+-
+-        this._updateMenuOrnament();
+-
+         this._statusLabel.set_text(this._getStatusText());
+     }
+ 
+-    _nWorkspacesChanged() {
+-        this._updateMenu();
+-        this._updateThumbnailVisibility();
+-    }
+-
+-    _updateMenuOrnament() {
+-        for (let i = 0; i < this._workspacesItems.length; i++) {
+-            this._workspacesItems[i].setOrnament(i === this._currentWorkspace
+-                ? PopupMenu.Ornament.DOT
+-                : PopupMenu.Ornament.NO_DOT);
+-        }
+-    }
+-
+     _getStatusText() {
+         const {nWorkspaces} = global.workspace_manager;
+         const current = this._currentWorkspace + 1;
+         return `${current} / ${nWorkspaces}`;
+     }
+ 
+-    _updateMenuLabels() {
+-        for (let i = 0; i < this._workspacesItems.length; i++) {
+-            const item = this._workspacesItems[i];
+-            item.label.text = Meta.prefs_get_workspace_name(i);
+-        }
+-    }
+-
+-    _updateMenu() {
+-        let workspaceManager = global.workspace_manager;
+-
+-        this.menu.removeAll();
+-        this._workspacesItems = [];
+-        this._currentWorkspace = workspaceManager.get_active_workspace_index();
++    _createPreviewMenu() {
++        const menu = new PopupMenu.PopupMenu(this, 0.5, St.Side.TOP);
+ 
+-        for (let i = 0; i < workspaceManager.n_workspaces; i++) {
+-            const name = Meta.prefs_get_workspace_name(i);
+-            const item = new PopupMenu.PopupMenuItem(name);
+-
+-            item.connect('activate',
+-                () => this._activate(i));
+-
+-            item.setOrnament(i === this._currentWorkspace
+-                ? PopupMenu.Ornament.DOT
+-                : PopupMenu.Ornament.NO_DOT);
+-
+-            this.menu.addMenuItem(item);
+-            this._workspacesItems[i] = item;
+-        }
+-
+-        this._statusLabel.set_text(this._getStatusText());
+-    }
+-
+-    _activate(index) {
+-        let workspaceManager = global.workspace_manager;
+-
+-        if (index >= 0 && index < workspaceManager.n_workspaces) {
+-            let metaWorkspace = workspaceManager.get_workspace_by_index(index);
+-            metaWorkspace.activate(global.get_current_time());
+-        }
++        const previews = new WorkspacePreviews({show_labels: true});
++        menu.box.add_child(previews);
++        menu.actor.add_style_class_name(`${baseStyleClassName}-menu`);
++        return menu;
+     }
+ });
+-- 
+2.44.0
+
+
+From 20a2122ab7a435cb1a0840747a5d13be0d838a9e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 20 Feb 2024 22:00:57 +0100
+Subject: [PATCH 28/29] workspace-indicator: Make previews configurable
+
+Now that previews scroll when there are too many workspaces,
+there is no longer a reason for the 6-workspace limit.
+
+However some users do prefer the menu, so rather than drop it,
+turn it into a proper preference.
+
+Closes
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/issues/336
+---
+ extensions/window-list/extension.js           |  1 +
+ ...e.shell.extensions.window-list.gschema.xml |  4 +++
+ extensions/workspace-indicator/extension.js   |  4 ++-
+ extensions/workspace-indicator/meson.build    |  1 +
+ extensions/workspace-indicator/prefs.js       | 30 +++++++++++++++++++
+ ...extensions.workspace-indicator.gschema.xml | 15 ++++++++++
+ .../workspace-indicator/workspaceIndicator.js | 14 ++++-----
+ po/POTFILES.in                                |  1 +
+ 8 files changed, 62 insertions(+), 8 deletions(-)
+ create mode 100644 extensions/workspace-indicator/schemas/org.gnome.shell.extensions.workspace-indicator.gschema.xml
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index a011bc90..688ca761 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -776,6 +776,7 @@ class WindowList extends St.Widget {
+ 
+         this._workspaceIndicator = new BottomWorkspaceIndicator({
+             baseStyleClass: 'window-list-workspace-indicator',
++            settings: ExtensionUtils.getSettings(),
+         });
+         indicatorsBox.add_child(this._workspaceIndicator.container);
+ 
+diff --git a/extensions/window-list/org.gnome.shell.extensions.window-list.gschema.xml b/extensions/window-list/org.gnome.shell.extensions.window-list.gschema.xml
+index 299864cf..c5ab9fb1 100644
+--- a/extensions/window-list/org.gnome.shell.extensions.window-list.gschema.xml
++++ b/extensions/window-list/org.gnome.shell.extensions.window-list.gschema.xml
+@@ -30,5 +30,9 @@
+         only on the primary one.
+       </description>
+     </key>
++    <key name="embed-previews" type="b">
++      <default>true</default>
++      <summary>Show workspace previews in window list</summary>
++    </key>
+   </schema>
+ </schemalist>
+diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
+index 5e1ed8e5..ec991993 100644
+--- a/extensions/workspace-indicator/extension.js
++++ b/extensions/workspace-indicator/extension.js
+@@ -14,7 +14,9 @@ function init() {
+ let _indicator;
+ 
+ function enable() {
+-    _indicator = new WorkspaceIndicator();
++    _indicator = new WorkspaceIndicator({
++        settings: ExtensionUtils.getSettings(),
++    });
+     Main.panel.addToStatusArea('workspace-indicator', _indicator);
+ }
+ 
+diff --git a/extensions/workspace-indicator/meson.build b/extensions/workspace-indicator/meson.build
+index 0bf9f023..a88db78a 100644
+--- a/extensions/workspace-indicator/meson.build
++++ b/extensions/workspace-indicator/meson.build
+@@ -8,5 +8,6 @@ extension_data += files(
+   'stylesheet-dark.css',
+   'stylesheet-light.css',
+ )
++extension_schemas += files('schemas/' + metadata_conf.get('gschemaname') + '.gschema.xml')
+ 
+ extension_sources += files('prefs.js', 'workspaceIndicator.js')
+diff --git a/extensions/workspace-indicator/prefs.js b/extensions/workspace-indicator/prefs.js
+index d307dcac..9809b46a 100644
+--- a/extensions/workspace-indicator/prefs.js
++++ b/extensions/workspace-indicator/prefs.js
+@@ -13,6 +13,34 @@ const N_ = e => e;
+ const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
+ const WORKSPACE_KEY = 'workspace-names';
+ 
++const GeneralGroup = GObject.registerClass(
++class GeneralGroup extends Gtk.Box {
++    _init() {
++        super._init({
++            orientation: Gtk.Orientation.VERTICAL,
++        });
++
++        const row = new Gtk.Box();
++        this.append(row);
++
++        row.append(new Gtk.Label({
++            label: _('Show Previews In Top Bar'),
++        }));
++
++        const sw = new Gtk.Switch({
++            hexpand: true,
++            halign: Gtk.Align.END,
++        });
++        row.append(sw);
++
++        const settings = ExtensionUtils.getSettings();
++
++        settings.bind('embed-previews',
++            sw, 'active',
++            Gio.SettingsBindFlags.DEFAULT);
++    }
++});
++
+ const WorkspaceSettingsWidget = GObject.registerClass(
+ class WorkspaceSettingsWidget extends Gtk.ScrolledWindow {
+     _init() {
+@@ -31,6 +59,8 @@ class WorkspaceSettingsWidget extends Gtk.ScrolledWindow {
+         });
+         this.set_child(box);
+ 
++        box.append(new GeneralGroup());
++
+         box.append(new Gtk.Label({
+             label: '<b>%s</b>'.format(_('Workspace Names')),
+             use_markup: true,
+diff --git a/extensions/workspace-indicator/schemas/org.gnome.shell.extensions.workspace-indicator.gschema.xml b/extensions/workspace-indicator/schemas/org.gnome.shell.extensions.workspace-indicator.gschema.xml
+new file mode 100644
+index 00000000..c7c634ca
+--- /dev/null
++++ b/extensions/workspace-indicator/schemas/org.gnome.shell.extensions.workspace-indicator.gschema.xml
+@@ -0,0 +1,15 @@
++<!--
++SPDX-FileCopyrightText: 2024 Florian Müllner <fmuellner@gnome.org>
++
++SPDX-License-Identifier: GPL-2.0-or-later
++-->
++
++<schemalist gettext-domain="gnome-shell-extensions">
++  <schema id="org.gnome.shell.extensions.workspace-indicator"
++          path="/org/gnome/shell/extensions/workspace-indicator/">
++    <key name="embed-previews" type="b">
++      <default>true</default>
++      <summary>Show workspace previews in top bar</summary>
++    </key>
++  </schema>
++</schemalist>
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 7b3c6fbe..9d566f41 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -22,8 +22,6 @@ const TOOLTIP_ANIMATION_TIME = 150;
+ 
+ const SCROLL_TIME = 100;
+ 
+-const MAX_THUMBNAILS = 6;
+-
+ let baseStyleClassName = '';
+ 
+ const WindowPreview = GObject.registerClass(
+@@ -439,12 +437,15 @@ const WorkspacePreviews = GObject.registerClass({
+ var WorkspaceIndicator = GObject.registerClass(
+ class WorkspaceIndicator extends PanelMenu.Button {
+     _init(params = {}) {
+-        super(0.5, _('Workspace Indicator'), true);
++        super._init(0.5, _('Workspace Indicator'), true);
+ 
+         const {
+             baseStyleClass = 'workspace-indicator',
++            settings,
+         } = params;
+ 
++        this._settings = settings;
++
+         baseStyleClassName = baseStyleClass;
+         this.add_style_class_name(baseStyleClassName);
+ 
+@@ -471,8 +472,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._workspacesItems = [];
+ 
+         this._workspaceManagerSignals = [
+-            workspaceManager.connect_after('notify::n-workspaces',
+-                this._updateThumbnailVisibility.bind(this)),
+             workspaceManager.connect_after('workspace-switched',
+                 this._onWorkspaceSwitched.bind(this)),
+         ];
+@@ -489,6 +488,8 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             this._updateTopBarRedirect();
+         });
+ 
++        this._settings.connect('changed::embed-previews',
++            () => this._updateThumbnailVisibility());
+         this._updateThumbnailVisibility();
+     }
+ 
+@@ -504,8 +505,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+     }
+ 
+     _updateThumbnailVisibility() {
+-        const {workspaceManager} = global;
+-        const useMenu = workspaceManager.n_workspaces > MAX_THUMBNAILS;
++        const useMenu = !this._settings.get_boolean('embed-previews');
+         this.reactive = useMenu;
+ 
+         this._statusLabel.visible = useMenu;
+diff --git a/po/POTFILES.in b/po/POTFILES.in
+index bd39ab61..4d551780 100644
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -18,4 +18,5 @@ extensions/window-list/prefs.js
+ extensions/window-list/workspaceIndicator.js
+ extensions/windowsNavigator/extension.js
+ extensions/workspace-indicator/prefs.js
++extensions/workspace-indicator/schemas/org.gnome.shell.extensions.workspace-indicator.gschema.xml
+ extensions/workspace-indicator/workspaceIndicator.js
+-- 
+2.44.0
+
+
+From 597ed15f9e4a1fd6eeaaedaae59db30c4d379c3f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 21 Mar 2024 17:27:09 +0100
+Subject: [PATCH 29/29] window-list: Expose workspace preview option
+
+Now that we have the option, the window-list should expose it
+in its preference window like the workspace-indicator.
+---
+ extensions/window-list/prefs.js | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/extensions/window-list/prefs.js b/extensions/window-list/prefs.js
+index e35990ff..79cd1355 100644
+--- a/extensions/window-list/prefs.js
++++ b/extensions/window-list/prefs.js
+@@ -102,6 +102,12 @@ class WindowListPrefsWidget extends Gtk.Box {
+         });
+         this._settings.bind('display-all-workspaces', check, 'active', Gio.SettingsBindFlags.DEFAULT);
+         this.append(check);
++
++        check = new Gtk.CheckButton({
++            label: _('Show workspace previews'),
++        });
++        this._settings.bind('embed-previews', check, 'active', Gio.SettingsBindFlags.DEFAULT);
++        this.append(check);
+     }
+ });
+ 
+-- 
+2.44.0
+
