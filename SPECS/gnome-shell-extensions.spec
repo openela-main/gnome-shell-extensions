@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        35%{?dist}
+Release:        38%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -56,6 +56,9 @@ Patch0027:         0001-fileItem-Support-.desktop-files-of-type-Link.patch
 Patch0028:         0001-classification-banner-Handle-fullscreen-monitors.patch
 Patch0029:         0001-gesture-inhibitor-Allow-inhibiting-workspace-switch-.patch
 Patch0030:         0001-desktop-icons-Don-t-use-blocking-IO.patch
+Patch0031:         0001-panel-favorites-Update-to-upstream-version.patch
+Patch0032:         0001-desktop-icons-Don-t-try-spawn-with-non-existent-work.patch
+Patch0033:         0001-classification-banner-Hide-from-picks.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -520,6 +523,7 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %files -n %{pkg_prefix}-panel-favorites
+%{_datadir}/glib-2.0/schemas/org.gnome.shell.extensions.panel-favorites.gschema.xml
 %{_datadir}/gnome-shell/extensions/panel-favorites*/
 
 
@@ -569,6 +573,14 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %changelog
+* Wed Feb 07 2024 Florian Müllner <fmuellner@redhat.com> - 3.32.1-38
+- Hide classification banners from picks
+  Resolves: RHEL-24438
+
+* Fri Sep 15 2023 Florian Müllner <fmuellner@redhat.com> - 3.32.1-36
+- Update panel-favorites to matching upstream release
+  Resolves: RHEL-3536
+
 * Wed Aug 16 2023 Florian Müllner <fmuellner@redhat.com> - 3.32.1-35
 - Rebuild for custom context menu
   Resolves: #2232333

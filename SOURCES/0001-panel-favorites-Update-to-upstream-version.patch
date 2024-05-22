@@ -1,0 +1,1086 @@
+From f954feefa637e3cd6f92450076c0ef0941fd6763 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 12 Sep 2023 19:29:22 +0200
+Subject: [PATCH] panel-favorites: Update to upstream version
+
+---
+ extensions/panel-favorites/extension.js       | 559 ++++++++++++++----
+ extensions/panel-favorites/meson.build        |   6 +
+ extensions/panel-favorites/prefs.js           | 293 +++++++++
+ ...ell.extensions.panel-favorites.gschema.xml |  41 ++
+ extensions/panel-favorites/stylesheet.css     |   8 +-
+ 5 files changed, 797 insertions(+), 110 deletions(-)
+ create mode 100644 extensions/panel-favorites/prefs.js
+ create mode 100644 extensions/panel-favorites/schemas/org.gnome.shell.extensions.panel-favorites.gschema.xml
+
+diff --git a/extensions/panel-favorites/extension.js b/extensions/panel-favorites/extension.js
+index b817dbb6..5495dc3f 100644
+--- a/extensions/panel-favorites/extension.js
++++ b/extensions/panel-favorites/extension.js
+@@ -1,32 +1,38 @@
+-// Copyright (C) 2011-2013 R M Yorston
++// Copyright (C) 2011-2020 R M Yorston
+ // Licence: GPLv2+
+ 
+-const Clutter = imports.gi.Clutter;
+-const Gio = imports.gi.Gio;
+-const GLib = imports.gi.GLib;
+-const Lang = imports.lang;
+-const Shell = imports.gi.Shell;
++const { Clutter, Gio, GLib, GObject, Shell, St } = imports.gi;
+ const Signals = imports.signals;
+-const St = imports.gi.St;
+-const Mainloop = imports.mainloop;
+ 
+ const AppFavorites = imports.ui.appFavorites;
+ const Main = imports.ui.main;
+ const Panel = imports.ui.panel;
++const PanelMenu = imports.ui.panelMenu;
++const PopupMenu = imports.ui.popupMenu;
+ const Tweener = imports.ui.tweener;
+ 
++const ExtensionUtils = imports.misc.extensionUtils;
++
++const _f = imports.gettext.domain('frippery-panel-favorites').gettext;
++
+ const PANEL_LAUNCHER_LABEL_SHOW_TIME = 0.15;
+ const PANEL_LAUNCHER_LABEL_HIDE_TIME = 0.1;
+ const PANEL_LAUNCHER_HOVER_TIMEOUT = 300;
+ 
+-const PanelLauncher = new Lang.Class({
+-    Name: 'PanelLauncher',
++const SETTINGS_FAVORITES_ENABLED = 'favorites-enabled';
++const SETTINGS_FAVORITES_POSITION = 'favorites-position';
++const SETTINGS_OTHER_APPS_ENABLED = 'other-apps-enabled';
++const SETTINGS_OTHER_APPS_POSITION = 'other-apps-position';
++const SETTINGS_OTHER_APPS = 'other-apps';
+ 
+-    _init: function(app) {
++const PanelLauncher =
++class PanelLauncher {
++    constructor(app) {
+         this.actor = new St.Button({ style_class: 'panel-button',
+                                      reactive: true });
+-        this.iconSize = 24;
+-        let icon = app.create_icon_texture(this.iconSize);
++        let gicon = app.app_info.get_icon();
++        let icon = new St.Icon({ gicon: gicon,
++                                 style_class: 'panel-launcher-icon'});
+         this.actor.set_child(icon);
+         this.actor._delegate = this;
+         let text = app.get_name();
+@@ -41,31 +47,66 @@ const PanelLauncher = new Lang.Class({
+         this.actor.label_actor = this.label;
+ 
+         this._app = app;
+-        this.actor.connect('clicked', Lang.bind(this, function() {
++        this._menu = null;
++        this._menuManager = new PopupMenu.PopupMenuManager(this);
++
++        this.actor.connect('clicked', () => {
+             this._app.open_new_window(-1);
+-        }));
++            if ( Main.overview.visible ) {
++                Main.overview.hide();
++            }
++        });
+         this.actor.connect('notify::hover',
+-                Lang.bind(this, this._onHoverChanged));
++                this._onHoverChanged.bind(this));
++        this.actor.connect('button-press-event',
++                this._onButtonPress.bind(this));
+         this.actor.opacity = 207;
++    }
+ 
+-        this.actor.connect('notify::allocation', Lang.bind(this, this._alloc));
+-    },
+-
+-    _onHoverChanged: function(actor) {
++    _onHoverChanged(actor) {
+         actor.opacity = actor.hover ? 255 : 207;
+-    },
+-
+-    _alloc: function() {
+-        let size = this.actor.allocation.y2 - this.actor.allocation.y1 - 3;
+-        if ( size >= 24 && size != this.iconSize ) {
+-            this.actor.get_child().destroy();
+-            this.iconSize = size;
+-            let icon = this._app.create_icon_texture(this.iconSize);
+-            this.actor.set_child(icon);
++    }
++
++    _onButtonPress(actor, event) {
++        let button = event.get_button();
++        if (button == 3) {
++            this.popupMenu();
++            return Clutter.EVENT_STOP;
++        }
++        return Clutter.EVENT_PROPAGATE;
++    }
++
++    // this code stolen from appDisplay.js
++    popupMenu() {
++        if (!this._menu) {
++            this._menu = new AppIconMenu(this);
++            this._menu.connect('activate-window', (menu, window) => {
++                this.activateWindow(window);
++            });
++            this._menu.connect('open-state-changed', (menu, isPoppedUp) => {
++                if (!isPoppedUp)
++                    this.actor.sync_hover();
++            });
++
++            this._menuManager.addMenu(this._menu);
+         }
+-    },
+ 
+-    showLabel: function() {
++        this.actor.set_hover(true);
++        this._menu.popup();
++        this._menuManager.ignoreRelease();
++
++        return false;
++    }
++
++    activateWindow(metaWindow) {
++        if (metaWindow) {
++            Main.activateWindow(metaWindow);
++        } else {
++            Main.overview.hide();
++        }
++    }
++
++    showLabel() {
+         this.label.opacity = 0;
+         this.label.show();
+ 
+@@ -101,58 +142,105 @@ const PanelLauncher = new Lang.Class({
+                            time: PANEL_LAUNCHER_LABEL_SHOW_TIME,
+                            transition: 'easeOutQuad',
+                          });
+-    },
++    }
+ 
+-    hideLabel: function() {
++    hideLabel() {
+         this.label.opacity = 255;
+         Tweener.addTween(this.label,
+                          { opacity: 0,
+                            time: PANEL_LAUNCHER_LABEL_HIDE_TIME,
+                            transition: 'easeOutQuad',
+-                           onComplete: Lang.bind(this, function() {
+-                               this.label.hide();
+-                           })
++                           onComplete: () => this.label.hide()
+                          });
+-    },
++    }
+ 
+-    destroy: function() {
++    destroy() {
+         this.label.destroy();
+         this.actor.destroy();
+     }
+-});
++};
++
++const ApplicationMenuItem =
++class ApplicationMenuItem extends PopupMenu.PopupBaseMenuItem {
++    constructor(app, params) {
++        super(params);
++
++        let box = new St.BoxLayout({ name: 'applicationMenuBox',
++                                     style_class: 'applications-menu-item-box'});
++        this.actor.add_child(box);
++
++        let icon = app.create_icon_texture(24);
++        box.add(icon, { x_fill: false, y_fill: false });
++
++        let name = app.get_name();
++
++        let matches = /^(OpenJDK Policy Tool) (.*)/.exec(name);
++        if ( matches && matches.length == 3 ) {
++            name = matches[1] + '\n' + matches[2];
++        }
+ 
+-const PanelFavorites = new Lang.Class({
+-    Name: 'PanelFavorites',
++        matches = /^(OpenJDK 8 Policy Tool) (.*)/.exec(name);
++        if ( matches && matches.length == 3 ) {
++            name = matches[1] + '\n' + matches[2];
++        }
++
++        matches = /^(OpenJDK Monitoring & Management Console) (.*)/.exec(name);
++        if ( matches && matches.length == 3 ) {
++            name = 'OpenJDK Console\n' + matches[2];
++        }
++
++        matches = /^(OpenJDK 8 Monitoring & Management Console) (.*)/.exec(name);
++        if ( matches && matches.length == 3 ) {
++            name = 'OpenJDK 8 Console\n' + matches[2];
++        }
++
++        let label = new St.Label({ text: name });
++        box.add(label);
++
++        this.app = app;
+ 
+-    _init: function() {
++        this.connect('activate', () => {
++            let id = this.app.get_id();
++            let app = Shell.AppSystem.get_default().lookup_app(id);
++            app.open_new_window(-1);
++        });
++    }
++};
++
++const PanelAppsButton = GObject.registerClass(
++class PanelAppsButton extends PanelMenu.Button {
++    _init(details) {
++        super._init(0.5, details.description, false);
+         this._showLabelTimeoutId = 0;
+         this._resetHoverTimeoutId = 0;
+         this._labelShowing = false;
+ 
+-        this.actor = new St.BoxLayout({ name: 'panelFavorites',
++        this.name = details.name;
++        this._details = details;
++
++        this._box = new St.BoxLayout({ name: 'panelFavoritesBox',
+                                         x_expand: true, y_expand: true,
+                                         style_class: 'panel-favorites' });
+-        this._display();
++        this.add_actor(this._box);
+ 
+-        this.container = new St.Bin({ y_fill: true,
+-                                      x_fill: true,
+-                                      child: this.actor });
++        this.connect('destroy', this._onDestroy.bind(this));
++        this._installChangedId = Shell.AppSystem.get_default().connect('installed-changed', this._redisplay.bind(this));
++        this._changedId = details.change_object.connect(details.change_event, this._redisplay.bind(this));
+ 
+-        this.actor.connect('destroy', Lang.bind(this, this._onDestroy));
+-        this._installChangedId = Shell.AppSystem.get_default().connect('installed-changed', Lang.bind(this, this._redisplay));
+-        this._changedId = AppFavorites.getAppFavorites().connect('changed', Lang.bind(this, this._redisplay));
+-    },
++        this._display();
++    }
+ 
+-    _redisplay: function() {
++    _redisplay() {
+         for ( let i=0; i<this._buttons.length; ++i ) {
+             this._buttons[i].destroy();
+         }
++        this.menu.removeAll();
+ 
+         this._display();
+-    },
++    }
+ 
+-    _display: function() {
+-        let launchers = global.settings.get_strv(AppFavorites.getAppFavorites().FAVORITE_APPS_KEY);
++    _display() {
++        let launchers = this._details.settings.get_strv(this._details.key);
+ 
+         this._buttons = [];
+         let j = 0;
+@@ -164,104 +252,361 @@ const PanelFavorites = new Lang.Class({
+             }
+ 
+             let launcher = new PanelLauncher(app);
+-            this.actor.add(launcher.actor);
++            this._box.add(launcher.actor);
+             launcher.actor.connect('notify::hover',
+-                        Lang.bind(this, function() {
+-                            this._onHover(launcher);
+-                        }));
++                        () => this._onHover(launcher));
+             this._buttons[j] = launcher;
++
++            let menuItem = new ApplicationMenuItem(app);
++            this.menu.addMenuItem(menuItem, j);
+             ++j;
+         }
+-    },
++    }
+ 
+     // this routine stolen from dash.js
+-    _onHover: function(launcher) {
++    _onHover(launcher) {
+         if ( launcher.actor.hover ) {
+             if (this._showLabelTimeoutId == 0) {
+                 let timeout = this._labelShowing ?
+                                 0 : PANEL_LAUNCHER_HOVER_TIMEOUT;
+-                this._showLabelTimeoutId = Mainloop.timeout_add(timeout,
+-                    Lang.bind(this, function() {
++                this._showLabelTimeoutId = GLib.timeout_add(
++                    GLib.PRIORITY_DEFAULT, timeout,
++                    () => {
+                         this._labelShowing = true;
+                         launcher.showLabel();
+                         this._showLabelTimeoutId = 0;
+                         return GLib.SOURCE_REMOVE;
+-                    }));
++                    });
+                 if (this._resetHoverTimeoutId > 0) {
+-                    Mainloop.source_remove(this._resetHoverTimeoutId);
++                    GLib.source_remove(this._resetHoverTimeoutId);
+                     this._resetHoverTimeoutId = 0;
+                 }
+             }
+         } else {
+             if (this._showLabelTimeoutId > 0) {
+-                Mainloop.source_remove(this._showLabelTimeoutId);
++                GLib.source_remove(this._showLabelTimeoutId);
+                 this._showLabelTimeoutId = 0;
+             }
+             launcher.hideLabel();
+             if (this._labelShowing) {
+-                this._resetHoverTimeoutId = Mainloop.timeout_add(
+-                    PANEL_LAUNCHER_HOVER_TIMEOUT,
+-                    Lang.bind(this, function() {
++                this._resetHoverTimeoutId = GLib.timeout_add(
++                    GLib.PRIORITY_DEFAULT, PANEL_LAUNCHER_HOVER_TIMEOUT,
++                    () => {
+                         this._labelShowing = false;
+                         this._resetHoverTimeoutId = 0;
+                         return GLib.SOURCE_REMOVE;
+-                    }));
++                    });
+             }
+         }
+-    },
++    }
+ 
+-    _onDestroy: function() {
++    _onDestroy() {
+         if ( this._installChangedId != 0 ) {
+             Shell.AppSystem.get_default().disconnect(this._installChangedId);
+             this._installChangedId = 0;
+         }
+ 
+         if ( this._changedId != 0 ) {
+-            AppFavorites.getAppFavorites().disconnect(this._changedId);
++            this._details.change_object.disconnect(this._changedId);
+             this._changedId = 0;
+         }
+     }
+ });
+-Signals.addSignalMethods(PanelFavorites.prototype);
+ 
+-let myAddToStatusArea;
+-let panelFavorites;
++// this code stolen from appDisplay.js
++const AppIconMenu =
++class AppIconMenu extends PopupMenu.PopupMenu {
++    constructor(source) {
++        super(source.actor, 0.5, St.Side.TOP);
+ 
+-function enable() {
+-    Panel.Panel.prototype.myAddToStatusArea = myAddToStatusArea;
++        // We want to keep the item hovered while the menu is up
++        this.blockSourceEvents = true;
+ 
+-    // place panel to left of app menu, or failing that at right end of box
+-    let siblings = Main.panel._leftBox.get_children();
+-    let appMenu = Main.panel.statusArea['appMenu'];
+-    let pos = appMenu ? siblings.indexOf(appMenu.container) : siblings.length;
++        this._source = source;
+ 
+-    panelFavorites = new PanelFavorites();
+-    Main.panel.myAddToStatusArea('panel-favorites', panelFavorites,
+-                                pos, 'left');
+-}
++        this.actor.add_style_class_name('panel-menu');
+ 
+-function disable() {
+-    delete Panel.Panel.prototype.myAddToStatusArea;
++        // Chain our visibility and lifecycle to that of the source
++        this._sourceMappedId = source.actor.connect('notify::mapped', () => {
++            if (!source.actor.mapped)
++                this.close();
++        });
++        source.actor.connect('destroy', () => {
++            source.actor.disconnect(this._sourceMappedId);
++            this.destroy();
++        });
+ 
+-    panelFavorites.actor.destroy();
+-    panelFavorites.emit('destroy');
+-    panelFavorites = null;
+-}
++        Main.uiGroup.add_actor(this.actor);
++    }
++
++    _redisplay() {
++        this.removeAll();
++
++        // find windows on current and other workspaces
++        let activeWorkspace = global.workspace_manager.get_active_workspace();
++
++        let w_here = this._source._app.get_windows().filter(function(w) {
++            return !w.skip_taskbar && w.get_workspace() == activeWorkspace;
++        });
++
++        let w_there = this._source._app.get_windows().filter(function(w) {
++            return !w.skip_taskbar && w.get_workspace() != activeWorkspace;
++        });
++
++        // if we have lots of windows use submenus in both cases to
++        // avoid confusion
++        let use_submenu = w_here.length + w_there.length > 10;
++
++        this._appendWindows(use_submenu, _f('This Workspace'), w_here);
++
++        if (w_here.length && !use_submenu) {
++            this._appendSeparator();
++        }
++
++        this._appendWindows(use_submenu, _f('Other Workspaces'), w_there);
++
++        if (!this._source._app.is_window_backed()) {
++            if (w_there.length && !use_submenu) {
++                this._appendSeparator();
++            }
++
++            let appInfo = this._source._app.get_app_info();
++            let actions = appInfo.list_actions();
++            if (this._source._app.can_open_new_window() &&
++                actions.indexOf('new-window') == -1) {
++                let item = this._appendMenuItem(_('New Window'));
++                item.connect('activate', () => {
++                    this._source._app.open_new_window(-1);
++                    this.emit('activate-window', null);
++                });
++            }
++
++            for (let i = 0; i < actions.length; i++) {
++                let action = actions[i];
++                let item = this._appendMenuItem(appInfo.get_action_name(action));
++                item.connect('activate', (emitter, event) => {
++                    this._source._app.launch_action(action, event.get_time(), -1);
++                    this.emit('activate-window', null);
++                });
++            }
++
++            let canFavorite = global.settings.is_writable('favorite-apps');
++
++            if (canFavorite) {
++                let isFavorite = AppFavorites.getAppFavorites().isFavorite(this._source._app.get_id());
++
++                if (isFavorite) {
++                    let item = this._appendMenuItem(_('Remove from Favorites'));
++                    item.connect('activate', () => {
++                        let favs = AppFavorites.getAppFavorites();
++                        favs.removeFavorite(this._source._app.get_id());
++                    });
++                } else {
++                    let item = this._appendMenuItem(_('Add to Favorites'));
++                    item.connect('activate', () => {
++                        let favs = AppFavorites.getAppFavorites();
++                        favs.addFavorite(this._source.app.get_id());
++                    });
++                }
++            }
++
++            if (Shell.AppSystem.get_default().lookup_app('org.gnome.Software.desktop')) {
++                let item = this._appendMenuItem(_('Show Details'));
++                item.connect('activate', () => {
++                    let id = this._source._app.get_id();
++                    let args = GLib.Variant.new('(ss)', [id, '']);
++                    Gio.DBus.get(Gio.BusType.SESSION, null, (o, res) => {
++                        let bus = Gio.DBus.get_finish(res);
++                        bus.call('org.gnome.Software',
++                                 '/org/gnome/Software',
++                                 'org.gtk.Actions', 'Activate',
++                                 GLib.Variant.new('(sava{sv})',
++                                                  ['details', [args], null]),
++                                 null, 0, -1, null, null);
++                        Main.overview.hide();
++                    });
++                });
++            }
++        }
++    }
++
++    _appendWindows(use_submenu, text, windows) {
++        let parent = this;
++        if (windows.length && use_submenu) {
++            // if we have lots of activatable windows create a submenu
++            let item = new PopupMenu.PopupSubMenuMenuItem(text);
++            this.addMenuItem(item);
++            parent = item.menu;
++        }
++        for (let i = 0; i < windows.length; i++) {
++            let window = windows[i];
++            let item = new PopupMenu.PopupMenuItem(window.title);
++            parent.addMenuItem(item);
++            item.connect('activate', () =>
++                    this.emit('activate-window', window));
++        }
++    }
++
++    _appendSeparator() {
++        let separator = new PopupMenu.PopupSeparatorMenuItem();
++        this.addMenuItem(separator);
++    }
++
++    _appendMenuItem(labelText) {
++        let item = new PopupMenu.PopupMenuItem(labelText);
++        this.addMenuItem(item);
++        return item;
++    }
++
++    popup(activatingButton) {
++        // this code stolen from PanelMenuButton
++        // limit height of menu:  the menu should have scrollable submenus
++        // for this to make sense
++        let workArea = Main.layoutManager.getWorkAreaForMonitor(
++                            Main.layoutManager.primaryIndex);
++        let verticalMargins = this.actor.margin_top + this.actor.margin_bottom;
++        this.actor.style = ('max-height: ' + Math.round(workArea.height -
++                            verticalMargins) + 'px;');
++
++        this._source.label.hide();
++        this._redisplay();
++        this.open();
++    }
++};
++Signals.addSignalMethods(AppIconMenu.prototype);
++
++const FAVORITES = 0;
++const OTHER_APPS = 1;
++
++const PanelFavoritesExtension =
++class PanelFavoritesExtension {
++    constructor() {
++        ExtensionUtils.initTranslations();
++        this._panelAppsButton = [ null, null ];
++        this._settings = ExtensionUtils.getSettings();
++    }
++
++    _getPosition(key) {
++        let position, box;
++        // if key is false use left box, if true use right
++        if (!this._settings.get_boolean(key)) {
++            // place panel to left of app menu
++            let siblings = Main.panel._leftBox.get_children();
++            let appMenu = Main.panel.statusArea['appMenu'];
++            position = appMenu ?
++                    siblings.indexOf(appMenu.container) : siblings.length;
++            box = 'left';
++        }
++        else {
++            // place panel to left of aggregate menu
++            let siblings = Main.panel._rightBox.get_children();
++            let aggMenu = Main.panel.statusArea['aggregateMenu'];
++            position = aggMenu ?
++                    siblings.indexOf(aggMenu.container) : siblings.length-1;
++            box = 'right';
++        }
++        return [position, box];
++    }
++
++    _configureButtons() {
++        let details = [
++            {
++                description: _f('Favorites'),
++                name: 'panelFavorites',
++                settings: global.settings,
++                key: AppFavorites.getAppFavorites().FAVORITE_APPS_KEY,
++                change_object: AppFavorites.getAppFavorites(),
++                change_event: 'changed'
++            },
++            {
++                description: _f('Other Applications'),
++                name: 'panelOtherApps',
++                settings: ExtensionUtils.getSettings(),
++                key: SETTINGS_OTHER_APPS,
++                change_object: ExtensionUtils.getSettings(),
++                change_event: 'changed::' + SETTINGS_OTHER_APPS
++            }
++        ];
++        let role = [ 'panel-favorites', 'panel-other-apps' ];
++        let prefix = [ 'favorites-', 'other-apps-' ];
++
++        for ( let i=0; i<this._panelAppsButton.length; ++i ) {
++            if (this._settings.get_boolean(prefix[i]+'enabled')) {
++                if (!this._panelAppsButton[i]) {
++                    // button is enabled but doesn't exist, create it
++                    this._panelAppsButton[i] = new PanelAppsButton(details[i]);
++                }
++            }
++            else {
++                if (this._panelAppsButton[i]) {
++                    // button is disabled but does exist, destroy it
++                    this._panelAppsButton[i].emit('destroy');
++                    this._panelAppsButton[i].actor.destroy();
++                    this._panelAppsButton[i] = null;
++	            }
++            }
++
++            if (this._panelAppsButton[i]) {
++                let indicator = Main.panel.statusArea[role[i]];
++                let key = prefix[i]+'position';
++                let [position, box] = this._getPosition(key);
++
++                if (!indicator) {
++                    // indicator with required role doesn't exist, create it
++                    Main.panel.addToStatusArea(role[i],
++                            this._panelAppsButton[i], position, box);
++                }
++                else {
++                    let right_box, wrong_box;
++                    if (this._settings.get_boolean(key)) {
++                        right_box = Main.panel._rightBox;
++                        wrong_box = Main.panel._leftBox;
++                    }
++                    else {
++                        right_box = Main.panel._leftBox;
++                        wrong_box = Main.panel._rightBox;
++                    }
++
++                    let children = wrong_box.get_children();
++                    if (children.indexOf(indicator.container) != -1) {
++                        // indicator exists but is in wrong box, move it
++                        wrong_box.remove_actor(indicator.container);
++                        right_box.insert_child_at_index(indicator.container,
++                                    position);
++                    }
++                }
++            }
++        }
++    }
++
++    enable() {
++        this._configureButtons();
++        this._changedId = this._settings.connect('changed',
++                this._configureButtons.bind(this));
++    }
++
++    disable() {
++        let role = [ 'panel-favorites', 'panel-other-apps' ];
++
++        if (this._changedId) {
++            this._settings.disconnect(this._changedId);
++        }
++
++        for ( let i=0; i<this._panelAppsButton.length; ++i ) {
++            if (this._panelAppsButton[i]) {
++                let indicator = Main.panel.statusArea[role[i]];
++                if (indicator) {
++                    let parent = indicator.container.get_parent();
++                    parent.remove_actor(indicator.container);
++                }
++                this._panelAppsButton[i].emit('destroy');
++                this._panelAppsButton[i].actor.destroy();
++                this._panelAppsButton[i] = null;
++            }
++        }
++    }
++};
+ 
+ function init() {
+-    myAddToStatusArea = function(role, indicator, position, box) {
+-        if (this.statusArea[role])
+-            throw new Error('Extension point conflict: there is already a status indicator for role ' + role);
+-
+-        position = position || 0;
+-        let boxes = {
+-            left: this._leftBox,
+-            center: this._centerBox,
+-            right: this._rightBox
+-        };
+-        let boxContainer = boxes[box] || this._rightBox;
+-        this.statusArea[role] = indicator;
+-        this._addToPanelBox(role, indicator, position, boxContainer);
+-        return indicator;
+-    };
++    return new PanelFavoritesExtension();
+ }
+diff --git a/extensions/panel-favorites/meson.build b/extensions/panel-favorites/meson.build
+index 48504f63..ab6967fa 100644
+--- a/extensions/panel-favorites/meson.build
++++ b/extensions/panel-favorites/meson.build
+@@ -3,3 +3,9 @@ extension_data += configure_file(
+   output: metadata_name,
+   configuration: metadata_conf
+ )
++
++extension_sources += files(
++  'prefs.js'
++)
++
++extension_schemas += files('schemas/' + metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/panel-favorites/prefs.js b/extensions/panel-favorites/prefs.js
+new file mode 100644
+index 00000000..410034f5
+--- /dev/null
++++ b/extensions/panel-favorites/prefs.js
+@@ -0,0 +1,293 @@
++// Copyright (C) 2015-2019 R M Yorston
++// Licence: GPLv2+
++
++/* stolen from the workspace-indicator extension */
++const { Gio, GObject, Gtk } = imports.gi;
++
++const ExtensionUtils = imports.misc.extensionUtils;
++
++const _f = imports.gettext.domain('frippery-panel-favorites').gettext;
++
++const SETTINGS_FAVORITES_ENABLED = 'favorites-enabled';
++const SETTINGS_FAVORITES_POSITION = 'favorites-position';
++const SETTINGS_OTHER_APPS_ENABLED = 'other-apps-enabled';
++const SETTINGS_OTHER_APPS_POSITION = 'other-apps-position';
++const SETTINGS_OTHER_APPS = 'other-apps';
++
++const AppsModel = GObject.registerClass(
++class AppsModel extends Gtk.ListStore {
++    _init(params) {
++        super._init(params);
++        this.set_column_types([GObject.TYPE_STRING]);
++
++        this.Columns = {
++            LABEL: 0,
++        };
++
++        this._settings = ExtensionUtils.getSettings();
++
++        this._reloadFromSettings();
++
++        // overriding class closure doesn't work, because GtkTreeModel
++        // plays tricks with marshallers and class closures
++        this.connect('row-changed', this._onRowChanged.bind(this));
++        this.connect('row-inserted', this._onRowInserted.bind(this));
++        this.connect('row-deleted', this._onRowDeleted.bind(this));
++    }
++
++    _reloadFromSettings() {
++        if (this._preventChanges)
++            return;
++        this._preventChanges = true;
++
++        let newNames = this._settings.get_strv(SETTINGS_OTHER_APPS);
++
++        let i = 0;
++        let [ok, iter] = this.get_iter_first();
++        while (ok && i < newNames.length) {
++            this.set(iter, [this.Columns.LABEL], [newNames[i]]);
++
++            ok = this.iter_next(iter);
++            i++;
++        }
++
++        while (ok)
++            ok = this.remove(iter);
++
++        for ( ; i < newNames.length; i++) {
++            iter = this.append();
++            this.set(iter, [this.Columns.LABEL], [newNames[i]]);
++        }
++
++        this._preventChanges = false;
++    }
++
++    _onRowChanged(self, path, iter) {
++        if (this._preventChanges)
++            return;
++        this._preventChanges = true;
++
++        let index = path.get_indices()[0];
++        let names = this._settings.get_strv(SETTINGS_OTHER_APPS);
++
++        if (index >= names.length) {
++            // fill with blanks
++            for (let i = names.length; i <= index; i++)
++                names[i] = '';
++        }
++
++        names[index] = this.get_value(iter, this.Columns.LABEL);
++
++        this._settings.set_strv(SETTINGS_OTHER_APPS, names);
++
++        this._preventChanges = false;
++    }
++
++    _onRowInserted(self, path, iter) {
++        if (this._preventChanges)
++            return;
++        this._preventChanges = true;
++
++        let index = path.get_indices()[0];
++        let names = this._settings.get_strv(SETTINGS_OTHER_APPS);
++        let label = this.get_value(iter, this.Columns.LABEL) || '';
++        names.splice(index, 0, label);
++
++        this._settings.set_strv(SETTINGS_OTHER_APPS, names);
++
++        this._preventChanges = false;
++    }
++
++    _onRowDeleted(self, path) {
++        if (this._preventChanges)
++            return;
++        this._preventChanges = true;
++
++        let index = path.get_indices()[0];
++        let names = this._settings.get_strv(SETTINGS_OTHER_APPS);
++
++        if (index >= names.length)
++            return;
++
++        names.splice(index, 1);
++
++        // compact the array
++        for (let i = names.length -1; i >= 0 && !names[i]; i++)
++            names.pop();
++
++        this._settings.set_strv(SETTINGS_OTHER_APPS, names);
++
++        this._preventChanges = false;
++    }
++});
++
++const PanelFavoritesSettingsWidget = GObject.registerClass(
++class PanelFavoritesSettingsWidget extends Gtk.Grid {
++    _init(params) {
++        super._init(params);
++        this.margin = 12;
++        this.orientation = Gtk.Orientation.VERTICAL;
++        this._settings = ExtensionUtils.getSettings();
++
++        this.add(new Gtk.Label({
++                    label: '<b>' + _f("Favorites") + '</b>',
++                    use_markup: true, margin_bottom: 6,
++                    hexpand: true, halign: Gtk.Align.START }));
++
++        let align = new Gtk.Alignment({ left_padding: 12 });
++        this.add(align);
++
++        let grid = new Gtk.Grid({ orientation: Gtk.Orientation.VERTICAL,
++                                  row_spacing: 6,
++                                  column_spacing: 6 });
++        align.add(grid);
++
++        let state = this._settings.get_boolean(SETTINGS_FAVORITES_ENABLED);
++        let check = new Gtk.CheckButton({ label: _f("Enable"),
++                                          active: state,
++                                          margin_top: 6 });
++        this._settings.bind(SETTINGS_FAVORITES_ENABLED, check,                                             'active', Gio.SettingsBindFlags.DEFAULT);
++        grid.add(check);
++
++        let box = new Gtk.HBox();
++        grid.add(box);
++
++        box.pack_start(new Gtk.Label({ label: _f("Position"),
++                                       halign: Gtk.Align.START }),
++                        false, true, 6);
++
++        state = this._settings.get_boolean(SETTINGS_FAVORITES_POSITION);
++        let radio = null;
++        radio = new Gtk.RadioButton({ active: !state,
++                                      label: _f('Left'),
++                                      group: radio });
++        box.pack_start(radio, false, true, 6);
++
++        radio = new Gtk.RadioButton({ active: state,
++                                      label: _f('Right'),
++                                      group: radio });
++        this._settings.bind(SETTINGS_FAVORITES_POSITION, radio, 'active',
++                            Gio.SettingsBindFlags.DEFAULT);
++        radio.set_active(state);
++        box.pack_start(radio, false, true, 6);
++
++
++        this.add(new Gtk.Label({
++                    label: '<b>' + _f("Other Applications") + '</b>',
++                    use_markup: true, margin_bottom: 6, margin_top: 12,
++                    hexpand: true, halign: Gtk.Align.START }));
++
++        align = new Gtk.Alignment({ left_padding: 12 });
++        this.add(align);
++
++        grid = new Gtk.Grid({ orientation: Gtk.Orientation.VERTICAL,
++                                  row_spacing: 6,
++                                  column_spacing: 6 });
++        align.add(grid);
++
++        state = this._settings.get_boolean(SETTINGS_OTHER_APPS_ENABLED);
++        check = new Gtk.CheckButton({ label: _f("Enable"),
++                                      active: state,
++                                      margin_top: 6 });
++        this._settings.bind(SETTINGS_OTHER_APPS_ENABLED, check, 'active',
++                            Gio.SettingsBindFlags.DEFAULT);
++        grid.add(check);
++
++        box = new Gtk.HBox();
++        grid.add(box);
++
++        box.pack_start(new Gtk.Label({
++                    label: _f("Position"),
++                    halign: Gtk.Align.START }),
++                    false, true, 6);
++
++        state = this._settings.get_boolean(SETTINGS_OTHER_APPS_POSITION);
++        radio = null;
++        radio = new Gtk.RadioButton({ active: !state,
++                                      label: _f('Left'),
++                                      group: radio });
++        box.pack_start(radio, false, true, 6);
++
++        radio = new Gtk.RadioButton({ active: state,
++                                      label: _f('Right'),
++                                      group: radio });
++        this._settings.bind(SETTINGS_OTHER_APPS_POSITION, radio, 'active',
++                            Gio.SettingsBindFlags.DEFAULT);
++        radio.set_active(state);
++        box.pack_start(radio, false, true, 6);
++
++        let scrolled = new Gtk.ScrolledWindow({ shadow_type: Gtk.ShadowType.IN });
++        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
++        grid.add(scrolled);
++
++        this._store = new AppsModel();
++        this._treeView = new Gtk.TreeView({ model: this._store,
++                                            headers_visible: false,
++                                            reorderable: true,
++                                            hexpand: true,
++                                            vexpand: true
++                                          });
++
++        let column = new Gtk.TreeViewColumn({ title: _f("Launcher") });
++        let renderer = new Gtk.CellRendererText({ editable: true });
++        renderer.connect('edited', this._cellEdited.bind(this));
++        column.pack_start(renderer, true);
++        column.add_attribute(renderer, 'text', this._store.Columns.LABEL);
++        this._treeView.append_column(column);
++
++        scrolled.add(this._treeView);
++
++        let toolbar = new Gtk.Toolbar({ icon_size: Gtk.IconSize.SMALL_TOOLBAR });
++        toolbar.get_style_context().add_class(Gtk.STYLE_CLASS_INLINE_TOOLBAR);
++
++        let newButton = new Gtk.ToolButton({ icon_name: 'list-add-symbolic' });
++        newButton.connect('clicked', this._newClicked.bind(this));
++        toolbar.add(newButton);
++
++        let delButton = new Gtk.ToolButton({ icon_name: 'list-remove-symbolic' });
++        delButton.connect('clicked', this._delClicked.bind(this));
++        toolbar.add(delButton);
++
++        let selection = this._treeView.get_selection();
++        selection.connect('changed',
++            function() {
++                delButton.sensitive = selection.count_selected_rows() > 0;
++            });
++        delButton.sensitive = selection.count_selected_rows() > 0;
++
++        grid.add(toolbar);
++    }
++
++    _cellEdited(renderer, path, new_text) {
++        let [ok, iter] = this._store.get_iter_from_string(path);
++
++        if (ok)
++            this._store.set(iter, [this._store.Columns.LABEL], [new_text]);
++    }
++
++    _newClicked() {
++        let iter = this._store.append();
++        let index = this._store.get_path(iter).get_indices()[0];
++
++        let label = "dummy.desktop";
++        this._store.set(iter, [this._store.Columns.LABEL], [label]);
++    }
++
++    _delClicked() {
++        let [any, model, iter] = this._treeView.get_selection().get_selected();
++
++        if (any)
++            this._store.remove(iter);
++    }
++});
++
++function init() {
++    ExtensionUtils.initTranslations();
++}
++
++function buildPrefsWidget() {
++    let widget = new PanelFavoritesSettingsWidget();
++    widget.show_all();
++
++    return widget;
++}
+diff --git a/extensions/panel-favorites/schemas/org.gnome.shell.extensions.panel-favorites.gschema.xml b/extensions/panel-favorites/schemas/org.gnome.shell.extensions.panel-favorites.gschema.xml
+new file mode 100644
+index 00000000..ca1228c1
+--- /dev/null
++++ b/extensions/panel-favorites/schemas/org.gnome.shell.extensions.panel-favorites.gschema.xml
+@@ -0,0 +1,41 @@
++<schemalist gettext-domain="gnome-shell-extensions">
++  <schema id="org.gnome.shell.extensions.panel-favorites" path="/org/gnome/shell/extensions/panel-favorites/">
++    <key name="favorites-enabled" type="b">
++      <default>true</default>
++      <summary>Display Favorites</summary>
++      <description>
++        Whether to show the launchers for Favorite applications.
++      </description>
++    </key>
++    <key name="favorites-position" type="b">
++      <default>false</default>
++      <summary>Where to display Favorites</summary>
++      <description>
++        Whether to show the launchers for Favorite applications on the
++        left or right of the panel.
++      </description>
++    </key>
++    <key name="other-apps-enabled" type="b">
++      <default>false</default>
++      <summary>Display Other Apps</summary>
++      <description>
++        Whether to show the launchers for other applications.
++      </description>
++    </key>
++    <key name="other-apps-position" type="b">
++      <default>true</default>
++      <summary>Where to display Other Apps</summary>
++      <description>
++        Whether to show the launchers for other applications on the
++        left or right of the panel.
++      </description>
++    </key>
++    <key name="other-apps" type="as">
++      <default>[]</default>
++      <summary>Launchers for Other Apps</summary>
++      <description>
++        An array of desktop files for other applications to display.
++      </description>
++    </key>
++  </schema>
++</schemalist>
+diff --git a/extensions/panel-favorites/stylesheet.css b/extensions/panel-favorites/stylesheet.css
+index 120adacb..8d24a827 100644
+--- a/extensions/panel-favorites/stylesheet.css
++++ b/extensions/panel-favorites/stylesheet.css
+@@ -2,13 +2,15 @@
+     spacing: 6px;
+ }
+ 
++.panel-launcher-icon {
++    icon-size: 1.5em;
++}
++
+ .panel-launcher-label {
+     border-radius: 7px;
+     padding: 4px 12px;
+-    background-color: rgba(0,0,0,0.9);
++    background-color: rgba(24,24,24,0.8);
+     color: white;
+     text-align: center;
+-    font-size: 9pt;
+-    font-weight: bold;
+     -y-offset: 6px;
+ }
+-- 
+2.41.0
+
