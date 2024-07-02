@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        38%{?dist}
+Release:        39%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -573,9 +573,17 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %changelog
+* Tue Apr 23 2024 Florian Müllner <fmuellner@redhat.com> - 3.32.1-39
+- Fix tooltip animation times
+  Resolves: RHEL-33681
+
 * Wed Feb 07 2024 Florian Müllner <fmuellner@redhat.com> - 3.32.1-38
 - Hide classification banners from picks
   Resolves: RHEL-24438
+
+* Thu Nov 02 2023 Florian Müllner <fmuellner@redhat.com> - 3.32.1-37
+- Fix spawning terminal without a desktop directory
+  Resolves: RHEL-15031
 
 * Fri Sep 15 2023 Florian Müllner <fmuellner@redhat.com> - 3.32.1-36
 - Update panel-favorites to matching upstream release

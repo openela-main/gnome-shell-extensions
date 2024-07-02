@@ -1,4 +1,4 @@
-From 1f9f4af38f991b462ee5f872a697d88a9e115499 Mon Sep 17 00:00:00 2001
+From b87a0085342b9828e7e57e8db892b79e345bfbc3 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 20 Jan 2021 20:18:39 +0100
 Subject: [PATCH 1/2] workspace-indicator: Add tooltips to workspace thumbnails
@@ -11,7 +11,7 @@ those, so expose them as tooltip on hover.
  1 file changed, 40 insertions(+)
 
 diff --git a/extensions/workspace-indicator/extension.js b/extensions/workspace-indicator/extension.js
-index 69eef88c..b10e37ff 100644
+index 69eef88c..d377f288 100644
 --- a/extensions/workspace-indicator/extension.js
 +++ b/extensions/workspace-indicator/extension.js
 @@ -8,6 +8,7 @@ const ExtensionUtils = imports.misc.extensionUtils;
@@ -72,7 +72,7 @@ index 69eef88c..b10e37ff 100644
 +
 +        Tweener.addTween(this._tooltip, {
 +            opacity: this.hover ? 255 : 0,
-+            time: TOOLTIP_ANIMATION_TIME * 1000,
++            time: TOOLTIP_ANIMATION_TIME / 1000,
 +            transition: 'easeOutQuad',
 +            onComplete: () => (this._tooltip.visible = this.hover),
 +        });
@@ -85,10 +85,10 @@ index 69eef88c..b10e37ff 100644
          this._workspace.disconnect(this._windowRemovedId);
          global.display.disconnect(this._restackedId);
 -- 
-2.31.1
+2.44.0
 
 
-From 19e19e11214b6b9deae110cd6a4c9232d77c18cb Mon Sep 17 00:00:00 2001
+From 36f2762c8c6cda512f164ea22b62d10d03a369b6 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 20 Jan 2021 20:29:01 +0100
 Subject: [PATCH 2/2] window-list: Add tooltips to workspace thumbnails
@@ -101,7 +101,7 @@ expose them as tooltip on hover.
  1 file changed, 40 insertions(+)
 
 diff --git a/extensions/window-list/workspaceIndicator.js b/extensions/window-list/workspaceIndicator.js
-index ca476111..33ec9b0e 100644
+index ca476111..8ae9b288 100644
 --- a/extensions/window-list/workspaceIndicator.js
 +++ b/extensions/window-list/workspaceIndicator.js
 @@ -5,10 +5,14 @@ const DND = imports.ui.dnd;
@@ -159,7 +159,7 @@ index ca476111..33ec9b0e 100644
 +
 +        Tweener.addTween(this._tooltip, {
 +            opacity: this.hover ? 255 : 0,
-+            time: TOOLTIP_ANIMATION_TIME * 1000,
++            time: TOOLTIP_ANIMATION_TIME / 1000,
 +            transition: 'easeOutQuad',
 +            onComplete: () => (this._tooltip.visible = this.hover),
 +        });
@@ -172,5 +172,5 @@ index ca476111..33ec9b0e 100644
          this._workspace.disconnect(this._windowRemovedId);
          global.display.disconnect(this._restackedId);
 -- 
-2.31.1
+2.44.0
 
