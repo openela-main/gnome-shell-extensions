@@ -1,0 +1,101 @@
+From 13ea90a5f6f5e73d83a2ab04ea70c6263f6d8f5f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 21 May 2024 19:01:30 +0200
+Subject: [PATCH] Add move-clock extension
+
+---
+ extensions/move-clock/extension.js     | 38 ++++++++++++++++++++++++++
+ extensions/move-clock/meson.build      |  5 ++++
+ extensions/move-clock/metadata.json.in | 10 +++++++
+ meson.build                            |  1 +
+ 4 files changed, 54 insertions(+)
+ create mode 100644 extensions/move-clock/extension.js
+ create mode 100644 extensions/move-clock/meson.build
+ create mode 100644 extensions/move-clock/metadata.json.in
+
+diff --git a/extensions/move-clock/extension.js b/extensions/move-clock/extension.js
+new file mode 100644
+index 00000000..571567f7
+--- /dev/null
++++ b/extensions/move-clock/extension.js
+@@ -0,0 +1,38 @@
++/* exported enable disable */
++const Main = imports.ui.main;
++const SessionMode = imports.ui.sessionMode;
++
++class MoveClockExtension {
++    enable() {
++        const panel = SessionMode._modes['user'].panel;
++
++        const clockIndex = panel.center.indexOf('dateMenu');
++        this._modified = clockIndex !== -1;
++
++        if (!this._modified)
++            return;
++
++        panel.center.splice(clockIndex, 1);
++        panel.right.splice(-1, 0, 'dateMenu');
++
++        Main.panel._updatePanel();
++    }
++
++    disable() {
++        if (!this._modified)
++            return;
++
++        const panel = SessionMode._modes['user'].panel;
++        const clockIndex = panel.right.indexOf('dateMenu');
++
++        if (clockIndex !== -1)
++            panel.right.splice(clockIndex, 1);
++        panel.center.unshift('dateMenu');
++
++        Main.panel._updatePanel();
++    }
++}
++
++function init() {
++    return new MoveClockExtension();
++}
+diff --git a/extensions/move-clock/meson.build b/extensions/move-clock/meson.build
+new file mode 100644
+index 00000000..48504f63
+--- /dev/null
++++ b/extensions/move-clock/meson.build
+@@ -0,0 +1,5 @@
++extension_data += configure_file(
++  input: metadata_name + '.in',
++  output: metadata_name,
++  configuration: metadata_conf
++)
+diff --git a/extensions/move-clock/metadata.json.in b/extensions/move-clock/metadata.json.in
+new file mode 100644
+index 00000000..d872ab63
+--- /dev/null
++++ b/extensions/move-clock/metadata.json.in
+@@ -0,0 +1,10 @@
++{
++"extension-id": "@extension_id@",
++"uuid": "@uuid@",
++"settings-schema": "@gschemaname@",
++"gettext-domain": "@gettext_domain@",
++"name": "Move notification menu",
++"description": "Move the notification menu to the right",
++"shell-version": [ "@shell_current@" ],
++"url": "@url@"
++}
+diff --git a/meson.build b/meson.build
+index 7e6ed3e8..ea6efb76 100644
+--- a/meson.build
++++ b/meson.build
+@@ -53,6 +53,7 @@ all_extensions += [
+   'dash-to-dock',
+   'dash-to-panel',
+   'gesture-inhibitor',
++  'move-clock',
+   'native-window-placement',
+   'panel-favorites',
+   'systemMonitor',
+-- 
+2.45.1
+

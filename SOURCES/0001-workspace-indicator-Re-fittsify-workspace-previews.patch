@@ -1,0 +1,51 @@
+From 64d4841a77293a45e769b868e1109b63811be7d1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 2 Jul 2024 19:04:10 +0200
+Subject: [PATCH] workspace-indicator: Re-fittsify workspace previews
+
+For the window-list extension, it is important that the workspace
+previews extend to the bottom edge for easier click targets.
+
+That broke while merging the code with the workspace-indicator,
+fix it again by moving the padding from the parent box into the
+thumbnail children.
+---
+ .../workspace-indicator/stylesheet-dark.css       | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
+index fb0e8b1a..017d844a 100644
+--- a/extensions/workspace-indicator/stylesheet-dark.css
++++ b/extensions/workspace-indicator/stylesheet-dark.css
+@@ -11,7 +11,6 @@
+ }
+ 
+ .workspace-indicator .workspaces-box {
+-  padding: 5px;
+   spacing: 3px;
+ }
+ 
+@@ -20,6 +19,20 @@
+   spacing: 6px;
+ }
+ 
++.workspace-indicator .workspace-box {
++  padding-top: 5px;
++  padding-bottom: 5px;
++}
++
++.workspace-indicator StButton:first-child:ltr > .workspace-box,
++.workspace-indicator StButton:last-child:rtl > .workspace-box {
++  padding-left: 5px;
++}
++.workspace-indicator StButton:last-child:ltr > .workspace-box,
++.workspace-indicator StButton:first-child:rtl > .workspace-box {
++  padding-right: 5px;
++}
++
+ .workspace-indicator-menu .workspace-box {
+   spacing: 6px;
+ }
+-- 
+2.45.2
+

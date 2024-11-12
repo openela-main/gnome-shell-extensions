@@ -7,7 +7,7 @@
 
 Name:           gnome-shell-extensions
 Version:        40.7
-Release:        15%{?dist}
+Release:        19%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 License:        GPLv2+
@@ -43,8 +43,12 @@ Patch020: 0001-window-list-Explicitly-dispose-settings-on-destroy.patch
 Patch021: 0001-desktop-icons-Don-t-try-spawn-with-non-existent-work.patch
 Patch022: 0001-docking-Only-remove-spacer-if-necessary.patch
 Patch023: 0001-classification-banner-Hide-from-picks.patch
-Patch024: prefer-window-icon.patch
-Patch025: more-ws-previews.patch
+Patch024: 0001-desktop-icons-Notify-icon-drags.patch
+Patch025: prefer-window-icon.patch
+Patch026: 0001-desktop-icons-Handle-touch-events.patch
+Patch027: more-ws-previews.patch
+Patch028: 0001-Add-move-clock-extension.patch
+Patch029: 0001-workspace-indicator-Re-fittsify-workspace-previews.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -62,6 +66,7 @@ Enabled extensions:
   * gesture-inhibitor
   * launch-new-instance
   * heads-up-display
+  * move-clock
   * native-window-placement
   * panel-favorites
   * places-menu
@@ -198,6 +203,15 @@ Requires:       %{pkg_prefix}-common = %{version}-%{release}
 %description  -n %{pkg_prefix}-launch-new-instance
 This GNOME Shell extension modifies the behavior of clicking in the dash and app
 launcher to always launch a new application instance.
+
+
+%package -n %{pkg_prefix}-move-clock
+Summary:        Move GNOME Shell notification menu to the right
+License:        GPLv2+
+Requires:       %{pkg_prefix}-common = %{version}-%{release}
+
+%description  -n %{pkg_prefix}-move-clock
+This GNOME Shell extension moves the notification menu to the right.
 
 
 %package -n %{pkg_prefix}-heads-up-display
@@ -393,6 +407,10 @@ workspaces.
 %{_datadir}/gnome-shell/extensions/launch-new-instance*/
 
 
+%files -n %{pkg_prefix}-move-clock
+%{_datadir}/gnome-shell/extensions/move-clock*/
+
+
 %files -n %{pkg_prefix}-heads-up-display
 %{_datadir}/glib-2.0/schemas/org.gnome.shell.extensions.heads-up-display.gschema.xml
 %{_datadir}/gnome-shell/extensions/heads-up-display*/
@@ -449,17 +467,33 @@ workspaces.
 
 
 %changelog
-* Fri Apr 19 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-15
+* Tue Jul 02 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-19
+- Extend workspace buttons to screen edge
+  Resolves: RHEL-43545
+
+* Tue May 21 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-18
+- Add "move-clock" extension
+  Resolves: RHEL-33429
+
+* Fri Apr 19 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-17
 - Fix downstream stylesheets
-  Resolves: RHEL-31885
+  Resolves: RHEL-25016
 
-* Thu Apr 18 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-14
+* Wed Apr 03 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-16
 - Improve workspace previews
-  Resolves: RHEL-31885
+  Resolves: RHEL-25016
 
-* Tue Mar 19 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-13
+* Tue Mar 19 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-15
+- Handle touch events in desktop icons
+  Resolves: RHEL-22713
+
+* Tue Mar 19 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-14
 - Prefer window icons in window list
-  Resolves: RHEL-29659
+  Resolves: RHEL-24713
+
+* Wed Mar 06 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-13
+- Notify on desktop icon drags
+  Resolves: RHEL-26989
 
 * Fri Feb 02 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-12
 - Hide classification banners from picks

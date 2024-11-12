@@ -1,0 +1,242 @@
+From a796215ddce14ebe80774b99e29d0d28109c818b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 6 Mar 2024 20:14:14 +0100
+Subject: [PATCH] desktop-icons: Handle touch events
+
+File icons currently only deal with button events. Split up the
+current handlers and use them to handle touch events as well.
+---
+ extensions/desktop-icons/fileItem.js | 181 +++++++++++++++++++--------
+ 1 file changed, 128 insertions(+), 53 deletions(-)
+
+diff --git a/extensions/desktop-icons/fileItem.js b/extensions/desktop-icons/fileItem.js
+index 37ee54db..26afddb2 100644
+--- a/extensions/desktop-icons/fileItem.js
++++ b/extensions/desktop-icons/fileItem.js
+@@ -140,6 +140,7 @@ var FileItem = GObject.registerClass({
+         this._container.connect('leave-event', (actor, event) => this._onLeave(actor, event));
+         this._container.connect('enter-event', (actor, event) => this._onEnter(actor, event));
+         this._container.connect('button-release-event', (actor, event) => this._onReleaseButton(actor, event));
++        this._container.connect('touch-event', (actor, event) => this._onTouchEvent(actor, event));
+ 
+         /* Set the metadata and update relevant UI */
+         this._updateMetadataFromFileInfo(fileInfo);
+@@ -229,6 +230,10 @@ var FileItem = GObject.registerClass({
+         if (this._iconAllocationIdleId)
+             GLib.source_remove(this._iconAllocationIdleId);
+ 
++        if (this._longPressTimeoutId)
++            GLib.source_remove(this._longPressTimeoutId);
++        delete this._longPressTimeoutId;
++
+         /* Menu */
+         this._removeMenu();
+     }
+@@ -731,58 +736,141 @@ var FileItem = GObject.registerClass({
+     }
+ 
+     _updateClickState(event) {
++        const eventType = event.type();
++        const isButton =
++            eventType === Clutter.EventType.BUTTON_PRESS ||
++            eventType === Clutter.EventType.BUTTON_RELEASE;
++        const button = isButton ? event.get_button() : 0;
++        const time = event.get_time();
++
+         let settings = Clutter.Settings.get_default();
+-        if ((event.get_button() == this._lastClickButton) &&
+-            ((event.get_time() - this._lastClickTime) < settings.double_click_time))
++        if (button === this._lastClickButton &&
++            (time - this._lastClickTime) < settings.double_click_time)
+             this._clickCount++;
+         else
+             this._clickCount = 1;
+ 
+-        this._lastClickTime = event.get_time();
+-        this._lastClickButton = event.get_button();
++        this._lastClickTime = time;
++        this._lastClickButton = button;
+     }
+ 
+     _getClickCount() {
+         return this._clickCount;
+     }
+ 
++    _handlePressEvent(event) {
++        const pressSequence = event.get_event_sequence();
++        if (this._pressSequence &&
++            pressSequence?.get_slot() !== this._pressSequence.get_slot())
++            return Clutter.EVENT_PROPAGATE;
++
++        this._primaryButtonPressed = true;
++        this._pressSequence = pressSequence;
++        this._pressDevice = event.get_device();
++
++        if (this._getClickCount() !== 1)
++            return Clutter.EVENT_STOP;
++
++        const [x, y] = event.get_coords();
++        this._buttonPressInitialX = x;
++        this._buttonPressInitialY = y;
++
++        const shiftPressed = !!(event.get_state() & Clutter.ModifierType.SHIFT_MASK);
++        const controlPressed = !!(event.get_state() & Clutter.ModifierType.CONTROL_MASK);
++        if (controlPressed || shiftPressed)
++            this.emit('selected', true, false, !this._isSelected);
++        else if (!this._isSelected)
++            this.emit('selected', false, false, true);
++
++        return Clutter.EVENT_STOP;
++    }
++
++    _handleSecondaryPress() {
++        if (!this.isSelected)
++            this.emit('selected', false, false, true);
++        this._ensureMenu().toggle();
++        if (this._actionOpenWith) {
++            let allowOpenWith = Extension.desktopManager.getNumberOfSelectedItems() === 1;
++            this._actionOpenWith.setSensitive(allowOpenWith);
++        }
++        const specialFilesSelected =
++            Extension.desktopManager.checkIfSpecialFilesAreSelected();
++        if (this._actionCut)
++            this._actionCut.setSensitive(!specialFilesSelected);
++        if (this._actionCopy)
++            this._actionCopy.setSensitive(!specialFilesSelected);
++        if (this._actionTrash)
++            this._actionTrash.setSensitive(!specialFilesSelected);
++        return Clutter.EVENT_STOP;
++    }
++
++    _handleReleaseEvent(event) {
++        if (this._longPressTimeoutId)
++            GLib.source_remove(this._longPressTimeoutId);
++        delete this._longPressTimeoutId;
++
++        if (!this._primaryButtonPressed || this._pressDevice !== event.get_device())
++            return Clutter.EVENT_PROPAGATE;
++
++        const pressSequence = event.get_event_sequence();
++        if (this._pressSequence &&
++            pressSequence?.get_slot() !== this._pressSequence.get_slot())
++            return Clutter.EVENT_PROPAGATE;
++
++        // primaryButtonPressed is TRUE only if the user has pressed the button
++        // over an icon, and if (s)he has not started a drag&drop operation
++        this._primaryButtonPressed = false;
++        delete this._pressDevice;
++        delete this._pressSequence;
++
++        let shiftPressed = !!(event.get_state() & Clutter.ModifierType.SHIFT_MASK);
++        let controlPressed = !!(event.get_state() & Clutter.ModifierType.CONTROL_MASK);
++        if (!controlPressed && !shiftPressed)
++            this.emit('selected', false, false, true);
++        if (this._getClickCount() === 1 && Prefs.CLICK_POLICY_SINGLE && !shiftPressed && !controlPressed)
++            this.doOpen();
++        if (this._getClickCount() === 2 && !Prefs.CLICK_POLICY_SINGLE)
++            this.doOpen();
++        return Clutter.EVENT_STOP;
++    }
++
++    _onTouchEvent(actor, event) {
++        // on X11, let pointer emulation deal with touch
++        if (!Meta.is_wayland_compositor())
++            return Clutter.EVENT_PROPAGATE;
++
++        const type = event.type();
++        if (type === Clutter.EventType.TOUCH_BEGIN) {
++            Extension.desktopManager.endRubberBand();
++            this._updateClickState(event);
++
++            if (!this._handlePressEvent(event))
++                return Clutter.EVENT_PROPAGATE;
++
++            const { longPressDuration } = Clutter.Settings.get_default();
++            this._longPressTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT,
++                longPressDuration,
++                () => {
++                    this._handleSecondaryPress();
++                    delete this._longPressTimeoutId;
++                    return GLib.SOURCE_REMOVE;
++                });
++
++            return Clutter.EVENT_STOP;
++        } else if (type === Clutter.EventType.TOUCH_END) {
++            return this._handleReleaseEvent(event);
++        }
++        return Clutter.EVENT_PROPAGATE;
++    }
++
+     _onPressButton(actor, event) {
+         Extension.desktopManager.endRubberBand();
+         this._updateClickState(event);
+         let button = event.get_button();
+-        if (button == 3) {
+-            if (!this.isSelected)
+-                this.emit('selected', false, false, true);
+-            this._ensureMenu().toggle();
+-            if (this._actionOpenWith) {
+-                let allowOpenWith = (Extension.desktopManager.getNumberOfSelectedItems() == 1);
+-                this._actionOpenWith.setSensitive(allowOpenWith);
+-            }
+-            let specialFilesSelected = Extension.desktopManager.checkIfSpecialFilesAreSelected();
+-            if (this._actionCut)
+-                this._actionCut.setSensitive(!specialFilesSelected);
+-            if (this._actionCopy)
+-                this._actionCopy.setSensitive(!specialFilesSelected);
+-            if (this._actionTrash)
+-                this._actionTrash.setSensitive(!specialFilesSelected);
+-            return Clutter.EVENT_STOP;
+-        } else if (button == 1) {
+-            if (this._getClickCount() == 1) {
+-                let [x, y] = event.get_coords();
+-                this._primaryButtonPressed = true;
+-                this._buttonPressInitialX = x;
+-                this._buttonPressInitialY = y;
+-                let shiftPressed = !!(event.get_state() & Clutter.ModifierType.SHIFT_MASK);
+-                let controlPressed = !!(event.get_state() & Clutter.ModifierType.CONTROL_MASK);
+-                if (controlPressed || shiftPressed) {
+-                    this.emit('selected', true, false, !this._isSelected);
+-                } else {
+-                    if (!this._isSelected)
+-                        this.emit('selected', false, false, true);
+-                }
+-            }
+-            return Clutter.EVENT_STOP;
+-        }
++        if (button == 3)
++            return this._handleSecondaryPress();
++        if (button == 1)
++            return this._handlePressEvent(event);
+ 
+         return Clutter.EVENT_PROPAGATE;
+     }
+@@ -821,22 +909,9 @@ var FileItem = GObject.registerClass({
+ 
+     _onReleaseButton(actor, event) {
+         let button = event.get_button();
+-        if (button == 1) {
+-            // primaryButtonPressed is TRUE only if the user has pressed the button
+-            // over an icon, and if (s)he has not started a drag&drop operation
+-            if (this._primaryButtonPressed) {
+-                this._primaryButtonPressed = false;
+-                let shiftPressed = !!(event.get_state() & Clutter.ModifierType.SHIFT_MASK);
+-                let controlPressed = !!(event.get_state() & Clutter.ModifierType.CONTROL_MASK);
+-                if (!controlPressed && !shiftPressed)
+-                    this.emit('selected', false, false, true);
+-                if ((this._getClickCount() == 1) && Prefs.CLICK_POLICY_SINGLE && !shiftPressed && !controlPressed)
+-                    this.doOpen();
+-                return Clutter.EVENT_STOP;
+-            }
+-            if ((this._getClickCount() == 2) && (!Prefs.CLICK_POLICY_SINGLE))
+-                this.doOpen();
+-        }
++        if (button == 1)
++            return this._handleReleaseEvent(event);
++
+         return Clutter.EVENT_PROPAGATE;
+     }
+ 
+-- 
+2.44.0
+

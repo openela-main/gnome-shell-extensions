@@ -1,0 +1,40 @@
+From 8389801814c84c797a29f986f15e7ea4dd27bccc Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 6 Mar 2024 13:48:49 +0100
+Subject: [PATCH] desktop-icons: Notify icon drags
+
+Components like the message tray will use the signal to hide
+their layout actor from picks, so that it does no interfere
+with the DND operation.
+---
+ extensions/desktop-icons/desktopManager.js | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/extensions/desktop-icons/desktopManager.js b/extensions/desktop-icons/desktopManager.js
+index 75b2a22a..c3b3f7e4 100644
+--- a/extensions/desktop-icons/desktopManager.js
++++ b/extensions/desktop-icons/desktopManager.js
+@@ -547,17 +547,20 @@ var DesktopManager = GObject.registerClass({
+             this._draggableContainer.allocate_preferred_size(0, 0);
+ 
+         this._draggable.startDrag(x, y, global.get_current_time(), event.get_event_sequence());
++        Main.overview.beginItemDrag(this._draggableContainer);
+     }
+ 
+     _onDragCancelled() {
+         let event = Clutter.get_current_event();
+         let [x, y] = event.get_coords();
+         this._dragCancelled = true;
++        Main.overview.cancelledItemDrag(this._draggableContainer);
+     }
+ 
+     _onDragEnd() {
+         this._inDrag = false;
+         Main.layoutManager.uiGroup.remove_child(this._draggableContainer);
++        Main.overview.endItemDrag(this._draggableContainer);
+     }
+ 
+     _dragActorDropped(event) {
+-- 
+2.44.0
+
