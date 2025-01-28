@@ -1,0 +1,552 @@
+From f5fca95984f387a4abf10bff27b06f59d366353f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 25 Sep 2024 02:23:41 +0200
+Subject: [PATCH 1/4] window-list: Split out AppTitle class
+
+Even though it's just a box with icon and label, it's cleaner to
+have a dedicated class.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/337>
+---
+ extensions/window-list/extension.js | 69 ++++++++++++++++++-----------
+ 1 file changed, 43 insertions(+), 26 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 0baaeecb..3f13bb82 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -206,6 +206,46 @@ class WindowTitle {
+     }
+ }
+ 
++class AppTitle {
++    constructor(app) {
++        this.actor = new St.BoxLayout({
++            style_class: 'window-button-box',
++            x_expand: true,
++            y_expand: true,
++        });
++
++        this._app = app;
++
++        const icon = new St.Bin({
++            style_class: 'window-button-icon',
++            child: app.create_icon_texture(ICON_TEXTURE_SIZE),
++        });
++        this.actor.add_child(icon);
++
++        let label = new St.Label({
++            text: app.get_name(),
++            y_align: Clutter.ActorAlign.CENTER,
++        });
++        this.actor.add_child(label);
++        this.label_actor = label;
++
++        this._textureCache = St.TextureCache.get_default();
++        this._iconThemeChangedId =
++            this._textureCache.connect('icon-theme-changed', () => {
++                icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
++            });
++
++        this.actor.connect('destroy', this._onDestroy.bind(this));
++    }
++
++    _onDestroy() {
++        if (this._iconThemeChangedId)
++            this._textureCache.disconnect(this._iconThemeChangedId);
++        this._iconThemeChangedId = 0;
++        this._textureCache = null;
++    }
++}
++
+ 
+ class BaseButton {
+     constructor(perMonitor, monitorIndex) {
+@@ -519,24 +559,8 @@ class AppButton extends BaseButton {
+         });
+         stack.add_actor(this._singleWindowTitle);
+ 
+-        this._multiWindowTitle = new St.BoxLayout({
+-            style_class: 'window-button-box',
+-            x_expand: true
+-        });
+-        stack.add_actor(this._multiWindowTitle);
+-
+-        this._icon = new St.Bin({
+-            style_class: 'window-button-icon',
+-            child: app.create_icon_texture(ICON_TEXTURE_SIZE)
+-        });
+-        this._multiWindowTitle.add(this._icon);
+-
+-        let label = new St.Label({
+-            text: app.get_name(),
+-            y_align: Clutter.ActorAlign.CENTER
+-        });
+-        this._multiWindowTitle.add(label);
+-        this._multiWindowTitle.label_actor = label;
++        this._multiWindowTitle = new AppTitle(app);
++        stack.add_actor(this._multiWindowTitle.actor);
+ 
+         this._menuManager = new PopupMenu.PopupMenuManager(this);
+         this._menu = new PopupMenu.PopupMenu(this.actor, 0.5, St.Side.BOTTOM);
+@@ -551,12 +575,6 @@ class AppButton extends BaseButton {
+         this._appContextMenu.actor.hide();
+         Main.uiGroup.add_actor(this._appContextMenu.actor);
+ 
+-        this._textureCache = St.TextureCache.get_default();
+-        this._iconThemeChangedId =
+-            this._textureCache.connect('icon-theme-changed', () => {
+-                this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
+-            });
+-
+         this._windowsChangedId =
+             this.app.connect('windows-changed',
+                              this._windowsChanged.bind(this));
+@@ -605,7 +623,7 @@ class AppButton extends BaseButton {
+     _windowsChanged() {
+         let windows = this.getWindowList();
+         this._singleWindowTitle.visible = windows.length == 1;
+-        this._multiWindowTitle.visible = !this._singleWindowTitle.visible;
++        this._multiWindowTitle.actor.visible = !this._singleWindowTitle.visible;
+ 
+         if (this._singleWindowTitle.visible) {
+             if (!this._windowTitle) {
+@@ -684,7 +702,6 @@ class AppButton extends BaseButton {
+ 
+     _onDestroy() {
+         super._onDestroy();
+-        this._textureCache.disconnect(this._iconThemeChangedId);
+         this._windowTracker.disconnect(this._notifyFocusId);
+         this.app.disconnect(this._windowsChangedId);
+         this._menu.destroy();
+-- 
+2.47.1
+
+
+From 5875892c2579f622ca4bcc54e5f25801869e14ef Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 25 Sep 2024 02:55:14 +0200
+Subject: [PATCH 2/4] window-list: Simplify app button
+
+Depending on the number of windows, the button either shows the
+title of the lone window, or the app title for multiple windows.
+
+While we always recreate the single-window title, we only create
+the app title once and hide it as necessary. Avoiding re-creating
+a simple actor 50% of mode transitions isn't worth the additional
+complexity, so just handle both single- and multi-window titles
+the same way.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/337>
+---
+ extensions/window-list/extension.js | 73 ++++++++++-------------------
+ 1 file changed, 26 insertions(+), 47 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 3f13bb82..0723e9e2 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -549,19 +549,6 @@ class AppButton extends BaseButton {
+         this.app = app;
+         this._updateVisibility();
+ 
+-        let stack = new St.Widget({ layout_manager: new Clutter.BinLayout() });
+-        this.actor.set_child(stack);
+-
+-        this._singleWindowTitle = new St.Bin({
+-            x_expand: true,
+-            y_fill: true,
+-            x_align: St.Align.START
+-        });
+-        stack.add_actor(this._singleWindowTitle);
+-
+-        this._multiWindowTitle = new AppTitle(app);
+-        stack.add_actor(this._multiWindowTitle.actor);
+-
+         this._menuManager = new PopupMenu.PopupMenuManager(this);
+         this._menu = new PopupMenu.PopupMenu(this.actor, 0.5, St.Side.BOTTOM);
+         this._menu.connect('open-state-changed', _onMenuStateChanged);
+@@ -570,11 +557,6 @@ class AppButton extends BaseButton {
+         this._menuManager.addMenu(this._menu);
+         Main.uiGroup.add_actor(this._menu.actor);
+ 
+-        this._appContextMenu = new AppContextMenu(this.actor, this);
+-        this._appContextMenu.connect('open-state-changed', _onMenuStateChanged);
+-        this._appContextMenu.actor.hide();
+-        Main.uiGroup.add_actor(this._appContextMenu.actor);
+-
+         this._windowsChangedId =
+             this.app.connect('windows-changed',
+                              this._windowsChanged.bind(this));
+@@ -621,38 +603,35 @@ class AppButton extends BaseButton {
+     }
+ 
+     _windowsChanged() {
+-        let windows = this.getWindowList();
+-        this._singleWindowTitle.visible = windows.length == 1;
+-        this._multiWindowTitle.actor.visible = !this._singleWindowTitle.visible;
+-
+-        if (this._singleWindowTitle.visible) {
+-            if (!this._windowTitle) {
+-                this.metaWindow = windows[0];
+-                this._windowTitle = new WindowTitle(this.metaWindow);
+-                this._singleWindowTitle.child = this._windowTitle.actor;
+-                this._windowContextMenu = new WindowContextMenu(this.actor, this.metaWindow);
+-                this._windowContextMenu.connect('open-state-changed',
+-                                                _onMenuStateChanged);
+-                Main.uiGroup.add_actor(this._windowContextMenu.actor);
+-                this._windowContextMenu.actor.hide();
+-                this._contextMenuManager.addMenu(this._windowContextMenu);
+-            }
+-            this._contextMenuManager.removeMenu(this._appContextMenu);
+-            this._contextMenu = this._windowContextMenu;
+-            this.actor.label_actor = this._windowTitle.label_actor;
++        const windows = this.getWindowList();
++        const singleWindowMode = windows.length === 1;
++
++        if (this._singleWindowMode === singleWindowMode)
++            return;
++
++        this._singleWindowMode = singleWindowMode;
++
++        if (this.actor.child)
++            this.actor.child.destroy();
++        if (this._contextMenu)
++            this._contextMenu.destroy();
++
++        if (this._singleWindowMode) {
++            const [window] = windows;
++            this._titleWidget = new WindowTitle(window);
++            this._contextMenu = new WindowContextMenu(this.actor, window);
+         } else {
+-            if (this._windowTitle) {
+-                this.metaWindow = null;
+-                this._singleWindowTitle.child = null;
+-                this._windowTitle = null;
+-                this._windowContextMenu.destroy();
+-                this._windowContextMenu = null;
+-            }
+-            this._contextMenu = this._appContextMenu;
+-            this._contextMenuManager.addMenu(this._appContextMenu);
+-            this.actor.label_actor = this._multiWindowTitle.label_actor;
++            this._titleWidget = new AppTitle(this.app);
++            this._contextMenu = new AppContextMenu(this.actor);
+         }
+ 
++        this.actor.child = this._titleWidget.actor;
++        this.actor.label_actor = this._titleWidget.label_actor;
++
++        this._contextMenu.connect('open-state-changed', _onMenuStateChanged);
++        Main.uiGroup.add_child(this._contextMenu.actor);
++        this._contextMenu.actor.hide();
++        this._contextMenuManager.addMenu(this._contextMenu);
+     }
+ 
+     _onClicked(actor, button) {
+-- 
+2.47.1
+
+
+From 68fe36c199c9d68ed8ad739e9419f052a253afa4 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 3 Oct 2024 17:19:31 +0200
+Subject: [PATCH 3/4] window-list: Split out common TitleWidget class
+
+Both app- and window title use the same structure, so add a shared
+base class.
+---
+ extensions/window-list/extension.js | 55 ++++++++++++++---------------
+ 1 file changed, 27 insertions(+), 28 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 0723e9e2..9cbfd4fb 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -134,19 +134,32 @@ class WindowContextMenu extends PopupMenu.PopupMenu {
+     }
+ }
+ 
+-class WindowTitle {
+-    constructor(metaWindow) {
+-        this._metaWindow = metaWindow;
++class TitleWidget {
++    constructor() {
+         this.actor = new St.BoxLayout({
+             style_class: 'window-button-box',
+             x_expand: true,
+             y_expand: true
+         });
+ 
+-        this._icon = new St.Bin({ style_class: 'window-button-icon' });
+-        this.actor.add(this._icon);
+-        this.label_actor = new St.Label({ y_align: Clutter.ActorAlign.CENTER });
+-        this.actor.add(this.label_actor);
++        this._icon = new St.Bin({
++            style_class: 'window-button-icon',
++        });
++        this.actor.add_child(this._icon);
++
++        this._label = new St.Label({
++            y_align: Clutter.ActorAlign.CENTER,
++        });
++        this.actor.add_child(this._label);
++        this.label_actor = this._label;
++    }
++}
++
++class WindowTitle extends TitleWidget {
++    constructor(metaWindow) {
++        super();
++
++        this._metaWindow = metaWindow;
+ 
+         this._textureCache = St.TextureCache.get_default();
+         this._iconThemeChangedId =
+@@ -181,9 +194,9 @@ class WindowTitle {
+             return;
+ 
+         if (this._metaWindow.minimized)
+-            this.label_actor.text = '[%s]'.format(this._metaWindow.title);
++            this._label.text = '[%s]'.format(this._metaWindow.title);
+         else
+-            this.label_actor.text = this._metaWindow.title;
++            this._label.text = this._metaWindow.title;
+     }
+ 
+     _updateIcon() {
+@@ -206,33 +219,19 @@ class WindowTitle {
+     }
+ }
+ 
+-class AppTitle {
++class AppTitle extends TitleWidget {
+     constructor(app) {
+-        this.actor = new St.BoxLayout({
+-            style_class: 'window-button-box',
+-            x_expand: true,
+-            y_expand: true,
+-        });
++        super();
+ 
+         this._app = app;
+ 
+-        const icon = new St.Bin({
+-            style_class: 'window-button-icon',
+-            child: app.create_icon_texture(ICON_TEXTURE_SIZE),
+-        });
+-        this.actor.add_child(icon);
+-
+-        let label = new St.Label({
+-            text: app.get_name(),
+-            y_align: Clutter.ActorAlign.CENTER,
+-        });
+-        this.actor.add_child(label);
+-        this.label_actor = label;
++        this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
++        this._label.text = app.get_name();
+ 
+         this._textureCache = St.TextureCache.get_default();
+         this._iconThemeChangedId =
+             this._textureCache.connect('icon-theme-changed', () => {
+-                icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
++                this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
+             });
+ 
+         this.actor.connect('destroy', this._onDestroy.bind(this));
+-- 
+2.47.1
+
+
+From 822d2ba9a8545f2af2664768c1ca9a7938059088 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 17 Dec 2024 01:09:34 +0100
+Subject: [PATCH 4/4] window-list: Add attention indicator
+
+Some X11 clients still rely on the traditional urgent/demand-attention
+hints instead of notifications to request the user's attention.
+
+Support these by adding a visual indication to the corresponding
+buttons, based on the visual indicator in libadwaita's tabs.
+
+Closes: https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/issues/543
+---
+ extensions/window-list/extension.js   | 90 +++++++++++++++++++++++++--
+ extensions/window-list/stylesheet.css |  9 +++
+ 2 files changed, 95 insertions(+), 4 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 9cbfd4fb..11ac393b 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -136,22 +136,46 @@ class WindowContextMenu extends PopupMenu.PopupMenu {
+ 
+ class TitleWidget {
+     constructor() {
+-        this.actor = new St.BoxLayout({
+-            style_class: 'window-button-box',
++        this.actor = new St.Widget({
++            layout_manager: new Clutter.BinLayout(),
+             x_expand: true,
+             y_expand: true
+         });
+ 
++        const hbox = new St.BoxLayout({
++            style_class: 'window-button-box',
++            x_expand: true,
++            y_expand: true,
++        });
++        this.actor.add_child(hbox);
++
+         this._icon = new St.Bin({
+             style_class: 'window-button-icon',
+         });
+-        this.actor.add_child(this._icon);
++        hbox.add_child(this._icon);
+ 
+         this._label = new St.Label({
+             y_align: Clutter.ActorAlign.CENTER,
+         });
+-        this.actor.add_child(this._label);
++        hbox.add_child(this._label);
+         this.label_actor = this._label;
++
++        this._attentionIndicator = new St.Widget({
++            style_class: 'window-button-attention-indicator',
++            x_expand: true,
++            y_expand: true,
++            y_align: Clutter.ActorAlign.END,
++            scale_x: 0,
++        });
++        this._attentionIndicator.set_pivot_point(0.5, 0.5);
++        this.actor.add_child(this._attentionIndicator);
++    }
++
++    setNeedsAttention(enable) {
++        Tweener.addTween(this._attentionIndicator, {
++            scaleX: enable ? 0.4 : 0,
++            time: 0.3,
++        });
+     }
+ }
+ 
+@@ -181,7 +205,12 @@ class WindowTitle extends TitleWidget {
+         this._notifyMinimizedId =
+             this._metaWindow.connect('notify::minimized',
+                                      this._minimizedChanged.bind(this));
++        this._notifyDemandsAttentionId = this._metaWindow.connect(
++            'notify::demands-attention', this._updateNeedsAttention.bind(this));
++        this._notifyUrgentId = this._metaWindow.connect(
++            'notify::urgent', this._updateNeedsAttention.bind(this));
+         this._minimizedChanged();
++        this._updateNeedsAttention();
+     }
+ 
+     _minimizedChanged() {
+@@ -189,6 +218,11 @@ class WindowTitle extends TitleWidget {
+         this._updateTitle();
+     }
+ 
++    _updateNeedsAttention() {
++        const { urgent, demandsAttention } = this._metaWindow;
++        this.setNeedsAttention(urgent || demandsAttention);
++    }
++
+     _updateTitle() {
+         if (!this._metaWindow.title)
+             return;
+@@ -216,6 +250,8 @@ class WindowTitle extends TitleWidget {
+         this._metaWindow.disconnect(this._notifyMinimizedId);
+         this._metaWindow.disconnect(this._notifyWmClass);
+         this._metaWindow.disconnect(this._notifyAppId);
++        this._metaWindow.disconnect(this._notifyDemandsAttentionId);
++        this._metaWindow.disconnect(this._notifyUrgentId);
+     }
+ }
+ 
+@@ -224,6 +260,7 @@ class AppTitle extends TitleWidget {
+         super();
+ 
+         this._app = app;
++        this._windows = new Map();
+ 
+         this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
+         this._label.text = app.get_name();
+@@ -234,6 +271,10 @@ class AppTitle extends TitleWidget {
+                 this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
+             });
+ 
++        this._windowsChangedId = this._app.connect(
++            'windows-changed', this._onWindowsChanged.bind(this));
++        this._onWindowsChanged();
++
+         this.actor.connect('destroy', this._onDestroy.bind(this));
+     }
+ 
+@@ -242,6 +283,47 @@ class AppTitle extends TitleWidget {
+             this._textureCache.disconnect(this._iconThemeChangedId);
+         this._iconThemeChangedId = 0;
+         this._textureCache = null;
++
++        for (const [window, ids] of this._windows)
++            ids.forEach(id => window.disconnect(id));
++        this._windows.clear();
++        this._app.disconnect(this._windowsChangedId);
++    }
++
++    _onWindowsChanged() {
++        const windows = this._app.get_windows();
++        const removed = [...this._windows].filter(w => !windows.includes(w));
++        removed.forEach(w => this._untrackWindow(w));
++        windows.forEach(w => this._trackWindow(w));
++        this._updateNeedsAttention();
++    }
++
++    _trackWindow(window) {
++        if (this._windows.has(window))
++            return;
++
++        const signals = [
++            window.connect('notify::urgent',
++                () => this._updateNeedsAttention()),
++            window.connect('notify::demands-attention',
++                () => this._updateNeedsAttention()),
++        ];
++        this._windows.set(window, signals);
++    }
++
++    _untrackWindow(window) {
++        if (!this._windows.has(window))
++            return;
++
++        const ids = this._windows.get(window);
++        ids.forEach(id => window.disconnect(id));
++        this._windows.delete(window);
++    }
++
++    _updateNeedsAttention() {
++        const needsAttention =
++            [...this._windows.keys()].some(w => w.urgent || w.demandsAttention);
++        this.setNeedsAttention(needsAttention);
+     }
+ }
+ 
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index 79d56bad..2c98aafe 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -134,3 +134,12 @@
+ .notification {
+   font-weight: normal;
+ }
++
++.window-button-attention-indicator {
++  background-color: rgba(27, 106, 203, 1.0);
++  height: 2px;
++}
++
++.window-button.minimized .window-button-attention-indicator {
++  background-color: rgba(27, 106, 203, 0.6);
++}
+-- 
+2.47.1
+
