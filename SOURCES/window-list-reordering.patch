@@ -1,0 +1,2065 @@
+From 60b46c8d82dfbdcfdf54d3f022318637870a3756 Mon Sep 17 00:00:00 2001
+From: Jakub Steiner <jimmac@gmail.com>
+Date: Tue, 16 Jul 2024 09:40:53 +0200
+Subject: [PATCH 01/24] window-list: Update styling
+
+- Contemporary look. Fewer borders, thinner outlines for workspace indicators
+- Lacks the designed unfocused window separators.
+- Relies on https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/328
+
+Fixes https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/issues/421
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/330>
+---
+ extensions/window-list/classic.css            | 68 ++++++++-----
+ extensions/window-list/stylesheet.css         | 96 +++++++------------
+ .../workspace-indicator/stylesheet-dark.css   |  4 +-
+ 3 files changed, 78 insertions(+), 90 deletions(-)
+
+diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
+index d7ceb062..088c9478 100644
+--- a/extensions/window-list/classic.css
++++ b/extensions/window-list/classic.css
+@@ -1,22 +1,24 @@
++/*
++ * SPDX-FileCopyrightText: 2013 Florian Müllner <fmuellner@gnome.org>
++ * SPDX-FileCopyrightText: 2015 Jakub Steiner <jimmac@gmail.com>
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++
+ @import url("stylesheet.css");
+ @import url("stylesheet-workspace-switcher-light.css");
+ 
+ #panel.bottom-panel {
+     border-top-width: 1px;
+     border-bottom-width: 0px;
+-    height: 2.25em ;
+-    padding: 2px;
++    height: 2.5em;
+   }
+ 
+-  .bottom-panel .window-button > StWidget,
+-  .bottom-panel .window-picker-toggle > StWidget {
+-    color: #2e3436;
+-    background-color: #eee;
++  .bottom-panel .window-button > StWidget {
+     border-radius: 3px;
+     padding: 3px 6px 1px;
+     box-shadow: none;
+     text-shadow: none;
+-    border: 1px solid rgba(0,0,0,0.2);
+   }
+ 
+   .bottom-panel .window-button > StWidget {
+@@ -24,27 +26,43 @@
+     max-width: 18.75em;
+   }
+ 
+-  .bottom-panel .window-button:hover > StWidget,
+-  .bottom-panel .window-picker-toggle:hover > StWidget {
+-    background-color: #f9f9f9;
+-  }
++ .window-button > StWidget {
++  color: #000;
++  background-color: transparent;
++}
+ 
+-  .bottom-panel .window-button:active > StWidget,
+-  .bottom-panel .window-button:focus > StWidget {
+-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+-  }
++.window-button > StWidget {
++  -st-natural-width: 18.75em;
++  max-width: 18.75em;
++}
+ 
+-  .bottom-panel .window-button.focused > StWidget,
+-  .bottom-panel .window-picker-toggle:checked > StWidget {
+-    background-color: #ccc;
+-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+-  }
++.window-button:hover > StWidget {
++  background-color: st-darken(#eee,5%);
++}
+ 
+-  .bottom-panel .window-button.focused:hover > StWidget {
+-    background-color: #e9e9e9;
++.window-button:active > StWidget,
++.window-button:focus > StWidget {
++  background-color: st-darken(#eee, 10%);
++}
++
++.window-button.focused > StWidget {
++  background-color: st-darken(#eee,15%);
++}
++
++  .window-button.focused:hover > StWidget {
++    background-color: st-darken(#eee, 20%);
+   }
+ 
+-  .bottom-panel .window-button.minimized > StWidget {
+-    color: #888;
+-    box-shadow: none;
++  .window-button.focused:active > StWidget {
++    background-color: st-darken(#eee, 25%);
+   }
++
++.window-button.minimized > StWidget {
++  color: #aaa;
++  background-color: #f9f9f9;
++}
++
++.window-button.minimized:active > StWidget {
++  color: #aaa;
++  background-color: #f9f9f9;
++}
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index 4ba47f07..b9087971 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -1,3 +1,9 @@
++/*
++ * SPDX-FileCopyrightText: 2012 Florian Müllner <fmuellner@gnome.org>
++ * SPDX-FileCopyrightText: 2013 Giovanni Campagna <gcampagna@src.gnome.org>
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
+ @import url("stylesheet-workspace-switcher-dark.css");
+ 
+ .window-list {
+@@ -5,8 +11,14 @@
+   font-size: 10pt;
+ }
+ 
++.bottom-panel {
++  background-color: #000000;
++  border-top-width: 0px;
++  height: 2.45em;
++}
++
+ .window-button {
+-  padding: 1px;
++  padding: 4px, 3px;
+ }
+ 
+ .window-button:first-child:ltr {
+@@ -21,22 +33,12 @@
+   spacing: 4px;
+ }
+ 
+-.window-button > StWidget,
+-.window-picker-toggle > StWidget {
+-  color: #bbb;
+-  background-color: black;
+-  border-radius: 2px;
++.window-button > StWidget {
++  color: #fff;
++  background-color: transparent;
++  border-radius: 4px;
+   padding: 3px 6px 1px;
+-  box-shadow: inset 1px 1px 4px rgba(255,255,255,0.5);
+-  text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+-}
+-
+-.window-picker-toggle {
+-  padding: 3px;
+-}
+-
+-.window-picker-toggle > StWidet {
+-  border: 1px solid rgba(255,255,255,0.3);
++  transition: 100ms ease;
+ }
+ 
+ .window-button > StWidget {
+@@ -44,35 +46,35 @@
+   max-width: 18.75em;
+ }
+ 
+-.window-button:hover > StWidget,
+-.window-picker-toggle:hover > StWidget {
+-  color: white;
+-  background-color: #1f1f1f;
++.window-button:hover > StWidget {
++  background-color: #303030;
+ }
+ 
+ .window-button:active > StWidget,
+ .window-button:focus > StWidget {
+-  box-shadow: inset 2px 2px 4px rgba(255,255,255,0.5);
++  background-color: st-lighten(#303030, 5%);
+ }
+ 
+-.window-button.focused > StWidget,
+-.window-picker-toggle:checked > StWidget {
+-  color: white;
+-  box-shadow: inset 1px 1px 4px rgba(255,255,255,0.7);
++.window-button.focused > StWidget {
++  background-color: #5b5b5b;
+ }
+ 
+-.window-button.focused:active > StWidget,
+-.window-picker-toggle:checked:active > StWidget {
+-  box-shadow: inset 2px 2px 4px rgba(255,255,255,0.7);
+-}
++  .window-button.focused:hover > StWidget {
++    background-color: st-lighten(#5b5b5b, 5%);
++  }
++
++  .window-button.focused:active > StWidget {
++    background-color: st-lighten(#5b5b5b, 10%);
++  }
+ 
+ .window-button.minimized > StWidget {
+   color: #666;
+-  box-shadow: inset -1px -1px 4px rgba(255,255,255,0.5);
++  background-color: #161616;
+ }
+ 
+ .window-button.minimized:active > StWidget {
+-  box-shadow: inset -2px -2px 4px rgba(255,255,255,0.5);
++  color: #666;
++  background-color: #161616;
+ }
+ 
+ .window-button-icon {
+@@ -80,38 +82,6 @@
+   height: 24px;
+ }
+ 
+-.window-list-workspace-indicator .status-label-bin {
+-  background-color: rgba(200, 200, 200, .3);
+-  border: 1px solid #cccccc;
+-  padding: 0 3px;
+-  margin: 3px;
+-}
+-
+-.window-list-workspace-indicator .workspaces-box {
+-  spacing: 3px;
+-  padding: 3px;
+-}
+-
+-.window-list-workspace-indicator .workspace {
+-  border: 2px solid #000;
+-  width: 52px;
+-  border-radius: 4px;
+-  background-color: #595959;
+-}
+-
+-.window-list-workspace-indicator .workspace.active {
+-  border-color: #fff;
+-}
+-
+-.window-list-workspace-indicator-window-preview {
+-  background-color: #bebebe;
+-  border: 1px solid #828282;
+-}
+-
+-.window-list-workspace-indicator-window-preview.active {
+-  background-color: #d4d4d4;
+-}
+-
+ .notification {
+   font-weight: normal;
+ }
+diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
+index 017d844a..872c6afc 100644
+--- a/extensions/workspace-indicator/stylesheet-dark.css
++++ b/extensions/workspace-indicator/stylesheet-dark.css
+@@ -39,7 +39,7 @@
+ 
+ .workspace-indicator-menu .workspace,
+ .workspace-indicator .workspace {
+-  border: 2px solid transparent;
++  border: 1px solid transparent;
+   border-radius: 4px;
+   background-color: #3f3f3f;
+ }
+@@ -55,7 +55,7 @@
+ 
+ .workspace-indicator-menu .workspace.active,
+ .workspace-indicator .workspace.active {
+-  border-color: #9f9f9f;
++  border-color: #fff;
+ }
+ 
+ .workspace-indicator-window-preview {
+-- 
+2.47.0
+
+
+From b36d05f6d827a9063fb35a5120207718a2f30af1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 25 Sep 2024 03:36:08 +0200
+Subject: [PATCH 02/24] window-list: Small stylesheet cleanup
+
+The light stylesheet duplicates some declarations, and the
+last occurrence matches what we already inherit from the
+dark stylesheet.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/337>
+---
+ extensions/window-list/classic.css | 10 ----------
+ 1 file changed, 10 deletions(-)
+
+diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
+index 088c9478..3a6ffd02 100644
+--- a/extensions/window-list/classic.css
++++ b/extensions/window-list/classic.css
+@@ -21,21 +21,11 @@
+     text-shadow: none;
+   }
+ 
+-  .bottom-panel .window-button > StWidget {
+-    -st-natural-width: 18.7em;
+-    max-width: 18.75em;
+-  }
+-
+  .window-button > StWidget {
+   color: #000;
+   background-color: transparent;
+ }
+ 
+-.window-button > StWidget {
+-  -st-natural-width: 18.75em;
+-  max-width: 18.75em;
+-}
+-
+ .window-button:hover > StWidget {
+   background-color: st-darken(#eee,5%);
+ }
+-- 
+2.47.0
+
+
+From ad30fc0976bface7944beacc276c4ca85961f0d0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 25 Jun 2024 19:24:35 +0200
+Subject: [PATCH 03/24] window-list: Don't use homogeneous layout
+
+We want all buttons in the window list to have the same size,
+but that's already achieved via max/natural-width in the CSS.
+
+Not enforcing the equal size via the layout manager will allow
+buttons to temporarily have a different size when we start
+animating additions and removals.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/325>
+---
+ extensions/window-list/extension.js | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 688ca761..a59307e2 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -753,22 +753,15 @@ class WindowList extends St.Widget {
+         toggle.connect('notify::checked',
+             this._updateWindowListVisibility.bind(this));
+ 
+-        let layout = new Clutter.BoxLayout({ homogeneous: true });
+-        this._windowList = new St.Widget({
++        this._windowList = new St.BoxLayout({
+             style_class: 'window-list',
+             reactive: true,
+-            layout_manager: layout,
+             x_align: Clutter.ActorAlign.START,
+             x_expand: true,
+             y_expand: true,
+         });
+         box.add_child(this._windowList);
+ 
+-        this._windowList.connect('style-changed', () => {
+-            let node = this._windowList.get_theme_node();
+-            let spacing = node.get_length('spacing');
+-            this._windowList.layout_manager.spacing = spacing;
+-        });
+         this._windowList.connect('scroll-event', this._onScrollEvent.bind(this));
+ 
+         let indicatorsBox = new St.BoxLayout({ x_align: Clutter.ActorAlign.END });
+-- 
+2.47.0
+
+
+From 987a526802bae4970cc41c7504f98b5ac568d62d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 18 Jun 2024 18:55:05 +0200
+Subject: [PATCH 04/24] window-list: Don't hide window button while unmanaging
+
+This will allow to animate the transition.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/325>
+---
+ extensions/window-list/extension.js | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index a59307e2..8ac59dd0 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -417,6 +417,10 @@ class WindowButton extends BaseButton {
+         });
+         this._updateVisibility();
+ 
++        this._unmanaging = false;
++        this._unmanagingId = metaWindow.connect('unmanaging',
++            () => (this._unmanaging = true));
++
+         this._windowTitle = new WindowTitle(this.metaWindow);
+         this.set_child(this._windowTitle);
+         this.label_actor = this._windowTitle.label_actor;
+@@ -466,6 +470,9 @@ class WindowButton extends BaseButton {
+     }
+ 
+     _updateVisibility() {
++        if (this._unmanaging)
++            return;
++
+         this.visible = this._isWindowVisible(this.metaWindow);
+     }
+ 
+@@ -476,6 +483,7 @@ class WindowButton extends BaseButton {
+     _onDestroy() {
+         super._onDestroy();
+         this.metaWindow.disconnect(this._skipTaskbarId);
++        this.metaWindow.disconnect(this._unmanagingId);
+         this.metaWindow.disconnect(this._workspaceChangedId);
+         global.display.disconnect(this._notifyFocusId);
+         this._contextMenu.destroy();
+-- 
+2.47.0
+
+
+From 9d37d880dacb3a29c4976b5442128e7269048d0e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 18 Jun 2024 18:59:38 +0200
+Subject: [PATCH 05/24] window-list: Animate buttons in and out
+
+Buttons are currently added and removed from the list without
+any transitions, which gives the list a "jumpy" feel. Instead,
+do what we do elsewhere and smoothly animate additions and
+removals by re-using the dash's ItemContainer class.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/325>
+---
+ extensions/window-list/extension.js | 34 ++++++++++++++++-------------
+ 1 file changed, 19 insertions(+), 15 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 8ac59dd0..cb9e7160 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -6,6 +6,7 @@ const ExtensionUtils = imports.misc.extensionUtils;
+ const Main = imports.ui.main;
+ const Overview = imports.ui.overview;
+ const PopupMenu = imports.ui.popupMenu;
++const { DashItemContainer } = imports.ui.dash;
+ 
+ const Me = ExtensionUtils.getCurrentExtension();
+ const { WindowPicker, WindowPickerToggle } = Me.imports.windowPicker;
+@@ -229,22 +230,25 @@ const BaseButton = GObject.registerClass({
+             GObject.ParamFlags.READWRITE,
+             false),
+     },
+-}, class BaseButton extends St.Button {
++}, class BaseButton extends DashItemContainer {
+     _init(perMonitor, monitorIndex) {
+         this._perMonitor = perMonitor;
+         this._monitorIndex = monitorIndex;
+         this._ignoreWorkspace = false;
+ 
+-        super._init({
++        super._init();
++
++        this._button = new St.Button({
+             style_class: 'window-button',
+             can_focus: true,
+             x_expand: true,
+             button_mask: St.ButtonMask.ONE | St.ButtonMask.THREE,
+         });
++        this.setChild(this._button);
+ 
+         this.connect('notify::allocation',
+             this._updateIconGeometry.bind(this));
+-        this.connect('clicked', this._onClicked.bind(this));
++        this._button.connect('clicked', this._onClicked.bind(this));
+         this.connect('destroy', this._onDestroy.bind(this));
+         this.connect('popup-menu', this._onPopupMenu.bind(this));
+ 
+@@ -422,7 +426,7 @@ class WindowButton extends BaseButton {
+             () => (this._unmanaging = true));
+ 
+         this._windowTitle = new WindowTitle(this.metaWindow);
+-        this.set_child(this._windowTitle);
++        this._button.set_child(this._windowTitle);
+         this.label_actor = this._windowTitle.label_actor;
+ 
+         this._contextMenu = new WindowContextMenu(this, this.metaWindow);
+@@ -558,7 +562,7 @@ class AppButton extends BaseButton {
+         this._updateVisibility();
+ 
+         let stack = new St.Widget({ layout_manager: new Clutter.BinLayout() });
+-        this.set_child(stack);
++        this._button.set_child(stack);
+ 
+         this._singleWindowTitle = new St.Bin({
+             x_expand: true,
+@@ -851,7 +855,7 @@ class WindowList extends St.Widget {
+ 
+         this._windowSignals = new Map();
+         this._windowCreatedId = global.display.connect(
+-            'window-created', (dsp, win) => this._addWindow(win));
++            'window-created', (dsp, win) => this._addWindow(win, true));
+ 
+         this._dragBeginId = Main.xdndHandler.connect('drag-begin',
+             this._monitorDrag.bind(this));
+@@ -980,14 +984,14 @@ class WindowList extends St.Widget {
+                        w2.metaWindow.get_stable_sequence();
+             });
+             for (let i = 0; i < windows.length; i++)
+-                this._addWindow(windows[i].metaWindow);
++                this._addWindow(windows[i].metaWindow, false);
+         } else {
+             let apps = this._appSystem.get_running().sort((a1, a2) => {
+                 return _getAppStableSequence(a1) -
+                        _getAppStableSequence(a2);
+             });
+             for (let i = 0; i < apps.length; i++)
+-                this._addApp(apps[i]);
++                this._addApp(apps[i], false);
+         }
+     }
+ 
+@@ -1001,26 +1005,26 @@ class WindowList extends St.Widget {
+             return;
+ 
+         if (app.state === Shell.AppState.RUNNING)
+-            this._addApp(app);
++            this._addApp(app, true);
+         else if (app.state === Shell.AppState.STOPPED)
+             this._removeApp(app);
+     }
+ 
+-    _addApp(app) {
++    _addApp(app, animate) {
+         let button = new AppButton(app, this._perMonitor, this._monitor.index);
+         this._settings.bind('display-all-workspaces',
+             button, 'ignore-workspace', Gio.SettingsBindFlags.GET);
+         this._windowList.add_child(button);
++        button.show(animate);
+     }
+ 
+     _removeApp(app) {
+         let children = this._windowList.get_children();
+         let child = children.find(c => c.app === app);
+-        if (child)
+-            child.destroy();
++        child?.animateOutAndDestroy();
+     }
+ 
+-    _addWindow(win) {
++    _addWindow(win, animate) {
+         if (!this._grouped)
+             this._checkGrouping();
+ 
+@@ -1038,6 +1042,7 @@ class WindowList extends St.Widget {
+         this._settings.bind('display-all-workspaces',
+             button, 'ignore-workspace', Gio.SettingsBindFlags.GET);
+         this._windowList.add_child(button);
++        button.show(animate);
+     }
+ 
+     _removeWindow(win) {
+@@ -1054,8 +1059,7 @@ class WindowList extends St.Widget {
+ 
+         let children = this._windowList.get_children();
+         let child = children.find(c => c.metaWindow === win);
+-        if (child)
+-            child.destroy();
++        child?.animateOutAndDestroy();
+     }
+ 
+     _monitorDrag() {
+-- 
+2.47.0
+
+
+From 1f2213658f6d80ab7a9710dd5aa773499747efce Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 18 Jun 2024 20:08:56 +0200
+Subject: [PATCH 06/24] window-list: Replace custom tooltip implementation
+
+DashItemContainer already has support for showing a tooltip-like
+label, so now that we use that for animating items, we can use
+it for tooltips as well.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/325>
+---
+ extensions/window-list/extension.js | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index cb9e7160..0dd3775e 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -246,6 +246,13 @@ const BaseButton = GObject.registerClass({
+         });
+         this.setChild(this._button);
+ 
++        this._button.connect('notify::hover', () => {
++            if (this._button.hover)
++                this.showLabel();
++            else
++                this.hideLabel();
++        });
++
+         this.connect('notify::allocation',
+             this._updateIconGeometry.bind(this));
+         this._button.connect('clicked', this._onClicked.bind(this));
+@@ -287,6 +294,18 @@ const BaseButton = GObject.registerClass({
+         this._updateVisibility();
+     }
+ 
++    showLabel() {
++        const [, , preferredTitleWidth] = this.label_actor.get_preferred_size();
++        const maxTitleWidth = this.label_actor.allocation.get_width();
++        const isTitleFullyShown = preferredTitleWidth <= maxTitleWidth;
++
++        const labelText = isTitleFullyShown
++            ? '' : this.label_actor.text;
++
++        this.setLabelText(labelText);
++        super.showLabel();
++    }
++
+     _setLongPressTimeout() {
+         if (this._longPressTimeoutId)
+             return;
+-- 
+2.47.0
+
+
+From 59d45cbef4ab701146325c46aea8bc6ffd13ca1f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sat, 13 Jul 2024 00:11:19 +0200
+Subject: [PATCH 07/24] window-list: Fix .focused styling
+
+Commit 039c66e7b7c wrapped the button in a container to
+animate transitions, but didn't adjust the `.focused`
+styling to still apply to the button (where it is
+expected) rather than the wrapper.
+
+Fix that.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/328>
+---
+ extensions/window-list/extension.js | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 0dd3775e..ec37f50f 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -378,9 +378,9 @@ const BaseButton = GObject.registerClass({
+ 
+     _updateStyle() {
+         if (this._isFocused())
+-            this.add_style_class_name('focused');
++            this._button.add_style_class_name('focused');
+         else
+-            this.remove_style_class_name('focused');
++            this._button.remove_style_class_name('focused');
+     }
+ 
+     _windowEnteredOrLeftMonitor(_metaDisplay, _monitorIndex, _metaWindow) {
+-- 
+2.47.0
+
+
+From ab1c5fc68916cbc2dff6302cb425f3afb4f4ea68 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 25 Sep 2024 02:23:41 +0200
+Subject: [PATCH 08/24] window-list: Split out AppTitle class
+
+Even though it's just a box with icon and label, it's cleaner to
+have a dedicated class.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/337>
+---
+ extensions/window-list/extension.js | 66 ++++++++++++++++++-----------
+ 1 file changed, 42 insertions(+), 24 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index ec37f50f..e778a4d4 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -221,6 +221,47 @@ class WindowTitle extends St.BoxLayout {
+     }
+ });
+ 
++const AppTitle = GObject.registerClass(
++class AppTitle extends St.BoxLayout {
++    _init(app) {
++        super._init({
++            style_class: 'window-button-box',
++            x_expand: true,
++            y_expand: true,
++        });
++
++        this._app = app;
++
++        const icon = new St.Bin({
++            style_class: 'window-button-icon',
++            child: app.create_icon_texture(ICON_TEXTURE_SIZE),
++        });
++        this.add_child(icon);
++
++        let label = new St.Label({
++            text: app.get_name(),
++            y_align: Clutter.ActorAlign.CENTER,
++        });
++        this.add_child(label);
++        this.label_actor = label;
++
++        this._textureCache = St.TextureCache.get_default();
++        this._iconThemeChangedId =
++            this._textureCache.connect('icon-theme-changed', () => {
++                icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
++            });
++
++        this.connect('destroy', this._onDestroy.bind(this));
++    }
++
++    _onDestroy() {
++        if (this._iconThemeChangedId)
++            this._textureCache.disconnect(this._iconThemeChangedId);
++        this._iconThemeChangedId = 0;
++        this._textureCache = null;
++    }
++});
++
+ 
+ const BaseButton = GObject.registerClass({
+     GTypeFlags: GObject.TypeFlags.ABSTRACT,
+@@ -588,25 +629,9 @@ class AppButton extends BaseButton {
+         });
+         stack.add_actor(this._singleWindowTitle);
+ 
+-        this._multiWindowTitle = new St.BoxLayout({
+-            style_class: 'window-button-box',
+-            x_expand: true,
+-        });
++        this._multiWindowTitle = new AppTitle(app);
+         stack.add_actor(this._multiWindowTitle);
+ 
+-        this._icon = new St.Bin({
+-            style_class: 'window-button-icon',
+-            child: app.create_icon_texture(ICON_TEXTURE_SIZE),
+-        });
+-        this._multiWindowTitle.add(this._icon);
+-
+-        let label = new St.Label({
+-            text: app.get_name(),
+-            y_align: Clutter.ActorAlign.CENTER,
+-        });
+-        this._multiWindowTitle.add(label);
+-        this._multiWindowTitle.label_actor = label;
+-
+         this._menuManager = new PopupMenu.PopupMenuManager(this);
+         this._menu = new PopupMenu.PopupMenu(this, 0.5, St.Side.BOTTOM);
+         this._menu.connect('open-state-changed', _onMenuStateChanged);
+@@ -620,12 +645,6 @@ class AppButton extends BaseButton {
+         this._appContextMenu.actor.hide();
+         Main.uiGroup.add_actor(this._appContextMenu.actor);
+ 
+-        this._textureCache = St.TextureCache.get_default();
+-        this._iconThemeChangedId =
+-            this._textureCache.connect('icon-theme-changed', () => {
+-                this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
+-            });
+-
+         this._windowsChangedId = this.app.connect(
+             'windows-changed', this._windowsChanged.bind(this));
+         this._windowsChanged();
+@@ -752,7 +771,6 @@ class AppButton extends BaseButton {
+ 
+     _onDestroy() {
+         super._onDestroy();
+-        this._textureCache.disconnect(this._iconThemeChangedId);
+         this._windowTracker.disconnect(this._notifyFocusId);
+         this.app.disconnect(this._windowsChangedId);
+         this._menu.destroy();
+-- 
+2.47.0
+
+
+From c2cd38942205b33920002d35f347f1051501ccbe Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 25 Sep 2024 02:55:14 +0200
+Subject: [PATCH 09/24] window-list: Simplify app button
+
+Depending on the number of windows, the button either shows the
+title of the lone window, or the app title for multiple windows.
+
+While we always recreate the single-window title, we only create
+the app title once and hide it as necessary. Avoiding re-creating
+a simple actor 50% of mode transitions isn't worth the additional
+complexity, so just handle both single- and multi-window titles
+the same way.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/337>
+---
+ extensions/window-list/extension.js | 69 ++++++++++-------------------
+ 1 file changed, 24 insertions(+), 45 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index e778a4d4..f4434afa 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -621,17 +621,6 @@ class AppButton extends BaseButton {
+         this.app = app;
+         this._updateVisibility();
+ 
+-        let stack = new St.Widget({ layout_manager: new Clutter.BinLayout() });
+-        this._button.set_child(stack);
+-
+-        this._singleWindowTitle = new St.Bin({
+-            x_expand: true,
+-        });
+-        stack.add_actor(this._singleWindowTitle);
+-
+-        this._multiWindowTitle = new AppTitle(app);
+-        stack.add_actor(this._multiWindowTitle);
+-
+         this._menuManager = new PopupMenu.PopupMenuManager(this);
+         this._menu = new PopupMenu.PopupMenu(this, 0.5, St.Side.BOTTOM);
+         this._menu.connect('open-state-changed', _onMenuStateChanged);
+@@ -640,11 +629,6 @@ class AppButton extends BaseButton {
+         this._menuManager.addMenu(this._menu);
+         Main.uiGroup.add_actor(this._menu.actor);
+ 
+-        this._appContextMenu = new AppContextMenu(this);
+-        this._appContextMenu.connect('open-state-changed', _onMenuStateChanged);
+-        this._appContextMenu.actor.hide();
+-        Main.uiGroup.add_actor(this._appContextMenu.actor);
+-
+         this._windowsChangedId = this.app.connect(
+             'windows-changed', this._windowsChanged.bind(this));
+         this._windowsChanged();
+@@ -691,37 +675,32 @@ class AppButton extends BaseButton {
+     }
+ 
+     _windowsChanged() {
+-        let windows = this.getWindowList();
+-        this._singleWindowTitle.visible = windows.length === 1;
+-        this._multiWindowTitle.visible = !this._singleWindowTitle.visible;
+-
+-        if (this._singleWindowTitle.visible) {
+-            if (!this._windowTitle) {
+-                this.metaWindow = windows[0];
+-                this._windowTitle = new WindowTitle(this.metaWindow);
+-                this._singleWindowTitle.child = this._windowTitle;
+-                this._windowContextMenu = new WindowContextMenu(this, this.metaWindow);
+-                this._windowContextMenu.connect(
+-                    'open-state-changed', _onMenuStateChanged);
+-                Main.uiGroup.add_actor(this._windowContextMenu.actor);
+-                this._windowContextMenu.actor.hide();
+-                this._contextMenuManager.addMenu(this._windowContextMenu);
+-            }
+-            this._contextMenuManager.removeMenu(this._appContextMenu);
+-            this._contextMenu = this._windowContextMenu;
+-            this.label_actor = this._windowTitle.label_actor;
++        const windows = this.getWindowList();
++        const singleWindowMode = windows.length === 1;
++
++        if (this._singleWindowMode === singleWindowMode)
++            return;
++
++        this._singleWindowMode = singleWindowMode;
++
++        this._button.child?.destroy();
++        this._contextMenu?.destroy();
++
++        if (this._singleWindowMode) {
++            const [window] = windows;
++            this._button.child = new WindowTitle(window);
++            this._contextMenu = new WindowContextMenu(this, window);
+         } else {
+-            if (this._windowTitle) {
+-                this.metaWindow = null;
+-                this._singleWindowTitle.child = null;
+-                this._windowTitle = null;
+-                this._windowContextMenu.destroy();
+-                this._windowContextMenu = null;
+-            }
+-            this._contextMenu = this._appContextMenu;
+-            this._contextMenuManager.addMenu(this._appContextMenu);
+-            this.label_actor = this._multiWindowTitle.label_actor;
++            this._button.child = new AppTitle(this.app);
++            this._contextMenu = new AppContextMenu(this);
+         }
++
++        this.label_actor = this._button.child.label_actor;
++
++        this._contextMenu.connect('open-state-changed', _onMenuStateChanged);
++        Main.uiGroup.add_child(this._contextMenu.actor);
++        this._contextMenu.actor.hide();
++        this._contextMenuManager.addMenu(this._contextMenu);
+     }
+ 
+     _onClicked(actor, button) {
+-- 
+2.47.0
+
+
+From beadfe2a6f6a7627096cad5a2161add902edf039 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Mon, 7 Oct 2024 17:22:04 +0200
+Subject: [PATCH 10/24] window-list: Fix minimized styling
+
+Commit 039c66e7b7c wrapped the button in a container to
+animate transitions, but didn't adjust the `.minimized`
+styling to still apply to the button (where it is
+expected) rather than the wrapper.
+
+Fix this just like commit c72b8b21 did for the
+`.focused` styling.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/342>
+---
+ extensions/window-list/extension.js | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index f4434afa..6c00686c 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -523,9 +523,9 @@ class WindowButton extends BaseButton {
+         super._updateStyle();
+ 
+         if (this.metaWindow.minimized)
+-            this.add_style_class_name('minimized');
++            this._button.add_style_class_name('minimized');
+         else
+-            this.remove_style_class_name('minimized');
++            this._button.remove_style_class_name('minimized');
+     }
+ 
+     _windowEnteredOrLeftMonitor(metaDisplay, monitorIndex, metaWindow) {
+-- 
+2.47.0
+
+
+From 77a1b57678e62ad091e09d5e97299d53999a3521 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Mon, 7 Oct 2024 17:10:43 +0200
+Subject: [PATCH 11/24] window-list: Fix active state
+
+Commit c72b8b21 fixed the styling of the active window's button,
+but missed that the `active` property uses the style information
+as well.
+
+Adjust it to use the correct actor when checking for the style class.
+
+Closes https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/issues/529
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/342>
+---
+ extensions/window-list/extension.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 6c00686c..936dd9e4 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -316,7 +316,7 @@ const BaseButton = GObject.registerClass({
+     }
+ 
+     get active() {
+-        return this.has_style_class_name('focused');
++        return this._button.has_style_class_name('focused');
+     }
+ 
+     // eslint-disable-next-line camelcase
+-- 
+2.47.0
+
+
+From 8ab9ab5cc43ccea7a3208b72e08f32685584c869 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 15 Oct 2024 17:48:52 +0200
+Subject: [PATCH 12/24] window-list: Remove outdated style
+
+A long time ago, the window list used to embed the bottom message
+tray, which caused notifications to inherit the window-list's
+font style.
+
+Since that's no longer the case, we have no business in messing
+with notification styling, so stop doing that.
+---
+ extensions/window-list/stylesheet.css | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index b9087971..f02fca60 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -81,7 +81,3 @@
+   width: 24px;
+   height: 24px;
+ }
+-
+-.notification {
+-  font-weight: normal;
+-}
+-- 
+2.47.0
+
+
+From 807da4082a3a78789ab4926fd1074a8040f5d794 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 26 Sep 2024 19:07:11 +0200
+Subject: [PATCH 13/24] window-list: Split out some common code
+
+Adding an app button and adding a window button involves some
+shared steps, move those to a shared `_addButton()` method.
+---
+ extensions/window-list/extension.js | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 936dd9e4..d92a4155 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -1026,14 +1026,18 @@ class WindowList extends St.Widget {
+             this._removeApp(app);
+     }
+ 
+-    _addApp(app, animate) {
+-        let button = new AppButton(app, this._perMonitor, this._monitor.index);
++    _addButton(button, animate) {
+         this._settings.bind('display-all-workspaces',
+             button, 'ignore-workspace', Gio.SettingsBindFlags.GET);
+         this._windowList.add_child(button);
+         button.show(animate);
+     }
+ 
++    _addApp(app, animate) {
++        const button = new AppButton(app, this._perMonitor, this._monitor.index);
++        this._addButton(button, animate);
++    }
++
+     _removeApp(app) {
+         let children = this._windowList.get_children();
+         let child = children.find(c => c.app === app);
+@@ -1054,11 +1058,8 @@ class WindowList extends St.Widget {
+         this._windowSignals.set(
+             win, win.connect('unmanaged', () => this._removeWindow(win)));
+ 
+-        let button = new WindowButton(win, this._perMonitor, this._monitor.index);
+-        this._settings.bind('display-all-workspaces',
+-            button, 'ignore-workspace', Gio.SettingsBindFlags.GET);
+-        this._windowList.add_child(button);
+-        button.show(animate);
++        const button = new WindowButton(win, this._perMonitor, this._monitor.index);
++        this._addButton(button, animate);
+     }
+ 
+     _removeWindow(win) {
+-- 
+2.47.0
+
+
+From e10c1fd24bc86c7d980f50efd9e663b42097d2f1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 3 Oct 2024 17:19:31 +0200
+Subject: [PATCH 14/24] window-list: Split out common TitleWidget class
+
+Both app- and window title use the same structure, so add a shared
+base class.
+---
+ extensions/window-list/extension.js | 61 ++++++++++++++---------------
+ 1 file changed, 30 insertions(+), 31 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index d92a4155..69058fcd 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -133,22 +133,35 @@ class WindowContextMenu extends PopupMenu.PopupMenu {
+     }
+ }
+ 
+-const WindowTitle = GObject.registerClass(
+-class WindowTitle extends St.BoxLayout {
+-    _init(metaWindow) {
+-        this._metaWindow = metaWindow;
+-
++const TitleWidget = GObject.registerClass({
++    GTypeFlags: GObject.TypeFlags.ABSTRACT,
++}, class TitleWidget extends St.BoxLayout {
++    _init() {
+         super._init({
+             style_class: 'window-button-box',
+             x_expand: true,
+             y_expand: true,
+         });
+ 
+-        this._icon = new St.Bin({ style_class: 'window-button-icon' });
+-        this.add(this._icon);
+-        this.label_actor = new St.Label({ y_align: Clutter.ActorAlign.CENTER });
+-        this.label_actor.clutter_text.single_line_mode = true;
+-        this.add(this.label_actor);
++        this._icon = new St.Bin({
++            style_class: 'window-button-icon',
++        });
++        this.add_child(this._icon);
++
++        this._label = new St.Label({
++            y_align: Clutter.ActorAlign.CENTER,
++        });
++        this.add_child(this._label);
++        this.label_actor = this._label;
++    }
++});
++
++const WindowTitle = GObject.registerClass(
++class WindowTitle extends TitleWidget {
++    _init(metaWindow) {
++        super._init();
++
++        this._metaWindow = metaWindow;
+ 
+         this._textureCache = St.TextureCache.get_default();
+         this._iconThemeChangedId = this._textureCache.connect(
+@@ -178,9 +191,9 @@ class WindowTitle extends St.BoxLayout {
+             return;
+ 
+         if (this._metaWindow.minimized)
+-            this.label_actor.text = '[%s]'.format(this._metaWindow.title);
++            this._label.text = '[%s]'.format(this._metaWindow.title);
+         else
+-            this.label_actor.text = this._metaWindow.title;
++            this._label.text = this._metaWindow.title;
+     }
+ 
+     _updateIcon() {
+@@ -222,33 +235,19 @@ class WindowTitle extends St.BoxLayout {
+ });
+ 
+ const AppTitle = GObject.registerClass(
+-class AppTitle extends St.BoxLayout {
++class AppTitle extends TitleWidget {
+     _init(app) {
+-        super._init({
+-            style_class: 'window-button-box',
+-            x_expand: true,
+-            y_expand: true,
+-        });
++        super._init();
+ 
+         this._app = app;
+ 
+-        const icon = new St.Bin({
+-            style_class: 'window-button-icon',
+-            child: app.create_icon_texture(ICON_TEXTURE_SIZE),
+-        });
+-        this.add_child(icon);
+-
+-        let label = new St.Label({
+-            text: app.get_name(),
+-            y_align: Clutter.ActorAlign.CENTER,
+-        });
+-        this.add_child(label);
+-        this.label_actor = label;
++        this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
++        this._label.text = app.get_name();
+ 
+         this._textureCache = St.TextureCache.get_default();
+         this._iconThemeChangedId =
+             this._textureCache.connect('icon-theme-changed', () => {
+-                icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
++                this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
+             });
+ 
+         this.connect('destroy', this._onDestroy.bind(this));
+-- 
+2.47.0
+
+
+From e29fb2e04541157a6233b702588a3d206ad68615 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 3 Oct 2024 17:27:57 +0200
+Subject: [PATCH 15/24] window-list: Add TitleWidget:abstract-label property
+
+When true, the real label is replaced by a more abstract
+representation. When used as drag actor, the focus is not
+on identifying the window/app, but about picking a drop
+location, and the reduced style helps with that.
+---
+ extensions/window-list/extension.js   | 22 ++++++++++++++++++++++
+ extensions/window-list/stylesheet.css |  6 ++++++
+ 2 files changed, 28 insertions(+)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 69058fcd..fc47d2e6 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -135,6 +135,12 @@ class WindowContextMenu extends PopupMenu.PopupMenu {
+ 
+ const TitleWidget = GObject.registerClass({
+     GTypeFlags: GObject.TypeFlags.ABSTRACT,
++    Properties: {
++        'abstract-label': GObject.ParamSpec.boolean(
++            'abstract-label', '', '',
++            GObject.ParamFlags.READWRITE,
++            false),
++    },
+ }, class TitleWidget extends St.BoxLayout {
+     _init() {
+         super._init({
+@@ -153,6 +159,22 @@ const TitleWidget = GObject.registerClass({
+         });
+         this.add_child(this._label);
+         this.label_actor = this._label;
++
++        this.bind_property('abstract-label',
++            this._label, 'visible',
++            GObject.BindingFlags.SYNC_CREATE |
++            GObject.BindingFlags.INVERT_BOOLEAN);
++
++        this._abstractLabel = new St.Widget({
++            style_class: 'window-button-abstract-label',
++            x_expand: true,
++            y_expand: true,
++        });
++        this.add_child(this._abstractLabel);
++
++        this.bind_property('abstract-label',
++            this._abstractLabel, 'visible',
++            GObject.BindingFlags.SYNC_CREATE);
+     }
+ });
+ 
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index f02fca60..fce6bcc5 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -81,3 +81,9 @@
+   width: 24px;
+   height: 24px;
+ }
++
++.window-button-abstract-label {
++  background-color: #888;
++  border-radius: 99px;
++  margin: 6px;
++}
+-- 
+2.47.0
+
+
+From e0a5584a79d938d649c17b54267bfb83d547f984 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 25 Sep 2024 03:20:52 +0200
+Subject: [PATCH 16/24] window-list: Split out `_createTitleActor()` hook
+
+This will allow creating a suitable drag actor that matches the
+current title. In particular this allows for a drag actor that
+isn't based on `ClutterClone`, and therefore doesn't inherit
+focus/active/minimize/etc. styles that don't make sense outside
+the actual window list.
+---
+ extensions/window-list/extension.js | 23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index fc47d2e6..a65e2108 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -418,6 +418,11 @@ const BaseButton = GObject.registerClass({
+         this._onClicked(this, 1);
+     }
+ 
++    _createTitleActor() {
++        throw new GObject.NotImplementedError(
++            `_createTitleActor in ${this.constructor.name}`);
++    }
++
+     _onClicked(_actor, _button) {
+         throw new GObject.NotImplementedError(
+             `_onClicked in ${this.constructor.name}`);
+@@ -506,7 +511,7 @@ class WindowButton extends BaseButton {
+         this._unmanagingId = metaWindow.connect('unmanaging',
+             () => (this._unmanaging = true));
+ 
+-        this._windowTitle = new WindowTitle(this.metaWindow);
++        this._windowTitle = this._createTitleActor();
+         this._button.set_child(this._windowTitle);
+         this.label_actor = this._windowTitle.label_actor;
+ 
+@@ -524,6 +529,10 @@ class WindowButton extends BaseButton {
+         this._updateStyle();
+     }
+ 
++    _createTitleActor() {
++        return new WindowTitle(this.metaWindow);
++    }
++
+     _onClicked(actor, button) {
+         if (this._contextMenu.isOpen) {
+             this._contextMenu.close();
+@@ -709,13 +718,12 @@ class AppButton extends BaseButton {
+ 
+         if (this._singleWindowMode) {
+             const [window] = windows;
+-            this._button.child = new WindowTitle(window);
+             this._contextMenu = new WindowContextMenu(this, window);
+         } else {
+-            this._button.child = new AppTitle(this.app);
+             this._contextMenu = new AppContextMenu(this);
+         }
+ 
++        this._button.child = this._createTitleActor();
+         this.label_actor = this._button.child.label_actor;
+ 
+         this._contextMenu.connect('open-state-changed', _onMenuStateChanged);
+@@ -724,6 +732,15 @@ class AppButton extends BaseButton {
+         this._contextMenuManager.addMenu(this._contextMenu);
+     }
+ 
++    _createTitleActor() {
++        if (this._singleWindowMode) {
++            const [window] = this.getWindowList();
++            return new WindowTitle(window);
++        } else {
++            return new AppTitle(this.app);
++        }
++    }
++
+     _onClicked(actor, button) {
+         let menuWasOpen = this._menu.isOpen;
+         if (menuWasOpen)
+-- 
+2.47.0
+
+
+From 75e0bbd671101dea9803d3fdcfe10d67e5f71e5d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 19 Jun 2024 13:01:37 +0200
+Subject: [PATCH 17/24] window-list: Rename XDND related methods and props
+
+The window list buttons themselves will become draggable, so
+include "xdnd" in the existing drag handling to disambiguate
+it.
+---
+ extensions/window-list/extension.js | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index a65e2108..263a2af8 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -912,11 +912,11 @@ class WindowList extends St.Widget {
+             'window-created', (dsp, win) => this._addWindow(win, true));
+ 
+         this._dragBeginId = Main.xdndHandler.connect('drag-begin',
+-            this._monitorDrag.bind(this));
++            this._monitorXdndDrag.bind(this));
+         this._dragEndId = Main.xdndHandler.connect('drag-end',
+-            this._stopMonitoringDrag.bind(this));
+-        this._dragMonitor = {
+-            dragMotion: this._onDragMotion.bind(this),
++            this._stopMonitoringXdndDrag.bind(this));
++        this._xdndDragMonitor = {
++            dragMotion: this._onXdndDragMotion.bind(this),
+         };
+ 
+         this._dndTimeoutId = 0;
+@@ -1117,16 +1117,16 @@ class WindowList extends St.Widget {
+         child?.animateOutAndDestroy();
+     }
+ 
+-    _monitorDrag() {
+-        DND.addDragMonitor(this._dragMonitor);
++    _monitorXdndDrag() {
++        DND.addDragMonitor(this._xdndDragMonitor);
+     }
+ 
+-    _stopMonitoringDrag() {
+-        DND.removeDragMonitor(this._dragMonitor);
++    _stopMonitoringXdndDrag() {
++        DND.removeDragMonitor(this._xdndDragMonitor);
+         this._removeActivateTimeout();
+     }
+ 
+-    _onDragMotion(dragEvent) {
++    _onXdndDragMotion(dragEvent) {
+         if (Main.overview.visible ||
+             !this.contains(dragEvent.targetActor)) {
+             this._removeActivateTimeout();
+@@ -1195,7 +1195,7 @@ class WindowList extends St.Widget {
+         global.display.disconnect(this._fullscreenChangedId);
+         global.display.disconnect(this._windowCreatedId);
+ 
+-        this._stopMonitoringDrag();
++        this._stopMonitoringXdndDrag();
+         Main.xdndHandler.disconnect(this._dragBeginId);
+         Main.xdndHandler.disconnect(this._dragEndId);
+ 
+-- 
+2.47.0
+
+
+From 4ae3577e50907cdf0f257fd559475b1decdf4af0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 25 Sep 2024 04:13:25 +0200
+Subject: [PATCH 18/24] window-list: Allow rearranging window buttons
+
+We currently sort buttons by the stable sequence to get a persistent
+and predictable order. However some users want to customize that
+order, and rearrange the buttons as they see fit.
+
+Support that use case by implementing drag-and-drop behavior based
+on the overview's dash.
+
+Closes https://gitlab.gnome.org/GNOME/gnome-shell-extensions/issues/4
+---
+ extensions/window-list/classic.css    |   5 +
+ extensions/window-list/extension.js   | 140 ++++++++++++++++++++++++++
+ extensions/window-list/stylesheet.css |  14 ++-
+ 3 files changed, 157 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
+index 3a6ffd02..74945657 100644
+--- a/extensions/window-list/classic.css
++++ b/extensions/window-list/classic.css
+@@ -56,3 +56,8 @@
+   color: #aaa;
+   background-color: #f9f9f9;
+ }
++
++.window-button-drag-actor {
++  background-color: #ddd;
++    border-color: #888;
++}
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 263a2af8..574c85ac 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -18,6 +18,8 @@ const _ = Gettext.gettext;
+ const ICON_TEXTURE_SIZE = 24;
+ const DND_ACTIVATE_TIMEOUT = 500;
+ 
++const MIN_DRAG_UPDATE_INTERVAL = 500 * GLib.TIME_SPAN_MILLISECOND;
++
+ const GroupingMode = {
+     NEVER: 0,
+     AUTO: 1,
+@@ -25,6 +27,14 @@ const GroupingMode = {
+ };
+ 
+ 
++const DragPlaceholderItem = GObject.registerClass(
++class DragPlaceholderItem extends DashItemContainer {
++    _init() {
++        super._init();
++        this.setChild(new St.Bin({ style_class: 'placeholder' }));
++    }
++});
++
+ function _minimizeOrActivateWindow(window) {
+     let focusWindow = global.display.focus_window;
+     if (focusWindow === window ||
+@@ -283,6 +293,18 @@ class AppTitle extends TitleWidget {
+     }
+ });
+ 
++const DragActor = GObject.registerClass(
++class DragActor extends St.Bin {
++    _init(source, titleActor) {
++        super._init({
++            style_class: 'window-button-drag-actor',
++            child: titleActor,
++            width: source.width,
++        });
++
++        this.source = source;
++    }
++});
+ 
+ const BaseButton = GObject.registerClass({
+     GTypeFlags: GObject.TypeFlags.ABSTRACT,
+@@ -292,6 +314,10 @@ const BaseButton = GObject.registerClass({
+             GObject.ParamFlags.READWRITE,
+             false),
+     },
++    Signals: {
++        'drag-begin': {},
++        'drag-end': {},
++    },
+ }, class BaseButton extends DashItemContainer {
+     _init(perMonitor, monitorIndex) {
+         this._perMonitor = perMonitor;
+@@ -334,6 +360,15 @@ const BaseButton = GObject.registerClass({
+                 'window-left-monitor',
+                 this._windowEnteredOrLeftMonitor.bind(this));
+         }
++
++        this._button._delegate = this;
++        this._draggable = DND.makeDraggable(this._button);
++        this._draggable.connect('drag-begin', () => {
++            this._removeLongPressTimeout();
++            this.emit('drag-begin');
++        });
++        this._draggable.connect('drag-cancelled', () => this.emit('drag-end'));
++        this._draggable.connect('drag-end', () => this.emit('drag-end'));
+     }
+ 
+     get active() {
+@@ -418,6 +453,17 @@ const BaseButton = GObject.registerClass({
+         this._onClicked(this, 1);
+     }
+ 
++    getDragActor() {
++        const titleActor = this._createTitleActor();
++        titleActor.set({ abstractLabel: true });
++
++        return new DragActor(this, titleActor);
++    }
++
++    getDragActorSource() {
++        return this;
++    }
++
+     _createTitleActor() {
+         throw new GObject.NotImplementedError(
+             `_createTitleActor in ${this.constructor.name}`);
+@@ -919,9 +965,19 @@ class WindowList extends St.Widget {
+             dragMotion: this._onXdndDragMotion.bind(this),
+         };
+ 
++        this._itemDragMonitor = {
++            dragMotion: this._onItemDragMotion.bind(this),
++        };
++
+         this._dndTimeoutId = 0;
+         this._dndWindow = null;
+ 
++        this._dragPlaceholder = null;
++        this._dragPlaceholderPos = -1;
++        this._lastPlaceholderUpdate = 0;
++
++        this._delegate = this;
++
+         this._settings = ExtensionUtils.getSettings();
+         this._settings.connect('changed::grouping-mode',
+             () => this._groupingModeChanged());
+@@ -1067,6 +1123,14 @@ class WindowList extends St.Widget {
+     _addButton(button, animate) {
+         this._settings.bind('display-all-workspaces',
+             button, 'ignore-workspace', Gio.SettingsBindFlags.GET);
++
++        button.connect('drag-begin',
++            () => this._monitorItemDrag());
++        button.connect('drag-end', () => {
++            this._stopMonitoringItemDrag();
++            this._clearDragPlaceholder();
++        });
++
+         this._windowList.add_child(button);
+         button.show(animate);
+     }
+@@ -1117,6 +1181,82 @@ class WindowList extends St.Widget {
+         child?.animateOutAndDestroy();
+     }
+ 
++    _clearDragPlaceholder() {
++        this._dragPlaceholder?.animateOutAndDestroy();
++        this._dragPlaceholder = null;
++        this._dragPlaceholderPos = -1;
++    }
++
++    handleDragOver(source, _actor, x, _y, _time) {
++        if (!(source instanceof BaseButton))
++            return DND.DragMotionResult.NO_DROP;
++
++        const buttons = this._windowList.get_children().filter(c => c instanceof BaseButton);
++        const buttonPos = buttons.indexOf(source);
++        const numButtons = buttons.length;
++        let boxWidth = this._windowList.width;
++
++        // Transform to window list coordinates for index calculation
++        // (mostly relevant for RTL to discard workspace indicator etc.)
++        x -= this._windowList.x;
++
++        const rtl = this.text_direction === Clutter.TextDirection.RTL;
++        let pos = rtl
++            ? numButtons - Math.round(x * numButtons / boxWidth)
++            : Math.round(x * numButtons / boxWidth);
++
++        pos = Math.clamp(pos, 0, numButtons);
++
++        const timeDelta =
++            GLib.get_monotonic_time() - this._lastPlaceholderUpdate;
++
++        if (pos !== this._dragPlaceholderPos && timeDelta >= MIN_DRAG_UPDATE_INTERVAL) {
++            this._clearDragPlaceholder();
++            this._dragPlaceholderPos = pos;
++
++            this._lastPlaceholderUpdate = GLib.get_monotonic_time();
++
++            // Don't allow positioning before or after self
++            if (pos === buttonPos || pos === buttonPos + 1)
++                return DND.DragMotionResult.CONTINUE;
++
++            this._dragPlaceholder = new DragPlaceholderItem();
++            const sibling = buttons[pos];
++            if (sibling)
++                this._windowList.insert_child_below(this._dragPlaceholder, sibling);
++            else
++                this._windowList.insert_child_above(this._dragPlaceholder, null);
++            this._dragPlaceholder.show(true);
++        }
++
++        return this._dragPlaceholder
++            ? DND.DragMotionResult.MOVE_DROP
++            : DND.DragMotionResult.NO_DROP;
++    }
++
++    acceptDrop(source, _actor, _x, _y, _time) {
++        if (this._dragPlaceholderPos >= 0)
++            this._windowList.set_child_at_index(source, this._dragPlaceholderPos);
++
++        this._clearDragPlaceholder();
++
++        return true;
++    }
++
++    _monitorItemDrag() {
++        DND.addDragMonitor(this._itemDragMonitor);
++    }
++
++    _stopMonitoringItemDrag() {
++        DND.removeDragMonitor(this._itemDragMonitor);
++    }
++
++    _onItemDragMotion(dragEvent) {
++        if (!this._windowList.contains(dragEvent.targetActor))
++            this._clearDragPlaceholder();
++        return DND.DragMotionResult.CONTINUE;
++    }
++
+     _monitorXdndDrag() {
+         DND.addDragMonitor(this._xdndDragMonitor);
+     }
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index fce6bcc5..c92081d2 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -17,10 +17,19 @@
+   height: 2.45em;
+ }
+ 
+-.window-button {
++.window-button,
++.window-button-drag-actor {
+   padding: 4px, 3px;
+ }
+ 
++.window-button-drag-actor {
++  background-color: #444;
++  border-radius: 7px;
++  border-width: 2px;
++  border-color: #fff;
++  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
++}
++
+ .window-button:first-child:ltr {
+   padding-left: 2px;
+ }
+@@ -41,7 +50,8 @@
+   transition: 100ms ease;
+ }
+ 
+-.window-button > StWidget {
++.window-button > StWidget,
++.window-list .placeholder {
+   -st-natural-width: 18.75em;
+   max-width: 18.75em;
+ }
+-- 
+2.47.0
+
+
+From 324236e9f4ba7a1ca743c0a432b246dfc9216001 Mon Sep 17 00:00:00 2001
+From: Jakub Steiner <jimmac@gmail.com>
+Date: Thu, 3 Oct 2024 14:18:32 +0200
+Subject: [PATCH 19/24] window-list: Indicate drop target more prominently
+
+The drop target is the main focus of the drag operation, so make
+its styling more prominent.
+---
+ extensions/window-list/classic.css    | 5 ++++-
+ extensions/window-list/stylesheet.css | 6 ++++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
+index 74945657..1147984c 100644
+--- a/extensions/window-list/classic.css
++++ b/extensions/window-list/classic.css
+@@ -23,7 +23,6 @@
+ 
+  .window-button > StWidget {
+   color: #000;
+-  background-color: transparent;
+ }
+ 
+ .window-button:hover > StWidget {
+@@ -61,3 +60,7 @@
+   background-color: #ddd;
+     border-color: #888;
+ }
++
++.window-list .placeholder {
++  border-color: rgba(0,0,0,0.5);
++}
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index c92081d2..4c06ebc0 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -56,6 +56,12 @@
+   max-width: 18.75em;
+ }
+ 
++.window-list .placeholder {
++  border: 1px solid rgba(255,255,255,0.4);
++  border-radius: 7px;
++  margin: 4px;
++}
++
+ .window-button:hover > StWidget {
+   background-color: #303030;
+ }
+-- 
+2.47.0
+
+
+From 5b35516962e6c326f9ae4236a798b6e521d0c850 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 3 Oct 2024 17:05:42 +0200
+Subject: [PATCH 20/24] window-list: Fade out drag source during drag
+
+During a drag operation, the focus is on the where to drop the dragged
+item, not to identify it or its origin.
+---
+ extensions/window-list/extension.js | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 574c85ac..5aca473c 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -20,6 +20,9 @@ const DND_ACTIVATE_TIMEOUT = 500;
+ 
+ const MIN_DRAG_UPDATE_INTERVAL = 500 * GLib.TIME_SPAN_MILLISECOND;
+ 
++const DRAG_OPACITY = 0.3;
++const DRAG_FADE_DURATION = 200;
++
+ const GroupingMode = {
+     NEVER: 0,
+     AUTO: 1,
+@@ -1124,9 +1127,20 @@ class WindowList extends St.Widget {
+         this._settings.bind('display-all-workspaces',
+             button, 'ignore-workspace', Gio.SettingsBindFlags.GET);
+ 
+-        button.connect('drag-begin',
+-            () => this._monitorItemDrag());
++        button.connect('drag-begin', () => {
++            button.ease({
++                opacity: 255 * DRAG_OPACITY,
++                duration: DRAG_FADE_DURATION,
++            });
++
++            this._monitorItemDrag();
++        });
+         button.connect('drag-end', () => {
++            button.ease({
++                opacity: 255,
++                duration: DRAG_FADE_DURATION,
++            });
++
+             this._stopMonitoringItemDrag();
+             this._clearDragPlaceholder();
+         });
+-- 
+2.47.0
+
+
+From bfbb54b4c903ec41f61748868d5f175ad469d811 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 9 Oct 2024 19:15:16 +0200
+Subject: [PATCH 21/24] window-list: Shrink drag-actor size during drags
+
+Like the previous commit, this helps with putting the focus on
+the target location instead of the dragged item.
+---
+ extensions/window-list/extension.js | 32 +++++++++++++++++++++++++++--
+ 1 file changed, 30 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 5aca473c..2d5ce525 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -23,6 +23,8 @@ const MIN_DRAG_UPDATE_INTERVAL = 500 * GLib.TIME_SPAN_MILLISECOND;
+ const DRAG_OPACITY = 0.3;
+ const DRAG_FADE_DURATION = 200;
+ 
++const DRAG_RESIZE_DURATION = 400;
++
+ const GroupingMode = {
+     NEVER: 0,
+     AUTO: 1,
+@@ -307,6 +309,23 @@ class DragActor extends St.Bin {
+ 
+         this.source = source;
+     }
++
++    setTargetWidth(width) {
++        const currentWidth = this.width;
++
++        // set width immediately so shell's DND code uses correct values
++        this.set({ width });
++
++        // then transition from the original to the new width
++        Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
++            this.set({ width: currentWidth });
++            this.ease({
++                width,
++                duration: DRAG_RESIZE_DURATION,
++            });
++            return GLib.SOURCE_REMOVE;
++        });
++    }
+ });
+ 
+ const BaseButton = GObject.registerClass({
+@@ -370,7 +389,10 @@ const BaseButton = GObject.registerClass({
+             this._removeLongPressTimeout();
+             this.emit('drag-begin');
+         });
+-        this._draggable.connect('drag-cancelled', () => this.emit('drag-end'));
++        this._draggable.connect('drag-cancelled', () => {
++            this._draggable._dragActor?.setTargetWidth(this.width);
++            this.emit('drag-end');
++        });
+         this._draggable.connect('drag-end', () => this.emit('drag-end'));
+     }
+ 
+@@ -460,7 +482,13 @@ const BaseButton = GObject.registerClass({
+         const titleActor = this._createTitleActor();
+         titleActor.set({ abstractLabel: true });
+ 
+-        return new DragActor(this, titleActor);
++        const dragActor = new DragActor(this, titleActor);
++
++        const [, natWidth] = this.get_preferred_width(-1);
++        const targetWidth = Math.min(natWidth / 2, this.width);
++        dragActor.setTargetWidth(targetWidth);
++
++        return dragActor;
+     }
+ 
+     getDragActorSource() {
+-- 
+2.47.0
+
+
+From be721d3fee4faf5060dcf1a83fa5adc8e7ee5f89 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 8 Oct 2024 19:25:53 +0200
+Subject: [PATCH 22/24] window-list: Handle DND events near the drop target
+
+Even with the previous change, the dragged actor has the tendency
+of obscuring the possible drop target. To alleviate this, handle
+DND events near drop targets as if they occurred on the target.
+---
+ extensions/window-list/extension.js | 26 ++++++++++++++++++++++++--
+ 1 file changed, 24 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 2d5ce525..b6c00f8b 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -25,6 +25,8 @@ const DRAG_FADE_DURATION = 200;
+ 
+ const DRAG_RESIZE_DURATION = 400;
+ 
++const DRAG_PROXIMITY_THRESHOLD = 30;
++
+ const GroupingMode = {
+     NEVER: 0,
+     AUTO: 1,
+@@ -998,6 +1000,7 @@ class WindowList extends St.Widget {
+ 
+         this._itemDragMonitor = {
+             dragMotion: this._onItemDragMotion.bind(this),
++            dragDrop: this._onItemDragDrop.bind(this),
+         };
+ 
+         this._dndTimeoutId = 0;
+@@ -1294,11 +1297,30 @@ class WindowList extends St.Widget {
+     }
+ 
+     _onItemDragMotion(dragEvent) {
+-        if (!this._windowList.contains(dragEvent.targetActor))
+-            this._clearDragPlaceholder();
++        const { source, targetActor, dragActor, x, y } = dragEvent;
++
++        const hasTarget = this._windowList.contains(targetActor);
++        const isNear = Math.abs(y - this.y) < DRAG_PROXIMITY_THRESHOLD;
++
++        if (hasTarget || isNear)
++            return this.handleDragOver(source, dragActor, x, y);
++
++        this._clearDragPlaceholder();
+         return DND.DragMotionResult.CONTINUE;
+     }
+ 
++    _onItemDragDrop(dropEvent) {
++        if (this._dragPlaceholderPos < 0)
++            return DND.DragDropResult.CONTINUE;
++
++        const { source } = dropEvent.dropActor;
++        this.acceptDrop(source);
++        dropEvent.dropActor.destroy();
++        // HACK: SUCESS would make more sense, but results in gnome-shell
++        // skipping all drag-end code
++        return DND.DragDropResult.CONTINUE;
++    }
++
+     _monitorXdndDrag() {
+         DND.addDragMonitor(this._xdndDragMonitor);
+     }
+-- 
+2.47.0
+
+
+From 66672ca11281deb9326dd164759db749263c143c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 26 Jun 2024 00:58:18 +0200
+Subject: [PATCH 23/24] window-list: Add `id` property to buttons
+
+A string ID that uniquely identifies a button will allow to
+serialize/deserialize the positions in the next commit.
+---
+ extensions/window-list/extension.js | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index b6c00f8b..feefc66e 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -608,6 +608,10 @@ class WindowButton extends BaseButton {
+         this._updateStyle();
+     }
+ 
++    get id() {
++        return `window:${this.metaWindow.get_id()}`;
++    }
++
+     _createTitleActor() {
+         return new WindowTitle(this.metaWindow);
+     }
+@@ -748,6 +752,10 @@ class AppButton extends BaseButton {
+         this._updateStyle();
+     }
+ 
++    get id() {
++        return `app:${this.app.get_id()}`;
++    }
++
+     _windowEnteredOrLeftMonitor(metaDisplay, monitorIndex, metaWindow) {
+         if (this._windowTracker.get_window_app(metaWindow) === this.app &&
+             monitorIndex === this._monitorIndex) {
+-- 
+2.47.0
+
+
+From 6f11b79c65085a49e6907571ad51f972c1579685 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 24 Sep 2024 20:31:06 +0200
+Subject: [PATCH 24/24] window-list: Save and restore positions as runtime
+ state
+
+While it doesn't make sense for window list positions to be truly
+persistent like dash items, some persistence is desirable.
+
+Otherwise any manually set position is lost when the extension
+is disabled, for example when locking the screen.
+
+To address this, serialize the positions as runtime state on drop,
+and restore them when populating the list.
+---
+ extensions/window-list/extension.js | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index feefc66e..bb9ca80f 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -27,6 +27,8 @@ const DRAG_RESIZE_DURATION = 400;
+ 
+ const DRAG_PROXIMITY_THRESHOLD = 30;
+ 
++const SAVED_POSITIONS_KEY = 'window-list-positions';
++
+ const GroupingMode = {
+     NEVER: 0,
+     AUTO: 1,
+@@ -1145,6 +1147,8 @@ class WindowList extends St.Widget {
+             for (let i = 0; i < apps.length; i++)
+                 this._addApp(apps[i], false);
+         }
++
++        this._restorePositions();
+     }
+ 
+     _updateKeyboardAnchor() {
+@@ -1293,9 +1297,33 @@ class WindowList extends St.Widget {
+ 
+         this._clearDragPlaceholder();
+ 
++        this._savePositions();
++
+         return true;
+     }
+ 
++    _getPositionStateKey() {
++        return `${SAVED_POSITIONS_KEY}:${this._monitor.index}`;
++    }
++
++    _savePositions() {
++        const buttons = this._windowList.get_children()
++            .filter(b => b instanceof BaseButton);
++        global.set_runtime_state(this._getPositionStateKey(),
++            new GLib.Variant('as', buttons.map(b => b.id)));
++    }
++
++    _restorePositions() {
++        const positions = global.get_runtime_state('as',
++            this._getPositionStateKey())?.deepUnpack() ?? [];
++
++        for (const button of this._windowList.get_children()) {
++            const pos = positions.indexOf(button.id);
++            if (pos > -1)
++                this._windowList.set_child_at_index(button, pos);
++        }
++    }
++
+     _monitorItemDrag() {
+         DND.addDragMonitor(this._itemDragMonitor);
+     }
+-- 
+2.47.0
+

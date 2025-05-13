@@ -1,0 +1,48 @@
+From 7ed5e50cc978b7fda34aaaf56e8bf4d499f4676d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Mon, 2 Dec 2024 17:34:58 +0100
+Subject: [PATCH] dash-to-panel: Remove faulty version check
+
+In a string comparison, '40.10' is *smaller* than '40.3', so the
+overview ends up being monkey-patched for an older version.
+
+Unbreak the app grid by removing the check altogether, as we don't
+have to care about older versions.
+---
+ extensions/dash-to-panel/overview.js | 20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
+
+diff --git a/extensions/dash-to-panel/overview.js b/extensions/dash-to-panel/overview.js
+index 57600a5c..38f04c75 100644
+--- a/extensions/dash-to-panel/overview.js
++++ b/extensions/dash-to-panel/overview.js
+@@ -581,18 +581,14 @@ var dtpOverview = Utils.defineClass({
+                 const workspaceAppGridBox =
+                     this._cachedWorkspaceBoxes.get(OverviewControls.ControlsState.APP_GRID);
+     
+-                if (Config.PACKAGE_VERSION > '40.3') {
+-                    const monitor = Main.layoutManager.findMonitorForActor(this._container);
+-                    const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
+-                    const workAreaBox = new Clutter.ActorBox();
+-    
+-                    workAreaBox.set_origin(startX, startY);
+-                    workAreaBox.set_size(workArea.width, workArea.height);
+-    
+-                    params = [workAreaBox, searchHeight, dashHeight, workspaceAppGridBox]
+-                } else {
+-                    params = [box, startX, searchHeight, dashHeight, workspaceAppGridBox];
+-                }
++                const monitor = Main.layoutManager.findMonitorForActor(this._container);
++                const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
++                const workAreaBox = new Clutter.ActorBox();
++
++                workAreaBox.set_origin(startX, startY);
++                workAreaBox.set_size(workArea.width, workArea.height);
++
++                params = [workAreaBox, searchHeight, dashHeight, workspaceAppGridBox]
+ 
+                 let appDisplayBox;
+                 if (!transitionParams.transitioning) {
+-- 
+2.47.1
+

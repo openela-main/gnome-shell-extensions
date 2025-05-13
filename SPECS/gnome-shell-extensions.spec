@@ -7,7 +7,7 @@
 
 Name:           gnome-shell-extensions
 Version:        40.7
-Release:        19%{?dist}
+Release:        25%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 License:        GPLv2+
@@ -47,8 +47,11 @@ Patch024: 0001-desktop-icons-Notify-icon-drags.patch
 Patch025: prefer-window-icon.patch
 Patch026: 0001-desktop-icons-Handle-touch-events.patch
 Patch027: more-ws-previews.patch
-Patch028: 0001-Add-move-clock-extension.patch
+Patch028: 0001-Add-move-notifications-extension.patch
 Patch029: 0001-workspace-indicator-Re-fittsify-workspace-previews.patch
+Patch030: window-list-reordering.patch
+Patch031: 0001-dash-to-panel-Remove-faulty-version-check.patch
+Patch032: window-list-attention-indicator.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -66,7 +69,7 @@ Enabled extensions:
   * gesture-inhibitor
   * launch-new-instance
   * heads-up-display
-  * move-clock
+  * move-notifications
   * native-window-placement
   * panel-favorites
   * places-menu
@@ -205,13 +208,13 @@ This GNOME Shell extension modifies the behavior of clicking in the dash and app
 launcher to always launch a new application instance.
 
 
-%package -n %{pkg_prefix}-move-clock
-Summary:        Move GNOME Shell notification menu to the right
+%package -n %{pkg_prefix}-move-notifications
+Summary:        Move GNOME Shell notifications
 License:        GPLv2+
 Requires:       %{pkg_prefix}-common = %{version}-%{release}
 
-%description  -n %{pkg_prefix}-move-clock
-This GNOME Shell extension moves the notification menu to the right.
+%description  -n %{pkg_prefix}-move-notifications
+This GNOME Shell extension moves notification banners to a different position
 
 
 %package -n %{pkg_prefix}-heads-up-display
@@ -407,8 +410,9 @@ workspaces.
 %{_datadir}/gnome-shell/extensions/launch-new-instance*/
 
 
-%files -n %{pkg_prefix}-move-clock
-%{_datadir}/gnome-shell/extensions/move-clock*/
+%files -n %{pkg_prefix}-move-notifications
+%{_datadir}/gnome-shell/extensions/move-notifications*/
+%{_datadir}/glib-2.0/schemas/org.gnome.shell.extensions.move-notifications.gschema.xml
 
 
 %files -n %{pkg_prefix}-heads-up-display
@@ -467,6 +471,30 @@ workspaces.
 
 
 %changelog
+* Wed Jan 08 2025 Florian Müllner <fmuellner@redhat.com> - 40.7-25
+- Indicate urgency-hint in window-list
+  Resolves: RHEL-73146
+
+* Wed Dec 18 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-24
+- Change "move-clock" to "move-notifications"
+  Resolves: RHEL-33429
+
+* Mon Dec 02 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-23
+- Fix app grid with dash-to-panel extension
+  Resolves: RHEL-69665
+
+* Tue Nov 19 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-22
+- Fix another bug in window-list reordering backport
+  Resolves: RHEL-22692
+
+* Fri Nov 15 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-21
+- Fix bug in window-list reordering backport
+  Resolves: RHEL-22692
+
+* Thu Sep 26 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-20
+- Allow reordering items in window-list
+  Resolves: RHEL-22692
+
 * Tue Jul 02 2024 Florian Müllner <fmuellner@redhat.com> - 40.7-19
 - Extend workspace buttons to screen edge
   Resolves: RHEL-43545

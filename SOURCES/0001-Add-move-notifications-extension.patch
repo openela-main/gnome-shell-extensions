@@ -1,0 +1,231 @@
+From 50c6c0c2137fded5f89be5bbee2292071e464cd2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 21 May 2024 19:01:30 +0200
+Subject: [PATCH] Add move-notifications extension
+
+---
+ extensions/move-notifications/extension.js    | 49 +++++++++++
+ extensions/move-notifications/meson.build     |  8 ++
+ .../move-notifications/metadata.json.in       | 10 +++
+ ....extensions.move-notifications.gschema.xml | 14 +++
+ extensions/move-notifications/prefs.js        | 86 +++++++++++++++++++
+ meson.build                                   |  1 +
+ 6 files changed, 168 insertions(+)
+ create mode 100644 extensions/move-notifications/extension.js
+ create mode 100644 extensions/move-notifications/meson.build
+ create mode 100644 extensions/move-notifications/metadata.json.in
+ create mode 100644 extensions/move-notifications/org.gnome.shell.extensions.move-notifications.gschema.xml
+ create mode 100644 extensions/move-notifications/prefs.js
+
+diff --git a/extensions/move-notifications/extension.js b/extensions/move-notifications/extension.js
+new file mode 100644
+index 00000000..0211696d
+--- /dev/null
++++ b/extensions/move-notifications/extension.js
+@@ -0,0 +1,49 @@
++/* exported init */
++const Clutter = imports.gi.Clutter;
++
++const ExtensionUtils = imports.misc.extensionUtils;
++const Main = imports.ui.main;
++
++class MoveNotificationsExtension {
++    enable() {
++        const updatePanel = Main.panel._updatePanel;
++        this._updatePanelOrig = updatePanel;
++
++        Main.panel._updatePanel = () => {
++            updatePanel.call(Main.panel);
++
++            Main.messageTray.bannerAlignment = this._getAlignment();
++        };
++
++        this._settings = ExtensionUtils.getSettings();
++        this._changedId = this._settings.connect('changed::position',
++            () => Main.panel._updatePanel());
++        Main.panel._updatePanel();
++    }
++
++    disable() {
++        this._settings.disconnect(this._changedId);
++        this._settings = null;
++
++        Main.panel._updatePanel = this._updatePanelOrig;
++        delete this._updatePanelOrig;
++
++        Main.panel._updatePanel();
++    }
++
++    _getAlignment() {
++        switch (this._settings.get_string('position')) {
++        case 'top-left':
++            return Clutter.ActorAlign.START;
++        case 'top-right':
++            return Clutter.ActorAlign.END;
++        case 'top-center':
++        default:
++            return Clutter.ActorAlign.CENTER;
++        }
++    }
++}
++
++function init() {
++    return new MoveNotificationsExtension();
++}
+diff --git a/extensions/move-notifications/meson.build b/extensions/move-notifications/meson.build
+new file mode 100644
+index 00000000..c55a7830
+--- /dev/null
++++ b/extensions/move-notifications/meson.build
+@@ -0,0 +1,8 @@
++extension_data += configure_file(
++  input: metadata_name + '.in',
++  output: metadata_name,
++  configuration: metadata_conf
++)
++
++extension_sources += files('prefs.js')
++extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/move-notifications/metadata.json.in b/extensions/move-notifications/metadata.json.in
+new file mode 100644
+index 00000000..cae9352c
+--- /dev/null
++++ b/extensions/move-notifications/metadata.json.in
+@@ -0,0 +1,10 @@
++{
++ "uuid": "@uuid@",
++ "extension-id": "@extension_id@",
++ "settings-schema": "@gschemaname@",
++ "gettext-domain": "@gettext_domain@",
++ "name": "Move notifications",
++ "description": "Move notification banners",
++ "shell-version": [ "@shell_current@" ],
++ "url": "@url@"
++}
+diff --git a/extensions/move-notifications/org.gnome.shell.extensions.move-notifications.gschema.xml b/extensions/move-notifications/org.gnome.shell.extensions.move-notifications.gschema.xml
+new file mode 100644
+index 00000000..a78d72bb
+--- /dev/null
++++ b/extensions/move-notifications/org.gnome.shell.extensions.move-notifications.gschema.xml
+@@ -0,0 +1,14 @@
++<schemalist gettext-domain="gnome-shell-extensions">
++  <enum id="org.gnome.shell.extensions.move-notifications.position">
++    <value nick="top-center" value="0"/>
++    <value nick="top-right" value="1"/>
++    <value nick="top-left" value="2"/>
++  </enum>
++
++  <schema id="org.gnome.shell.extensions.move-notifications" path="/org/gnome/shell/extensions/move-notifications/">
++    <key name="position" enum="org.gnome.shell.extensions.move-notifications.position">
++      <default>"top-right"</default>
++      <summary>Notification position</summary>
++    </key>
++  </schema>
++</schemalist>
+diff --git a/extensions/move-notifications/prefs.js b/extensions/move-notifications/prefs.js
+new file mode 100644
+index 00000000..a3ecdacf
+--- /dev/null
++++ b/extensions/move-notifications/prefs.js
+@@ -0,0 +1,86 @@
++// -*- mode: js2; indent-tabs-mode: nil; js2-basic-offset: 4 -*-
++/* exported init buildPrefsWidget */
++
++const { Gio, GLib, GObject, Gtk } = imports.gi;
++
++const ExtensionUtils = imports.misc.extensionUtils;
++const Me = ExtensionUtils.getCurrentExtension();
++
++const Gettext = imports.gettext.domain(Me.metadata['gettext-domain']);
++const _ = Gettext.gettext;
++
++/** */
++function init() {
++    ExtensionUtils.initTranslations();
++}
++
++const MoveNotificationsPrefsWidget = GObject.registerClass(
++class MoveNotificationsPrefsWidget extends Gtk.Box {
++    _init() {
++        super._init({
++            orientation: Gtk.Orientation.VERTICAL,
++            spacing: 6,
++            margin_top: 36,
++            margin_bottom: 36,
++            margin_start: 36,
++            margin_end: 36,
++            halign: Gtk.Align.CENTER,
++        });
++
++        this._actionGroup = new Gio.SimpleActionGroup();
++        this.insert_action_group('move-notifications', this._actionGroup);
++
++        this._settings = ExtensionUtils.getSettings();
++        this._actionGroup.add_action(
++            this._settings.create_action('position'));
++
++        const title = new Gtk.Label({
++            label: _('Notification Position'),
++            halign: Gtk.Align.START,
++        });
++        title.add_css_class('heading');
++        this.append(title);
++
++        const box = new Gtk.Box({
++            orientation: Gtk.Orientation.VERTICAL,
++            spacing: 12,
++            margin_bottom: 12,
++        });
++        this.append(box);
++
++        const context = box.get_style_context();
++        const cssProvider = new Gtk.CssProvider();
++        cssProvider.load_from_data(
++            'box { padding: 12px; }', -1);
++
++        context.add_provider(cssProvider,
++            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
++        context.add_class('boxed-list');
++        context.add_class('view');
++
++        const positions = [
++            { pos: 'top-right', label: _('Top–Right') },
++            { pos: 'top-center', label: _('Top–Center') },
++            { pos: 'top-left', label: _('Top–Left') },
++        ];
++        let group = null;
++        for (const { pos, label } of positions) {
++            const check = new Gtk.CheckButton({
++                action_name: 'move-notifications.position',
++                action_target: new GLib.Variant('s', pos),
++                label,
++                group,
++                margin_end: 12,
++            });
++            group = check;
++            box.append(check);
++        }
++    }
++});
++
++/**
++ * @returns {Gtk.Widget} - the prefs widget
++ */
++function buildPrefsWidget() {
++    return new MoveNotificationsPrefsWidget();
++}
+diff --git a/meson.build b/meson.build
+index 7e6ed3e8..0a31d2f6 100644
+--- a/meson.build
++++ b/meson.build
+@@ -53,6 +53,7 @@ all_extensions += [
+   'dash-to-dock',
+   'dash-to-panel',
+   'gesture-inhibitor',
++  'move-notifications',
+   'native-window-placement',
+   'panel-favorites',
+   'systemMonitor',
+-- 
+2.46.0
+

@@ -1,0 +1,206 @@
+From 984a2672b4c4c41d9dab85c068f76efa98f81a56 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 17 Dec 2024 01:09:34 +0100
+Subject: [PATCH] window-list: Add attention indicator
+
+Some X11 clients still rely on the traditional urgent/demand-attention
+hints instead of notifications to request the user's attention.
+
+Support these by adding a visual indication to the corresponding
+buttons, based on the visual indicator in libadwaita's tabs.
+
+Closes: https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/issues/543
+---
+ extensions/window-list/extension.js   | 90 +++++++++++++++++++++++++--
+ extensions/window-list/stylesheet.css |  9 +++
+ 2 files changed, 95 insertions(+), 4 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index bb9ca80f..477ed8fe 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -160,23 +160,30 @@ const TitleWidget = GObject.registerClass({
+             GObject.ParamFlags.READWRITE,
+             false),
+     },
+-}, class TitleWidget extends St.BoxLayout {
++}, class TitleWidget extends St.Widget {
+     _init() {
+         super._init({
++            layout_manager: new Clutter.BinLayout(),
++            x_expand: true,
++            y_expand: true,
++        });
++
++        const hbox = new St.BoxLayout({
+             style_class: 'window-button-box',
+             x_expand: true,
+             y_expand: true,
+         });
++        this.add_child(hbox);
+ 
+         this._icon = new St.Bin({
+             style_class: 'window-button-icon',
+         });
+-        this.add_child(this._icon);
++        hbox.add_child(this._icon);
+ 
+         this._label = new St.Label({
+             y_align: Clutter.ActorAlign.CENTER,
+         });
+-        this.add_child(this._label);
++        hbox.add_child(this._label);
+         this.label_actor = this._label;
+ 
+         this.bind_property('abstract-label',
+@@ -189,11 +196,28 @@ const TitleWidget = GObject.registerClass({
+             x_expand: true,
+             y_expand: true,
+         });
+-        this.add_child(this._abstractLabel);
++        hbox.add_child(this._abstractLabel);
+ 
+         this.bind_property('abstract-label',
+             this._abstractLabel, 'visible',
+             GObject.BindingFlags.SYNC_CREATE);
++
++        this._attentionIndicator = new St.Widget({
++            style_class: 'window-button-attention-indicator',
++            x_expand: true,
++            y_expand: true,
++            y_align: Clutter.ActorAlign.END,
++            scale_x: 0,
++        });
++        this._attentionIndicator.set_pivot_point(0.5, 0.5);
++        this.add_child(this._attentionIndicator);
++    }
++
++    setNeedsAttention(enable) {
++        this._attentionIndicator.ease({
++            scaleX: enable ? 0.4 : 0,
++            duration: 300,
++        });
+     }
+ });
+ 
+@@ -219,7 +243,12 @@ class WindowTitle extends TitleWidget {
+             'notify::title', this._updateTitle.bind(this));
+         this._notifyMinimizedId = this._metaWindow.connect(
+             'notify::minimized', this._minimizedChanged.bind(this));
++        this._notifyDemandsAttentionId = this._metaWindow.connect(
++            'notify::demands-attention', this._updateNeedsAttention.bind(this));
++        this._notifyUrgentId = this._metaWindow.connect(
++            'notify::urgent', this._updateNeedsAttention.bind(this));
+         this._minimizedChanged();
++        this._updateNeedsAttention();
+     }
+ 
+     _minimizedChanged() {
+@@ -227,6 +256,11 @@ class WindowTitle extends TitleWidget {
+         this._updateTitle();
+     }
+ 
++    _updateNeedsAttention() {
++        const { urgent, demandsAttention } = this._metaWindow;
++        this.setNeedsAttention(urgent || demandsAttention);
++    }
++
+     _updateTitle() {
+         if (!this._metaWindow.title)
+             return;
+@@ -272,6 +306,8 @@ class WindowTitle extends TitleWidget {
+         this._metaWindow.disconnect(this._notifyMinimizedId);
+         this._metaWindow.disconnect(this._notifyWmClass);
+         this._metaWindow.disconnect(this._notifyAppId);
++        this._metaWindow.disconnect(this._notifyDemandsAttentionId);
++        this._metaWindow.disconnect(this._notifyUrgentId);
+     }
+ });
+ 
+@@ -281,6 +317,7 @@ class AppTitle extends TitleWidget {
+         super._init();
+ 
+         this._app = app;
++        this._windows = new Map();
+ 
+         this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
+         this._label.text = app.get_name();
+@@ -291,6 +328,10 @@ class AppTitle extends TitleWidget {
+                 this._icon.child = app.create_icon_texture(ICON_TEXTURE_SIZE);
+             });
+ 
++        this._windowsChangedId = this._app.connect(
++            'windows-changed', this._onWindowsChanged.bind(this));
++        this._onWindowsChanged();
++
+         this.connect('destroy', this._onDestroy.bind(this));
+     }
+ 
+@@ -299,6 +340,47 @@ class AppTitle extends TitleWidget {
+             this._textureCache.disconnect(this._iconThemeChangedId);
+         this._iconThemeChangedId = 0;
+         this._textureCache = null;
++
++        for (const [window, ids] of this._windows)
++            ids.forEach(id => window.disconnect(id));
++        this._windows.clear();
++        this._app.disconnect(this._windowsChangedId);
++    }
++
++    _onWindowsChanged() {
++        const windows = this._app.get_windows();
++        const removed = [...this._windows].filter(w => !windows.includes(w));
++        removed.forEach(w => this._untrackWindow(w));
++        windows.forEach(w => this._trackWindow(w));
++        this._updateNeedsAttention();
++    }
++
++    _trackWindow(window) {
++        if (this._windows.has(window))
++            return;
++
++        const signals = [
++            window.connect('notify::urgent',
++                () => this._updateNeedsAttention()),
++            window.connect('notify::demands-attention',
++                () => this._updateNeedsAttention()),
++        ];
++        this._windows.set(window, signals);
++    }
++
++    _untrackWindow(window) {
++        if (!this._windows.has(window))
++            return;
++
++        const ids = this._windows.get(window);
++        ids.forEach(id => window.disconnect(id));
++        this._windows.delete(window);
++    }
++
++    _updateNeedsAttention() {
++        const needsAttention =
++            [...this._windows.keys()].some(w => w.urgent || w.demandsAttention);
++        this.setNeedsAttention(needsAttention);
+     }
+ });
+ 
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index 4c06ebc0..45b42065 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -103,3 +103,12 @@
+   border-radius: 99px;
+   margin: 6px;
+ }
++
++.window-button-attention-indicator {
++  background-color: rgba(27, 106, 203, 1.0);
++  height: 2px;
++}
++
++.window-button.minimized .window-button-attention-indicator {
++  background-color: rgba(27, 106, 203, 0.6);
++}
+-- 
+2.47.1
+
