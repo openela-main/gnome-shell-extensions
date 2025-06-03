@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        40%{?dist}
+Release:        41%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -61,6 +61,7 @@ Patch0032:         0001-desktop-icons-Don-t-try-spawn-with-non-existent-work.pat
 Patch0033:         0001-classification-banner-Hide-from-picks.patch
 Patch0034:         0001-desktop-icons-Fix-k-in-.desktop-files.patch
 Patch0035:         window-list-attention-indicator.patch
+Patch0036:         apps-menu-custom-layout-manager.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -575,6 +576,10 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %changelog
+* Tue May  06 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-41
+- Use custom layout manager in apps menu
+  Resolves: RHEL-14936
+
 * Tue Jan 07 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-40
 - Fix '%k' macro in .desktop files
   Resolves: RHEL-72966

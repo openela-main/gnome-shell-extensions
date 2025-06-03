@@ -1,0 +1,188 @@
+From c32e7e78fbb310ac79e2aa1638d0ef50eb08a41c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 23 Nov 2023 21:08:31 +0100
+Subject: [PATCH 1/3] apps-menu: Use stylesheet to set width
+
+The `style` property is useful for computed CSS declarations,
+but for regular styling the stylesheet is preferable.
+
+Part-of:
+<https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/290>
+---
+ extensions/apps-menu/extension.js   | 1 -
+ extensions/apps-menu/stylesheet.css | 2 ++
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/apps-menu/extension.js b/extensions/apps-menu/extension.js
+index 1de00df3..3c8c1c9d 100644
+--- a/extensions/apps-menu/extension.js
++++ b/extensions/apps-menu/extension.js
+@@ -617,7 +617,6 @@ class ApplicationsButton extends PanelMenu.Button {
+ 
+     _display() {
+         this._applicationsButtons.clear();
+-        this.mainBox.style = 'width: 35em;';
+         this.mainBox.hide();
+ 
+         //Load categories
+diff --git a/extensions/apps-menu/stylesheet.css b/extensions/apps-menu/stylesheet.css
+index 5bd0d29e..e6d8d8a9 100644
+--- a/extensions/apps-menu/stylesheet.css
++++ b/extensions/apps-menu/stylesheet.css
+@@ -1,3 +1,5 @@
++.apps-menu {width: 26em;}
++
+ .apps-menu:ltr {
+     padding-right: 3px;
+ }
+-- 
+2.43.0
+
+
+From c6e7573d84dfc5f7850f90220935107ac4027888 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 23 Nov 2023 15:38:25 +0100
+Subject: [PATCH 2/3] apps-menu: Remove vertical separator
+
+Ever since gnome-shell stopped using a stippled separator in the
+calendar menu, the styling required by the separator has been
+missing.
+
+There haven't been any complaints about the invisible separator,
+so we can just as well drop it altogether.
+
+Part-of:
+<https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/290>
+---
+ extensions/apps-menu/extension.js | 29 -----------------------------
+ 1 file changed, 29 deletions(-)
+
+diff --git a/extensions/apps-menu/extension.js b/extensions/apps-menu/extension.js
+index 3c8c1c9d..34fb24cf 100644
+--- a/extensions/apps-menu/extension.js
++++ b/extensions/apps-menu/extension.js
+@@ -425,15 +425,6 @@ class ApplicationsButton extends PanelMenu.Button {
+         }
+     }
+ 
+-    _createVertSeparator() {
+-        let separator = new St.DrawingArea({
+-            style_class: 'calendar-vertical-separator',
+-            pseudo_class: 'highlighted'
+-        });
+-        separator.connect('repaint', this._onVertSepRepaint.bind(this));
+-        return separator;
+-    }
+-
+     _onDestroy() {
+         super._onDestroy();
+ 
+@@ -464,21 +455,6 @@ class ApplicationsButton extends PanelMenu.Button {
+         return super._onMenuKeyPress(actor, event);
+     }
+ 
+-    _onVertSepRepaint(area) {
+-        let cr = area.get_context();
+-        let themeNode = area.get_theme_node();
+-        let [width, height] = area.get_surface_size();
+-        let stippleColor = themeNode.get_color('-stipple-color');
+-        let stippleWidth = themeNode.get_length('-stipple-width');
+-        let x = Math.floor(width / 2) + 0.5;
+-        cr.moveTo(x, 0);
+-        cr.lineTo(x, height);
+-        Clutter.cairo_set_source_color(cr, stippleColor);
+-        cr.setDash([1, 3], 1); // Hard-code for now
+-        cr.setLineWidth(stippleWidth);
+-        cr.stroke();
+-    }
+-
+     _onOpenStateChanged(menu, open) {
+         if (open) {
+             if (this.reloadFlag) {
+@@ -602,11 +578,6 @@ class ApplicationsButton extends PanelMenu.Button {
+         this.categoriesScrollBox.add_actor(this.categoriesBox);
+ 
+         this.mainBox.add(this.leftBox);
+-        this.mainBox.add(this._createVertSeparator(), {
+-            expand: false,
+-            x_fill: false,
+-            y_fill: true
+-        });
+         this.mainBox.add(this.applicationsScrollBox, {
+             expand: true,
+             x_fill: true,
+-- 
+2.43.0
+
+
+From 9c01f6f056e29bebc4a291f9aa3844b473a8b89a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 23 Nov 2023 20:59:57 +0100
+Subject: [PATCH 3/3] apps-menu: Use customized layout manager to limit height
+
+To avoid continuous height changes while browsing through categories,
+we let the list of categories determine the overall height, and rely
+on scrolling for the list of apps within a category.
+
+We currently achieve this by assigning a fixed height via the
+`style` property. This has been found to trigger a crash when
+running headless, as we end up querying an actor's height request
+before a valid resource scale is available.
+
+Instead, use a custom layout manager, which seems more elegant anyway.
+
+Close:
+https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/issues/472
+Part-of:
+<https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/290>
+---
+ extensions/apps-menu/extension.js | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/extensions/apps-menu/extension.js b/extensions/apps-menu/extension.js
+index 34fb24cf..68068cc4 100644
+--- a/extensions/apps-menu/extension.js
++++ b/extensions/apps-menu/extension.js
+@@ -348,6 +348,17 @@ class DesktopTarget {
+ }
+ Signals.addSignalMethods(DesktopTarget.prototype);
+ 
++let MainLayout = GObject.registerClass(
++class MainLayout extends Clutter.BoxLayout {
++    vfunc_get_preferred_height(container, forWidth) {
++        const mainChild = container.get_first_child();
++        const [minHeight, natHeight] =
++            mainChild.get_preferred_height(forWidth);
++
++        return [minHeight, natHeight + MENU_HEIGHT_OFFSET];
++    }
++});
++
+ let ApplicationsButton = GObject.registerClass(
+ class ApplicationsButton extends PanelMenu.Button {
+     _init(includeIcon) {
+@@ -539,7 +550,7 @@ class ApplicationsButton extends PanelMenu.Button {
+     _createLayout() {
+         let section = new PopupMenu.PopupMenuSection();
+         this.menu.addMenuItem(section);
+-        this.mainBox = new St.BoxLayout({ vertical: false });
++        this.mainBox = new St.BoxLayout({ layoutManager: new MainLayout() });
+         this.leftBox = new St.BoxLayout({ vertical: true });
+         this.applicationsScrollBox = new St.ScrollView({
+             x_fill: true,
+@@ -617,12 +628,6 @@ class ApplicationsButton extends PanelMenu.Button {
+ 
+         //Load applications
+         this._displayButtons(this._listApplications(null));
+-
+-        let themeContext = St.ThemeContext.get_for_stage(global.stage);
+-        let scaleFactor = themeContext.scale_factor;
+-        let categoriesHeight = this.categoriesBox.height / scaleFactor;
+-        let height = Math.round(categoriesHeight) + MENU_HEIGHT_OFFSET;
+-        this.mainBox.style += `height: ${height}px`;
+     }
+ 
+     selectCategory(dir) {
+-- 
+2.43.0
+
