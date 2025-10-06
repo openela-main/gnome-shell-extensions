@@ -1,0 +1,72 @@
+From d0f2273765ab61e55c5cf10e7283a545fcafa947 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 22 Aug 2024 13:24:20 +0200
+Subject: [PATCH] Add stub desktop-icons extension
+
+---
+ extensions/desktop-icons/extension.js     |  5 +++++
+ extensions/desktop-icons/meson.build      |  9 +++++++++
+ extensions/desktop-icons/metadata.json.in | 10 ++++++++++
+ meson.build                               |  1 +
+ 4 files changed, 25 insertions(+)
+ create mode 100644 extensions/desktop-icons/extension.js
+ create mode 100644 extensions/desktop-icons/meson.build
+ create mode 100644 extensions/desktop-icons/metadata.json.in
+
+diff --git a/extensions/desktop-icons/extension.js b/extensions/desktop-icons/extension.js
+new file mode 100644
+index 00000000..bbc96ef2
+--- /dev/null
++++ b/extensions/desktop-icons/extension.js
+@@ -0,0 +1,5 @@
++// SPDX-FileCopyrightText: 2024 Florian Müllner <fmuellner@gnome.org>
++//
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++export {Extension as default} from 'resource:///org/gnome/shell/extensions/extension.js';
+diff --git a/extensions/desktop-icons/meson.build b/extensions/desktop-icons/meson.build
+new file mode 100644
+index 00000000..7b28a2ef
+--- /dev/null
++++ b/extensions/desktop-icons/meson.build
+@@ -0,0 +1,9 @@
++# SPDX-FileCopyrightText: 2017 Florian Müllner <fmuellner@gnome.org>
++#
++# SPDX-License-Identifier: GPL-2.0-or-later
++
++extension_data += configure_file(
++  input: metadata_name + '.in',
++  output: metadata_name,
++  configuration: metadata_conf
++)
+diff --git a/extensions/desktop-icons/metadata.json.in b/extensions/desktop-icons/metadata.json.in
+new file mode 100644
+index 00000000..78a55abb
+--- /dev/null
++++ b/extensions/desktop-icons/metadata.json.in
+@@ -0,0 +1,10 @@
++{
++"extension-id": "@extension_id@",
++"uuid": "@uuid@",
++"settings-schema": "@gschemaname@",
++"gettext-domain": "@gettext_domain@",
++"name": "Desktop Icons",
++"description": "Show icons on the desktop",
++"shell-version": [ "@shell_current@" ],
++"url": "@url@"
++}
+diff --git a/meson.build b/meson.build
+index b915b68c..63a7432e 100644
+--- a/meson.build
++++ b/meson.build
+@@ -40,6 +40,7 @@ classic_extensions = [
+ 
+ default_extensions = classic_extensions
+ default_extensions += [
++  'desktop-icons',
+   'drive-menu',
+   'heads-up-display',
+   'light-style',
+-- 
+2.45.2
+

@@ -1,0 +1,187 @@
+From 3de025618170bde16ab5e0bd7928ce387aa75350 Mon Sep 17 00:00:00 2001
+From: Carlos Garnacho <carlosg@gnome.org>
+Date: Thu, 28 Jan 2021 00:06:12 +0100
+Subject: [PATCH 1/5] Add gesture-inhibitor extension
+
+This extension may disable default GNOME Shell gestures.
+---
+ extensions/gesture-inhibitor/extension.js     | 79 +++++++++++++++++++
+ extensions/gesture-inhibitor/meson.build      |  8 ++
+ extensions/gesture-inhibitor/metadata.json.in | 12 +++
+ ...l.extensions.gesture-inhibitor.gschema.xml | 25 ++++++
+ meson.build                                   |  7 +-
+ 5 files changed, 130 insertions(+), 1 deletion(-)
+ create mode 100644 extensions/gesture-inhibitor/extension.js
+ create mode 100644 extensions/gesture-inhibitor/meson.build
+ create mode 100644 extensions/gesture-inhibitor/metadata.json.in
+ create mode 100644 extensions/gesture-inhibitor/org.gnome.shell.extensions.gesture-inhibitor.gschema.xml
+
+diff --git a/extensions/gesture-inhibitor/extension.js b/extensions/gesture-inhibitor/extension.js
+new file mode 100644
+index 00000000..872020ba
+--- /dev/null
++++ b/extensions/gesture-inhibitor/extension.js
+@@ -0,0 +1,79 @@
++// SPDX-FileCopyrightText: 2021 Carlos Garnacho <carlosg@gnome.org>
++//
++// SPDX-License-Identifier: GPL-2.0-or-later
++//
++
++import Clutter from 'gi://Clutter';
++import Gio from 'gi://Gio';
++import St from 'gi://St';
++
++import * as Main from 'resource:///org/gnome/shell/ui/main.js';
++
++import {AppSwitchAction} from 'resource:///org/gnome/shell/ui/windowManager.js';
++import {EdgeDragAction} from 'resource:///org/gnome/shell/ui/edgeDragAction.js';
++
++import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
++
++export default class GestureInhibitorExtension extends Extension {
++    constructor(metadata) {
++        super(metadata);
++
++        let actions = global.stage.get_actions();
++
++        actions.forEach(a => {
++            if (a instanceof AppSwitchAction)
++                this._appSwitch = a;
++            else if (a instanceof EdgeDragAction &&
++                 a._side === St.Side.BOTTOM)
++                this._showOsk = a;
++            else if (a instanceof EdgeDragAction &&
++                 a._side === St.Side.TOP)
++                this._unfullscreen = a;
++        });
++
++        this._map = [
++            {setting: 'overview', action: Main.overview._swipeTracker},
++            {setting: 'app-switch', action: this._appSwitch},
++            {setting: 'show-osk', action: this._showOsk},
++            {setting: 'unfullscreen', action: this._unfullscreen},
++            {setting: 'workspace-switch', action: Main.wm._workspaceAnimation._swipeTracker},
++        ];
++
++        this._enabledDesc = Object.getOwnPropertyDescriptor(
++            Clutter.ActorMeta.prototype, 'enabled');
++    }
++
++    _overrideEnabledSetter(obj, set) {
++        if (!(obj instanceof Clutter.ActorMeta))
++            return;
++
++        const desc = set
++            ? {...this._enabledDesc, set}
++            : {...this._enabledDesc};
++        Object.defineProperty(obj, 'enabled', desc);
++    }
++
++    enable() {
++        const settings = this.getSettings();
++
++        this._map.forEach(m => {
++            settings.bind(m.setting, m.action, 'enabled',
++                Gio.SettingsBindFlags.DEFAULT);
++
++            this._overrideEnabledSetter(m.action, function (value) {
++                if (settings.get_boolean(m.setting)) {
++                    // eslint-disable-next-line no-invalid-this
++                    this.set_enabled(value);
++                }
++            });
++        });
++    }
++
++    disable() {
++        this._map.forEach(m => {
++            Gio.Settings.unbind(m.action, 'enabled');
++            this._overrideEnabledSetter(m.action);
++            m.action.enabled = true;
++        });
++    }
++}
+diff --git a/extensions/gesture-inhibitor/meson.build b/extensions/gesture-inhibitor/meson.build
+new file mode 100644
+index 00000000..fdad5cc8
+--- /dev/null
++++ b/extensions/gesture-inhibitor/meson.build
+@@ -0,0 +1,8 @@
++extension_data += configure_file(
++  input: metadata_name + '.in',
++  output: metadata_name,
++  configuration: metadata_conf
++)
++
++# extension_sources += files('prefs.js')
++extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/gesture-inhibitor/metadata.json.in b/extensions/gesture-inhibitor/metadata.json.in
+new file mode 100644
+index 00000000..37d6a117
+--- /dev/null
++++ b/extensions/gesture-inhibitor/metadata.json.in
+@@ -0,0 +1,12 @@
++{
++ "uuid": "@uuid@",
++ "extension-id": "@extension_id@",
++ "settings-schema": "@gschemaname@",
++ "gettext-domain": "@gettext_domain@",
++ "name": "Gesture Inhibitor",
++ "description": "Makes touchscreen gestures optional.",
++ "shell-version": [ "@shell_current@" ],
++ "original-authors": [ "cgarnach@redhat.com" ],
++ "url": "@url@"
++}
++
+diff --git a/extensions/gesture-inhibitor/org.gnome.shell.extensions.gesture-inhibitor.gschema.xml b/extensions/gesture-inhibitor/org.gnome.shell.extensions.gesture-inhibitor.gschema.xml
+new file mode 100644
+index 00000000..b06d027a
+--- /dev/null
++++ b/extensions/gesture-inhibitor/org.gnome.shell.extensions.gesture-inhibitor.gschema.xml
+@@ -0,0 +1,25 @@
++<schemalist>
++  <schema id="org.gnome.shell.extensions.gesture-inhibitor" path="/org/gnome/shell/extensions/gesture-inhibitor/">
++    <key name="show-osk" type="b">
++      <default>true</default>
++      <summary>Show OSK gesture</summary>
++    </key>
++    <key name="overview" type="b">
++      <default>true</default>
++      <summary>Show Overview gesture</summary>
++    </key>
++    <key name="app-switch" type="b">
++      <default>true</default>
++      <summary>Application switch gesture</summary>
++    </key>
++    <key name="workspace-switch" type="b">
++      <default>true</default>
++      <summary>Workspace switch gesture</summary>
++    </key>
++    <key name="unfullscreen" type="b">
++      <default>true</default>
++      <summary>Unfullscreen gesture</summary>
++    </key>
++  </schema>
++</schemalist>
++
+diff --git a/meson.build b/meson.build
+index 873da7bd..f21d0410 100644
+--- a/meson.build
++++ b/meson.build
+@@ -50,7 +50,12 @@ default_extensions += [
+ ]
+ 
+ all_extensions = default_extensions
+-all_extensions += ['auto-move-windows', 'native-window-placement', 'user-theme']
++all_extensions += [
++  'auto-move-windows',
++  'gesture-inhibitor',
++  'native-window-placement',
++  'user-theme',
++]
+ 
+ enabled_extensions = get_option('enable_extensions')
+ 
+-- 
+2.47.1
+

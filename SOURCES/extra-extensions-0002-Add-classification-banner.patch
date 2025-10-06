@@ -1,0 +1,479 @@
+From a30e0f7d6e93eb84f0864574b0da9816c0bbec83 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 2 Dec 2021 19:39:50 +0100
+Subject: [PATCH 2/5] Add classification-banner
+
+---
+ extensions/classification-banner/extension.js | 163 +++++++++++++++
+ extensions/classification-banner/meson.build  |   9 +
+ .../classification-banner/metadata.json.in    |  11 +
+ ...tensions.classification-banner.gschema.xml |  29 +++
+ extensions/classification-banner/prefs.js     | 192 ++++++++++++++++++
+ .../classification-banner/stylesheet.css      |   3 +
+ meson.build                                   |   1 +
+ 7 files changed, 408 insertions(+)
+ create mode 100644 extensions/classification-banner/extension.js
+ create mode 100644 extensions/classification-banner/meson.build
+ create mode 100644 extensions/classification-banner/metadata.json.in
+ create mode 100644 extensions/classification-banner/org.gnome.shell.extensions.classification-banner.gschema.xml
+ create mode 100644 extensions/classification-banner/prefs.js
+ create mode 100644 extensions/classification-banner/stylesheet.css
+
+diff --git a/extensions/classification-banner/extension.js b/extensions/classification-banner/extension.js
+new file mode 100644
+index 00000000..32c7d794
+--- /dev/null
++++ b/extensions/classification-banner/extension.js
+@@ -0,0 +1,163 @@
++// SPDX-FileCopyrightText: 2021 Florian Müllner <fmuellner@gnome.org>
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++import Clutter from 'gi://Clutter';
++import Cogl from 'gi://Cogl';
++import Gio from 'gi://Gio';
++import GLib from 'gi://GLib';
++import GObject from 'gi://GObject';
++import Shell from 'gi://Shell';
++import St from 'gi://St';
++
++import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
++
++import * as Main from 'resource:///org/gnome/shell/ui/main.js';
++import {MonitorConstraint} from 'resource:///org/gnome/shell/ui/layout.js';
++
++class ClassificationBanner extends Clutter.Actor {
++    static {
++        GObject.registerClass(this);
++    }
++
++    #topBanner;
++    #bottomBanner;
++    #monitorConstraint;
++    #settings;
++
++    constructor(index, settings) {
++        const constraint = new MonitorConstraint({index});
++        super({
++            layout_manager: new Clutter.BinLayout(),
++            constraints: constraint,
++        });
++        this.#monitorConstraint = constraint;
++
++        Shell.util_set_hidden_from_pick(this, true);
++
++        this.#settings = settings;
++
++        this.#topBanner = new St.BoxLayout({
++            style_class: 'classification-banner',
++            x_expand: true,
++            y_expand: true,
++            y_align: Clutter.ActorAlign.START,
++        });
++        this.add_child(this.#topBanner);
++        this.#settings.bind('top-banner',
++            this.#topBanner, 'visible',
++            Gio.SettingsBindFlags.GET);
++
++        this.#bottomBanner = new St.BoxLayout({
++            style_class: 'classification-banner',
++            x_expand: true,
++            y_expand: true,
++            y_align: Clutter.ActorAlign.END,
++        });
++        this.add_child(this.#bottomBanner);
++        this.#settings.bind('bottom-banner',
++            this.#bottomBanner, 'visible',
++            Gio.SettingsBindFlags.GET);
++
++        for (const banner of [this.#topBanner, this.#bottomBanner]) {
++            const label = new St.Label({
++                style_class: 'classification-message',
++                x_align: Clutter.ActorAlign.CENTER,
++                x_expand: true,
++            });
++            banner.add_child(label);
++
++            this.#settings.bind('message',
++                label, 'text',
++                Gio.SettingsBindFlags.GET);
++        }
++
++        const hostLabel = new St.Label({
++            style_class: 'classification-system-info',
++            text: GLib.get_host_name(),
++        });
++        this.#topBanner.insert_child_at_index(hostLabel, 0);
++        this.#settings.bind('system-info',
++            hostLabel, 'visible',
++            Gio.SettingsBindFlags.GET);
++
++        const userLabel = new St.Label({
++            style_class: 'classification-system-info',
++            text: GLib.get_user_name(),
++        });
++        this.#topBanner.add_child(userLabel);
++        this.#settings.bind('system-info',
++            userLabel, 'visible',
++            Gio.SettingsBindFlags.GET);
++
++        global.display.connectObject('in-fullscreen-changed',
++            () => this.#updateMonitorConstraint(), this);
++        this.#updateMonitorConstraint();
++
++        this.#settings.connectObject(
++            'changed::color', () => this.#updateStyles(),
++            'changed::background-color', () => this.#updateStyles(),
++            this);
++        this.#updateStyles();
++    }
++
++    #getColorSetting(key) {
++        const str = this.#settings.get_string(key);
++        const [valid, color] = Cogl.Color.from_string(str);
++        if (!valid)
++            return '';
++        const {red, green, blue, alpha} = color;
++        return `${key}: rgba(${red},${green},${blue},${alpha / 255});`;
++    }
++
++    #updateMonitorConstraint() {
++        const {index} = this.#monitorConstraint;
++        this.#monitorConstraint.work_area =
++            !global.display.get_monitor_in_fullscreen(index);
++    }
++
++    #updateStyles() {
++        const bgStyle = this.#getColorSetting('background-color');
++        const fgStyle = this.#getColorSetting('color');
++        const style = `${bgStyle}${fgStyle}`;
++        this.#topBanner.set({style});
++        this.#bottomBanner.set({style});
++    }
++}
++
++export default class ClassificationBannerExtension extends Extension {
++    #banners = [];
++
++    #updateMonitors() {
++        const {monitors, panelBox, primaryIndex} = Main.layoutManager;
++        if (monitors.length !== this.#banners.length) {
++            this.#clearBanners();
++
++            const settings = this.getSettings();
++            for (let i = 0; i < monitors.length; i++) {
++                const banner = new ClassificationBanner(i, settings);
++                Main.uiGroup.add_child(banner);
++                this.#banners.push(banner);
++            }
++        }
++
++        const primaryBanner = this.#banners[primaryIndex];
++        if (primaryBanner)
++            Main.uiGroup.set_child_below_sibling(primaryBanner, panelBox);
++    }
++
++    #clearBanners() {
++        this.#banners.forEach(b => b.destroy());
++        this.#banners = [];
++    }
++
++    enable() {
++        Main.layoutManager.connectObject('monitors-changed',
++            () => this.#updateMonitors(), this);
++        this.#updateMonitors();
++    }
++
++    disable() {
++        Main.layoutManager.disconnectObject(this);
++        this.#clearBanners();
++    }
++}
+diff --git a/extensions/classification-banner/meson.build b/extensions/classification-banner/meson.build
+new file mode 100644
+index 00000000..aa943741
+--- /dev/null
++++ b/extensions/classification-banner/meson.build
+@@ -0,0 +1,9 @@
++extension_data += configure_file(
++  input: metadata_name + '.in',
++  output: metadata_name,
++  configuration: metadata_conf
++)
++extension_data += files('stylesheet.css')
++
++extension_sources += files('prefs.js')
++extension_schemas += files(metadata_conf.get('gschemaname') + '.gschema.xml')
+diff --git a/extensions/classification-banner/metadata.json.in b/extensions/classification-banner/metadata.json.in
+new file mode 100644
+index 00000000..f93b1a2d
+--- /dev/null
++++ b/extensions/classification-banner/metadata.json.in
+@@ -0,0 +1,11 @@
++{
++"extension-id": "@extension_id@",
++"uuid": "@uuid@",
++"settings-schema": "@gschemaname@",
++"gettext-domain": "@gettext_domain@",
++"name": "Classification Banner",
++"description": "Display classification level banner",
++"shell-version": [ "@shell_current@" ],
++"session-modes":  [ "gdm", "unlock-dialog", "user" ],
++"url": "@url@"
++}
+diff --git a/extensions/classification-banner/org.gnome.shell.extensions.classification-banner.gschema.xml b/extensions/classification-banner/org.gnome.shell.extensions.classification-banner.gschema.xml
+new file mode 100644
+index 00000000..0314ef60
+--- /dev/null
++++ b/extensions/classification-banner/org.gnome.shell.extensions.classification-banner.gschema.xml
+@@ -0,0 +1,29 @@
++<schemalist gettext-domain="gnome-shell-extensions">
++  <schema id="org.gnome.shell.extensions.classification-banner"
++          path="/org/gnome/shell/extensions/classification-banner/">
++    <key name="top-banner" type="b">
++      <default>true</default>
++      <summary>Show a banner at the top</summary>
++    </key>
++    <key name="bottom-banner" type="b">
++      <default>true</default>
++      <summary>Show a banner at the bottom</summary>
++    </key>
++    <key name="message" type="s">
++      <default>"UNCLASSIFIED"</default>
++      <summary>classification message</summary>
++    </key>
++    <key name="color" type="s">
++      <default>"#fff"</default>
++      <summary>text color</summary>
++    </key>
++    <key name="background-color" type="s">
++      <default>"rgba(0,122,51,0.75)"</default>
++      <summary>background color</summary>
++    </key>
++    <key name="system-info" type="b">
++      <default>false</default>
++      <summary>Include system info in top banner</summary>
++    </key>
++  </schema>
++</schemalist>
+diff --git a/extensions/classification-banner/prefs.js b/extensions/classification-banner/prefs.js
+new file mode 100644
+index 00000000..dc73ddae
+--- /dev/null
++++ b/extensions/classification-banner/prefs.js
+@@ -0,0 +1,192 @@
++import Adw from 'gi://Adw';
++import Gdk from 'gi://Gdk';
++import Gio from 'gi://Gio';
++import GObject from 'gi://GObject';
++import Gtk from 'gi://Gtk';
++
++import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
++
++class GenericPrefs extends Adw.PreferencesGroup {
++    static {
++        GObject.registerClass(this);
++    }
++
++    #actionGroup = new Gio.SimpleActionGroup();
++    #settings;
++
++    constructor(settings) {
++        super();
++
++        this.#settings = settings;
++        this.insert_action_group('options', this.#actionGroup);
++
++        this.#actionGroup.add_action(settings.create_action('top-banner'));
++        this.#actionGroup.add_action(settings.create_action('bottom-banner'));
++        this.#actionGroup.add_action(settings.create_action('system-info'));
++
++        this.add(new Adw.SwitchRow({
++            title: _('Top Banner'),
++            action_name: 'options.top-banner',
++        }));
++
++        this.add(new Adw.SwitchRow({
++            title: _('Bottom Banner'),
++            action_name: 'options.bottom-banner',
++        }));
++
++        this.add(new Adw.SwitchRow({
++            title: _('System Info'),
++            action_name: 'options.system-info',
++        }));
++    }
++}
++
++class BannerPreset extends GObject.Object {
++    static [GObject.properties] = {
++        'message': GObject.ParamSpec.string(
++            'message', 'message', 'message',
++            GObject.ParamFlags.READWRITE,
++            null),
++        'color': GObject.ParamSpec.string(
++            'color', 'color', 'color',
++            GObject.ParamFlags.READWRITE,
++            null),
++        'background-color': GObject.ParamSpec.string(
++            'background-color', 'background-color', 'background-color',
++            GObject.ParamFlags.READWRITE,
++            null),
++    };
++
++    static {
++        GObject.registerClass(this);
++    }
++}
++
++class AppearancePrefs extends Adw.PreferencesGroup {
++    static {
++        GObject.registerClass(this);
++    }
++
++    #settings;
++
++    constructor(settings) {
++        super();
++
++        this.#settings = settings;
++
++        const model = new Gio.ListStore({item_type: BannerPreset.$gtype});
++        model.append(new BannerPreset({
++            message: 'UNCLASSIFIED',
++            color: '#fff',
++            background_color: 'rgba(0, 122, 51, 0.75)',
++        }));
++        model.append(new BannerPreset({
++            message: 'CONFIDENTIAL',
++            color: '#fff',
++            background_color: 'rgba(0, 51, 160, 0.75)',
++        }));
++        model.append(new BannerPreset({
++            message: 'SECRET',
++            color: '#fff',
++            background_color: 'rgba(200, 16, 46, 0.75)',
++        }));
++        model.append(new BannerPreset({
++            message: 'TOP SECRET',
++            color: '#fff',
++            background_color: 'rgba(255, 103, 31, 0.75)',
++        }));
++        model.append(new BannerPreset({
++            message: 'TOP SECRET//SCI',
++            color: '#000',
++            background_color: 'rgba(247, 234, 72, 0.75)',
++        }));
++
++        let row, activatableWidget;
++        row = this.#createPresetsRow(model);
++        row.connect('notify::selected-item', comboRow => {
++            const {message, color, backgroundColor} = comboRow.selected_item;
++            this.#settings.set_string('message', message);
++            this.#settings.set_string('color', color);
++            this.#settings.set_string('background-color', backgroundColor);
++        });
++        this.add(row);
++
++        activatableWidget = new Gtk.Entry({
++            valign: Gtk.Align.CENTER,
++        });
++        this.#settings.bind('message',
++            activatableWidget, 'text',
++            Gio.SettingsBindFlags.DEFAULT);
++        row = new Adw.ActionRow({title: _('Message'), activatableWidget});
++        row.add_suffix(activatableWidget);
++        this.add(row);
++
++        activatableWidget = this.#createColorButton('background-color', {
++            use_alpha: true,
++        });
++        row = new Adw.ActionRow({title: _('Background color'), activatableWidget});
++        row.add_suffix(activatableWidget);
++        this.add(row);
++
++        activatableWidget = this.#createColorButton('color');
++        row = new Adw.ActionRow({title: _('Text color'), activatableWidget});
++        row.add_suffix(activatableWidget);
++        this.add(row);
++    }
++
++    #createPresetsRow(model) {
++        const listFactory = new Gtk.SignalListItemFactory();
++        listFactory.connect('setup',
++            (f, item) => item.set_child(new Gtk.Label()));
++        listFactory.connect('bind', (f, listItem) => {
++            const {child, item} = listItem;
++
++            const provider = new Gtk.CssProvider();
++            provider.load_from_data(`* {
++                border-radius: 99px;
++                padding: 6px;
++                color: ${item.color};
++                background-color: ${item.background_color};
++            }`, -1);
++            child.get_style_context().add_provider(provider,
++                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
++            child.label = item.message;
++        });
++
++        return new Adw.ComboRow({
++            title: _('Presets'),
++            model,
++            listFactory,
++            expression: Gtk.ConstantExpression.new_for_value(''),
++        });
++    }
++
++    #createColorButton(key, params = {}) {
++        const rgba = new Gdk.RGBA();
++        rgba.parse(this.#settings.get_string(key));
++
++        const button = new Gtk.ColorButton({
++            ...params,
++            rgba,
++            valign: Gtk.Align.CENTER,
++        });
++        this.#settings.connect(`changed::${key}`, () => {
++            const newRgba = new Gdk.RGBA();
++            newRgba.parse(this.#settings.get_string(key));
++            if (!newRgba.equal(button.rgba))
++                button.set({rgba: newRgba});
++        });
++        button.connect('notify::rgba',
++            () => this.#settings.set_string(key, button.rgba.to_string()));
++        return button;
++    }
++}
++
++export default class ClassificationPrefs extends ExtensionPreferences {
++    getPreferencesWidget() {
++        const page = new Adw.PreferencesPage();
++        page.add(new AppearancePrefs(this.getSettings()));
++        page.add(new GenericPrefs(this.getSettings()));
++        return page;
++    }
++}
+diff --git a/extensions/classification-banner/stylesheet.css b/extensions/classification-banner/stylesheet.css
+new file mode 100644
+index 00000000..fb6a697e
+--- /dev/null
++++ b/extensions/classification-banner/stylesheet.css
+@@ -0,0 +1,3 @@
++.classification-system-info { padding: 0 24px; }
++.classification-message { font-weight: bold; }
++.classification-banner { font-size: 0.9em; }
+diff --git a/meson.build b/meson.build
+index f21d0410..0f12b451 100644
+--- a/meson.build
++++ b/meson.build
+@@ -52,6 +52,7 @@ default_extensions += [
+ all_extensions = default_extensions
+ all_extensions += [
+   'auto-move-windows',
++  'classification-banner',
+   'gesture-inhibitor',
+   'native-window-placement',
+   'user-theme',
+-- 
+2.47.1
+
