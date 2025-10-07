@@ -1,0 +1,272 @@
+From f6ccd2e00f5568ee3140cd7aaa72b19466eae39f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 23 Apr 2025 08:43:56 +0200
+Subject: [PATCH 1/2] windowPreview: Add attention indicator
+
+Some X11 clients still rely on the traditional urgent/demands-attention
+hints instead of notifications to request the user's attention.
+
+Support these by adding a visual indication to the corresponding
+previews, based on the visual indicator in libadwaita's tabs.
+---
+ extensions/dash-to-panel/stylesheet.css   |  5 +++
+ extensions/dash-to-panel/windowPreview.js | 42 ++++++++++++++++++++++-
+ 2 files changed, 46 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/dash-to-panel/stylesheet.css b/extensions/dash-to-panel/stylesheet.css
+index 6917e24d..1dcd3ae1 100644
+--- a/extensions/dash-to-panel/stylesheet.css
++++ b/extensions/dash-to-panel/stylesheet.css
+@@ -149,3 +149,8 @@
+       -progress-bar-border: rgba(0.9, 0.9, 0.9, 1);
+     */
+ }
++
++.window-preview-attention-indicator {
++        background-color: rgba(27, 106, 203, 1.0);
++        height: 2px;
++}
+diff --git a/extensions/dash-to-panel/windowPreview.js b/extensions/dash-to-panel/windowPreview.js
+index 45d08a04..12fe18bb 100644
+--- a/extensions/dash-to-panel/windowPreview.js
++++ b/extensions/dash-to-panel/windowPreview.js
+@@ -50,6 +50,8 @@ const FOCUSED_COLOR_OFFSET = 24;
+ const HEADER_COLOR_OFFSET = -12;
+ const FADE_SIZE = 36;
+ const PEEK_INDEX_PROP = '_dtpPeekInitialIndex';
++const ATTENTION_INDICATOR_MAX_SCALE = 0.4;
++const ATTENTION_INDICATOR_TRANSITION_DURATION = 0.3;
+ 
+ let headerHeight = 0;
+ let alphaBg = 0;
+@@ -740,14 +742,29 @@ var Preview = Utils.defineClass({
+             
+             setStyle(headerBox, this._getBackgroundColor(HEADER_COLOR_OFFSET, 1));
+             this._workspaceIndicator = new St.Label({ y_align: Clutter.ActorAlign.CENTER });
++            let titleBox = new St.Widget({
++                layout_manager: new Clutter.BinLayout(),
++                x_expand: true,
++                y_expand: true,
++            });
+             this._windowTitle = new St.Label({ y_align: Clutter.ActorAlign.CENTER, x_expand: true });
++            this._attentionIndicator = new St.Widget({
++                style_class: 'window-preview-attention-indicator',
++                x_expand: true,
++                y_expand: true,
++                y_align: Clutter.ActorAlign.END,
++                scale_x: 0,
++            });
++
++            titleBox.add_child(this._windowTitle);
++            titleBox.add_child(this._attentionIndicator);
+ 
+             this._iconBin = new St.Widget({ layout_manager: new Clutter.BinLayout() });
+             this._iconBin.set_size(headerHeight, headerHeight);
+     
+             headerBox.add_child(this._iconBin);
+             headerBox.insert_child_at_index(this._workspaceIndicator, isLeftButtons ? 0 : 1);
+-            headerBox.insert_child_at_index(this._windowTitle, isLeftButtons ? 1 : 2);
++            headerBox.insert_child_at_index(titleBox, isLeftButtons ? 1 : 2);
+ 
+             box.insert_child_at_index(headerBox, isTopHeader ? 0 : 1);
+         }
+@@ -942,6 +959,14 @@ var Preview = Utils.defineClass({
+             this.window.disconnect(this._titleWindowChangeId);
+             this._titleWindowChangeId = 0;
+         }
++      if (this._attentionHintChangeId) {
++          this.window.disconnect(this._attentionHintChangeId)
++          this._attentionHintChangeId = 0
++      }
++      if (this._urgentHintChangeId) {
++          this.window.disconnect(this._urgentHintChangeId)
++          this._urgentHintChangeId = 0
++      }
+     },
+ 
+     _updateHeader: function() {
+@@ -970,8 +995,11 @@ var Preview = Utils.defineClass({
+             setStyle(this._workspaceIndicator, workspaceStyle);
+ 
+             this._titleWindowChangeId = this.window.connect('notify::title', () => this._updateWindowTitle());
++            this._attentionHintChangeId = this.window.connect('notify::demands-attention', () => this._updateNeedsAttention());
++            this._urgentHintChangeId = this.window.connect('notify::urgent', () => this._updateNeedsAttention());
+             setStyle(this._windowTitle, 'max-width: 0px; padding-right: 4px;' + commonTitleStyles);
+             this._updateWindowTitle();
++            this._updateNeedsAttention();
+         }
+     },
+ 
+@@ -979,6 +1007,18 @@ var Preview = Utils.defineClass({
+         this._windowTitle.text = this.window.title;
+     },
+ 
++    _updateNeedsAttention: function() {
++        const urgent = this.window.urgent;
++        const demandsAttention = this.window.demands_attention;
++        const needsAttention = urgent || demandsAttention;
++        Utils.animate(
++            this._attentionIndicator,
++            getTweenOpts({
++                scale_x: needsAttention ? ATTENTION_INDICATOR_MAX_SCALE : 0,
++                time: ATTENTION_INDICATOR_TRANSITION_DURATION,
++            }));
++    },
++
+     _hideOrShowCloseButton: function(hide) {
+         if (this._needsCloseButton) {
+             Utils.animate(this._closeButtonBin, getTweenOpts({ opacity: hide ? 0 : 255 }));
+-- 
+2.49.0
+
+
+From 497df374038b1389204bed3bd89983c6fed20836 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 23 Apr 2025 09:38:56 +0200
+Subject: [PATCH 2/2] appIcons: Add attention indicator
+
+Some X11 clients still rely on the traditional urgent/demands-attention
+hints instead of notifications to request the user's attention.
+
+Tabs in libadwaita use an underline for that purpose, but unfortunately
+that indication is already taken by the running indicator; so instead,
+add a subtle flash effect to icons with urgent windows.
+---
+ extensions/dash-to-panel/appIcons.js | 86 ++++++++++++++++++++++++++++
+ 1 file changed, 86 insertions(+)
+
+diff --git a/extensions/dash-to-panel/appIcons.js b/extensions/dash-to-panel/appIcons.js
+index 5cfb1350..46c9030d 100644
+--- a/extensions/dash-to-panel/appIcons.js
++++ b/extensions/dash-to-panel/appIcons.js
+@@ -25,6 +25,7 @@
+ const Clutter = imports.gi.Clutter;
+ const Gio = imports.gi.Gio;
+ const GLib = imports.gi.GLib;
++const GObject = imports.gi.GObject;
+ const Gtk = imports.gi.Gtk;
+ const Signals = imports.signals;
+ const Lang = imports.lang;
+@@ -114,6 +115,8 @@ var taskbarAppIcon = Utils.defineClass({
+     _init: function(appInfo, panel, iconParams, previewMenu, iconAnimator) {
+         this.dtpPanel = panel;
+         this._nWindows = 0;
++        this._windows = new Set();
++        this._windowSignals = new Map();
+         this.window = appInfo.window;
+         this.isLauncher = appInfo.isLauncher;
+         this._previewMenu = previewMenu;
+@@ -187,6 +190,13 @@ var taskbarAppIcon = Utils.defineClass({
+             this.actor.set_width(panel.geom.w);
+         }
+ 
++        this._flashEffect = new Clutter.BrightnessContrastEffect({
++            name: 'attention-flash',
++            enabled: false,
++        });
++        this.icon.add_effect(this._flashEffect);
++        this._updateTrackedWindows();
++
+         // Monitor windows-changes instead of app state.
+         // Keep using the same Id and function callback (that is extended)
+         if(this._stateChangedId > 0) {
+@@ -324,6 +334,8 @@ var taskbarAppIcon = Utils.defineClass({
+         this._destroyed = true;
+ 
+         this._timeoutsHandler.destroy();
++        this._windowSignals.forEach((ids, w) => ids.forEach(id => w.disconnect(id)));
++        this._windowSignals.clear();
+ 
+         this._previewMenu.close(true);
+ 
+@@ -367,6 +379,7 @@ var taskbarAppIcon = Utils.defineClass({
+     },
+ 
+     onWindowsChanged: function() {
++        this._updateTrackedWindows();
+         this._updateWindows();
+         this.updateIcon();
+     },
+@@ -1039,6 +1052,79 @@ var taskbarAppIcon = Utils.defineClass({
+         this._previewMenu.update(this, windows);
+     },
+ 
++    _updateTrackedWindows: function() {
++        const windows = this.window ? [this.window] : this.app.get_windows();
++
++        const removed = [...this._windows].filter(w => !windows.includes(w));
++        removed.forEach(w => this._untrackWindow(w));
++        windows.forEach(w => this._trackWindow(w));
++        this._updateNeedsAttention();
++    },
++
++    _trackWindow: function(window) {
++        if (this._windows.has(window))
++            return;
++
++        this._windowSignals.set(window, [
++            window.connect('notify::urgent', () => this._updateNeedsAttention()),
++            window.connect('notify::demands-attention', () => this._updateNeedsAttention()),
++        ]);
++        this._windows.add(window);
++    },
++
++    _untrackWindow: function(window) {
++        if (!this._windows.delete(window))
++            return;
++
++        for (let id of this._windowSignals.get(window))
++            window.disconnect(id);
++        this._windowSignals.delete(window);
++    },
++
++    _updateNeedsAttention: function() {
++        const needsAttention =
++            [...this._windows].some(w => w.urgent || w.demands_attention);
++
++        if (this._flashEffect.enabled === needsAttention)
++            return;
++
++        this._flashEffect.enabled = needsAttention;
++
++        if (needsAttention) {
++            const flashColor = new Clutter.Color({
++                red: 177,
++                green: 177,
++                blue: 228,
++            });
++            this._flashEffect.set_brightness(0)
++            const flashTransition = new Clutter.PropertyTransition({
++                property_name: '@effects.attention-flash.brightness',
++                interval: new Clutter.Interval({value_type: Clutter.Color}),
++                duration: 1500,
++                repeat_count: -1,
++                auto_reverse: true,
++                progress_mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
++            });
++            this.icon.add_transition('@effects.attention-flash.brightness', flashTransition);
++            flashTransition.set_to(flashColor);
++
++            this.icon.translation_y = 0;
++            const bumpTransition = new Clutter.PropertyTransition({
++                property_name: 'translation-y',
++                interval: new Clutter.Interval({value_type: GObject.TYPE_DOUBLE}),
++                duration: 500,
++                repeat_count: -1,
++                auto_reverse: true,
++                progress_mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
++            });
++            this.icon.add_transition('translation-y', bumpTransition);
++            bumpTransition.set_to(-3);
++        } else {
++            this.icon.remove_all_transitions();
++            this.icon.translation_y = 0;
++        }
++    },
++
+     _getRunningIndicatorCount: function() {
+         return Math.min(this._nWindows, MAX_INDICATORS);
+     },
+-- 
+2.49.0
+

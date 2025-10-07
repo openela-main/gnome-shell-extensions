@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        41%{?dist}
+Release:        44%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -62,6 +62,9 @@ Patch0033:         0001-classification-banner-Hide-from-picks.patch
 Patch0034:         0001-desktop-icons-Fix-k-in-.desktop-files.patch
 Patch0035:         window-list-attention-indicator.patch
 Patch0036:         apps-menu-custom-layout-manager.patch
+Patch0037:         dash-to-panel-attention-indicator.patch
+Patch0038:         improve-workspace-names.patch
+Patch0039:         0001-dash-to-panel-Consider-range-around-edges-for-dwelli.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -573,9 +576,22 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 %files -n %{pkg_prefix}-workspace-indicator
 %{_datadir}/gnome-shell/extensions/workspace-indicator*/
+%{_datadir}/glib-2.0/schemas/org.gnome.shell.extensions.workspace-indicator.gschema.xml
 
 
 %changelog
+* Thu Aug 28 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-44
+- Consider range around edges for dwelling
+  Resolves: RHEL-28818
+
+* Wed Jul 16 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-43
+- Make workspace names more prominent
+  Resolves: RHEL-96219
+
+* Tue May 06 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-42
+- Indicate urgency-hint in dash-to-panel
+  Resolves: RHEL-76834
+
 * Tue May  06 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-41
 - Use custom layout manager in apps menu
   Resolves: RHEL-14936
