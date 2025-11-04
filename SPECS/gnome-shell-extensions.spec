@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        44%{?dist}
+Release:        46%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -65,6 +65,7 @@ Patch0036:         apps-menu-custom-layout-manager.patch
 Patch0037:         dash-to-panel-attention-indicator.patch
 Patch0038:         improve-workspace-names.patch
 Patch0039:         0001-dash-to-panel-Consider-range-around-edges-for-dwelli.patch
+Patch0040:         0001-dash-to-panel-Don-t-create-main-panel-without-a-moni.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -580,6 +581,14 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %changelog
+* Thu Oct 16 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-46
+- Skip creating main panel with no monitor
+  Resolves: RHEL-110378
+
+* Thu Oct 16 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-45
+- Fix issues in workspace-names backport
+  Resolves: RHEL-96219
+
 * Thu Aug 28 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-44
 - Consider range around edges for dwelling
   Resolves: RHEL-28818

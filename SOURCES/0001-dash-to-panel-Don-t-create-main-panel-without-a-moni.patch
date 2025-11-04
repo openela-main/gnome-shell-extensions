@@ -1,0 +1,114 @@
+From 7b6dbfdd727ce5a5b593394893489bafc02ccea6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 25 Sep 2025 14:18:03 +0200
+Subject: [PATCH] dash-to-panel: Don't create main panel without a monitor
+
+---
+ extensions/dash-to-panel/extension.js    |  5 ++--
+ extensions/dash-to-panel/panelManager.js | 35 +++++++++++++++++-------
+ 2 files changed, 28 insertions(+), 12 deletions(-)
+
+diff --git a/extensions/dash-to-panel/extension.js b/extensions/dash-to-panel/extension.js
+index 8ab108f2..8ffff041 100644
+--- a/extensions/dash-to-panel/extension.js
++++ b/extensions/dash-to-panel/extension.js
+@@ -111,7 +111,8 @@ function _enable() {
+     // Pretend I'm the dash: meant to make appgrd swarm animation come from the
+     // right position of the appShowButton.
+     oldDash = Main.overview._dash;
+-    Main.overview._dash = panelManager.primaryPanel.taskbar;
++    if (panelManager.primaryPanel)
++        Main.overview._dash = panelManager.primaryPanel.taskbar;
+ }
+ 
+ function disable(reset) {
+@@ -141,4 +142,4 @@ function disable(reset) {
+             (extensionSystem._callExtensionEnable || extensionSystem.enableExtension).call(extensionSystem, UBUNTU_DOCK_UUID);
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/extensions/dash-to-panel/panelManager.js b/extensions/dash-to-panel/panelManager.js
+index 20ee12d8..87a85504 100755
+--- a/extensions/dash-to-panel/panelManager.js
++++ b/extensions/dash-to-panel/panelManager.js
+@@ -73,16 +73,20 @@ var dtpPanelManager = Utils.defineClass({
+     enable: function(reset) {
+         let dtpPrimaryIndex = Me.settings.get_int('primary-monitor');
+ 
++        this.allPanels = [];
+         this.dtpPrimaryMonitor = Main.layoutManager.monitors[dtpPrimaryIndex] || Main.layoutManager.primaryMonitor;
+         this.proximityManager = new Proximity.ProximityManager();
+ 
+         Utils.wrapActor(Main.panel);
+         Utils.wrapActor(Main.overview.dash || 0);
+ 
+-        this.primaryPanel = this._createPanel(this.dtpPrimaryMonitor, Me.settings.get_boolean('stockgs-keep-top-panel'));
+-        this.allPanels = [ this.primaryPanel ];
+-        
+-        this.overview.enable(this.primaryPanel);
++        if (this.dtpPrimaryMonitor) {
++            this.primaryPanel = this._createPanel(this.dtpPrimaryMonitor, Me.settings.get_boolean('stockgs-keep-top-panel'));
++            this.allPanels.push(this.primaryPanel);
++            this.overview.enable(this.primaryPanel);
++
++            this.setFocusedMonitor(this.dtpPrimaryMonitor);
++        }
+ 
+         if (Me.settings.get_boolean('multi-monitors')) {
+             Main.layoutManager.monitors.filter(m => m != this.dtpPrimaryMonitor).forEach(m => {
+@@ -121,18 +125,20 @@ var dtpPanelManager = Utils.defineClass({
+         }
+ 
+         this._updatePanelElementPositions();
+-        this.setFocusedMonitor(this.dtpPrimaryMonitor);
+         
+-        if (this.primaryPanel.checkIfVertical()) {
++        if (this.primaryPanel && this.primaryPanel.checkIfVertical()) {
+             Main.wm._getPositionForDirection = newGetPositionForDirection;
+         }
+         
+         if (reset) return;
+ 
+         this._oldViewSelectorAnimateIn = Main.overview.viewSelector._animateIn;
+-        Main.overview.viewSelector._animateIn = Lang.bind(this.primaryPanel, newViewSelectorAnimateIn);
+         this._oldViewSelectorAnimateOut = Main.overview.viewSelector._animateOut;
+-        Main.overview.viewSelector._animateOut = Lang.bind(this.primaryPanel, newViewSelectorAnimateOut);
++
++        if (this.primaryPanel) {
++            Main.overview.viewSelector._animateIn = Lang.bind(this.primaryPanel, newViewSelectorAnimateIn);
++            Main.overview.viewSelector._animateOut = Lang.bind(this.primaryPanel, newViewSelectorAnimateOut);
++        }
+ 
+         if (Config.PACKAGE_VERSION > '3.35.1') {
+             this._oldDoSpringAnimation = AppDisplay.BaseAppView.prototype._doSpringAnimation;
+@@ -265,14 +271,23 @@ var dtpPanelManager = Utils.defineClass({
+         );
+ 
+         Panel.panelBoxes.forEach(c => this._signalsHandler.add(
+-            [Main.panel[c], 'actor-added', (parent, child) => this._adjustPanelMenuButton(this._getPanelMenuButton(child), this.primaryPanel.monitor, this.primaryPanel.getPosition())]
++            [
++                Main.panel[c],
++                'actor-added',
++                (parent, child) => {
++                    if (this.primaryPanel)
++                        this._adjustPanelMenuButton(this._getPanelMenuButton(child),
++                            this.primaryPanel.monitor, this.primaryPanel.getPosition());
++                }
++            ]
+         ));
+ 
+         this._setKeyBindings(true);
+     },
+ 
+     disable: function(reset) {
+-        this.overview.disable();
++        if (this.primaryPanel)
++            this.overview.disable();
+         this.proximityManager.destroy();
+ 
+         this.allPanels.forEach(p => {
+-- 
+2.51.0
+
