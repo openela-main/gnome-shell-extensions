@@ -1,0 +1,2389 @@
+From 11442f82272a1fba9ed1ff7088e6e2ae68e01787 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Tue, 17 Jun 2025 22:22:29 +0200
+Subject: [PATCH 01/19] Fix signal leak
+
+---
+ extensions/workspace-indicator/workspaceIndicator.js | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 14359a0e..f70dcaf7 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -431,6 +431,7 @@ const WorkspacePreviews = GObject.registerClass({
+ 
+     _onDestroy() {
+         global.workspace_manager.disconnect(this._nWorkspacesChanged);
++        global.workspace_manager.disconnect(this._workspaceSwitchedId);
+     }
+ });
+ 
+-- 
+2.50.0
+
+
+From 874ee94d7ead1c1792ce73c5aea0663223c89228 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 11 Oct 2024 12:10:36 +0200
+Subject: [PATCH 02/19] workspace-indicator: Split out workspaces prefs page
+
+The window-list extension already uses the extension code for
+its embedded workspace indicator, this will allow it to do the
+same for the preference page.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/344>
+---
+ extensions/workspace-indicator/meson.build    |   2 +-
+ extensions/workspace-indicator/prefs.js       | 238 +----------------
+ .../workspace-indicator/workspacePrefs.js     | 245 ++++++++++++++++++
+ po/POTFILES.in                                |   2 +-
+ 4 files changed, 249 insertions(+), 238 deletions(-)
+ create mode 100644 extensions/workspace-indicator/workspacePrefs.js
+
+diff --git a/extensions/workspace-indicator/meson.build b/extensions/workspace-indicator/meson.build
+index a88db78a..52ab5334 100644
+--- a/extensions/workspace-indicator/meson.build
++++ b/extensions/workspace-indicator/meson.build
+@@ -10,4 +10,4 @@ extension_data += files(
+ )
+ extension_schemas += files('schemas/' + metadata_conf.get('gschemaname') + '.gschema.xml')
+ 
+-extension_sources += files('prefs.js', 'workspaceIndicator.js')
++extension_sources += files('prefs.js', 'workspaceIndicator.js', 'workspacePrefs.js')
+diff --git a/extensions/workspace-indicator/prefs.js b/extensions/workspace-indicator/prefs.js
+index 9809b46a..2d90e198 100644
+--- a/extensions/workspace-indicator/prefs.js
++++ b/extensions/workspace-indicator/prefs.js
+@@ -1,249 +1,15 @@
+ // -*- mode: js2; indent-tabs-mode: nil; js2-basic-offset: 4 -*-
+ /* exported init buildPrefsWidget */
+ 
+-const { Gio, GLib, GObject, Gtk, Pango } = imports.gi;
+-
+ const ExtensionUtils = imports.misc.extensionUtils;
+ const Me = ExtensionUtils.getCurrentExtension();
+ 
+-const Gettext = imports.gettext.domain(Me.metadata['gettext-domain']);
+-const _ = Gettext.gettext;
+-const N_ = e => e;
+-
+-const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
+-const WORKSPACE_KEY = 'workspace-names';
+-
+-const GeneralGroup = GObject.registerClass(
+-class GeneralGroup extends Gtk.Box {
+-    _init() {
+-        super._init({
+-            orientation: Gtk.Orientation.VERTICAL,
+-        });
+-
+-        const row = new Gtk.Box();
+-        this.append(row);
+-
+-        row.append(new Gtk.Label({
+-            label: _('Show Previews In Top Bar'),
+-        }));
+-
+-        const sw = new Gtk.Switch({
+-            hexpand: true,
+-            halign: Gtk.Align.END,
+-        });
+-        row.append(sw);
+-
+-        const settings = ExtensionUtils.getSettings();
+-
+-        settings.bind('embed-previews',
+-            sw, 'active',
+-            Gio.SettingsBindFlags.DEFAULT);
+-    }
+-});
+-
+-const WorkspaceSettingsWidget = GObject.registerClass(
+-class WorkspaceSettingsWidget extends Gtk.ScrolledWindow {
+-    _init() {
+-        super._init({
+-            hscrollbar_policy: Gtk.PolicyType.NEVER,
+-        });
+-
+-        const box = new Gtk.Box({
+-            orientation: Gtk.Orientation.VERTICAL,
+-            halign: Gtk.Align.CENTER,
+-            spacing: 12,
+-            margin_top: 36,
+-            margin_bottom: 36,
+-            margin_start: 36,
+-            margin_end: 36,
+-        });
+-        this.set_child(box);
+-
+-        box.append(new GeneralGroup());
+-
+-        box.append(new Gtk.Label({
+-            label: '<b>%s</b>'.format(_('Workspace Names')),
+-            use_markup: true,
+-            halign: Gtk.Align.START,
+-        }));
+-
+-        this._list = new Gtk.ListBox({
+-            selection_mode: Gtk.SelectionMode.NONE,
+-            valign: Gtk.Align.START,
+-            show_separators: true,
+-        });
+-        this._list.connect('row-activated', (l, row) => row.edit());
+-        box.append(this._list);
+-
+-        const context = this._list.get_style_context();
+-        const cssProvider = new Gtk.CssProvider();
+-        cssProvider.load_from_data(
+-            'list { min-width: 25em; }', -1);
+-
+-        context.add_provider(cssProvider,
+-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+-        context.add_class('frame');
+-
+-        this._list.append(new NewWorkspaceRow());
+-
+-        this._actionGroup = new Gio.SimpleActionGroup();
+-        this._list.insert_action_group('workspaces', this._actionGroup);
+-
+-        let action;
+-        action = new Gio.SimpleAction({ name: 'add' });
+-        action.connect('activate', () => {
+-            const names = this._settings.get_strv(WORKSPACE_KEY);
+-            this._settings.set_strv(WORKSPACE_KEY, [
+-                ...names,
+-                _('Workspace %d').format(names.length + 1),
+-            ]);
+-        });
+-        this._actionGroup.add_action(action);
+-
+-        action = new Gio.SimpleAction({
+-            name: 'remove',
+-            parameter_type: new GLib.VariantType('s'),
+-        });
+-        action.connect('activate', (a, param) => {
+-            const removed = param.deepUnpack();
+-            this._settings.set_strv(WORKSPACE_KEY,
+-                this._settings.get_strv(WORKSPACE_KEY)
+-                    .filter(name => name !== removed));
+-        });
+-        this._actionGroup.add_action(action);
+-
+-        action = new Gio.SimpleAction({ name: 'update' });
+-        action.connect('activate', () => {
+-            const names = this._getWorkspaceRows().map(row => row.name);
+-            this._settings.set_strv(WORKSPACE_KEY, names);
+-        });
+-        this._actionGroup.add_action(action);
+-
+-        this._settings = new Gio.Settings({
+-            schema_id: WORKSPACE_SCHEMA,
+-        });
+-        this._settings.connect(`changed::${WORKSPACE_KEY}`,
+-            this._sync.bind(this));
+-        this._sync();
+-    }
+-
+-    _getWorkspaceRows() {
+-        return [...this._list].filter(row => row.name);
+-    }
+-
+-    _sync() {
+-        const rows = this._getWorkspaceRows();
+-
+-        const oldNames = rows.map(row => row.name);
+-        const newNames = this._settings.get_strv(WORKSPACE_KEY);
+-
+-        const removed = oldNames.filter(n => !newNames.includes(n));
+-        const added = newNames.filter(n => !oldNames.includes(n));
+-
+-        removed.forEach(n => this._list.remove(rows.find(r => r.name === n)));
+-        added.forEach(n => {
+-            this._list.insert(new WorkspaceRow(n), newNames.indexOf(n));
+-        });
+-    }
+-});
+-
+-const WorkspaceRow = GObject.registerClass(
+-class WorkspaceRow extends Gtk.ListBoxRow {
+-    _init(name) {
+-        super._init({ name });
+-
+-        const controller = new Gtk.ShortcutController();
+-        controller.add_shortcut(new Gtk.Shortcut({
+-            trigger: Gtk.ShortcutTrigger.parse_string('Escape'),
+-            action: Gtk.CallbackAction.new(this._stopEdit.bind(this)),
+-        }));
+-        this.add_controller(controller);
+-
+-        const box = new Gtk.Box({
+-            spacing: 12,
+-            margin_top: 6,
+-            margin_bottom: 6,
+-            margin_start: 6,
+-            margin_end: 6,
+-        });
+-
+-        const label = new Gtk.Label({
+-            hexpand: true,
+-            xalign: 0,
+-            max_width_chars: 25,
+-            ellipsize: Pango.EllipsizeMode.END,
+-        });
+-        this.bind_property('name', label, 'label',
+-            GObject.BindingFlags.SYNC_CREATE);
+-        box.append(label);
+-
+-        const button = new Gtk.Button({
+-            action_name: 'workspaces.remove',
+-            action_target: new GLib.Variant('s', name),
+-            icon_name: 'edit-delete-symbolic',
+-        });
+-        box.append(button);
+-
+-        this._entry = new Gtk.Entry({
+-            max_width_chars: 25,
+-        });
+-
+-        this._stack = new Gtk.Stack();
+-        this._stack.add_named(box, 'display');
+-        this._stack.add_named(this._entry, 'edit');
+-        this.child = this._stack;
+-
+-        this._entry.connect('activate', () => {
+-            this.name = this._entry.text;
+-            this._stopEdit();
+-        });
+-        this._entry.connect('notify::has-focus', () => {
+-            if (this._entry.has_focus)
+-                return;
+-            this._stopEdit();
+-        });
+-
+-        this.connect('notify::name', () => {
+-            button.action_target = new GLib.Variant('s', this.name);
+-            this.activate_action('workspaces.update', null);
+-        });
+-    }
+-
+-    edit() {
+-        this._entry.text = this.name;
+-        this._entry.grab_focus();
+-        this._stack.visible_child_name = 'edit';
+-    }
+-
+-    _stopEdit() {
+-        this.grab_focus();
+-        this._stack.visible_child_name = 'display';
+-    }
+-});
+-
+-const NewWorkspaceRow = GObject.registerClass(
+-class NewWorkspaceRow extends Gtk.ListBoxRow {
+-    _init() {
+-        super._init({
+-            action_name: 'workspaces.add',
+-            child: new Gtk.Image({
+-                icon_name: 'list-add-symbolic',
+-                pixel_size: 16,
+-                margin_top: 12,
+-                margin_bottom: 12,
+-                margin_start: 12,
+-                margin_end: 12,
+-            }),
+-        });
+-        this.update_property(
+-            [Gtk.AccessibleProperty.LABEL], [_('Add Workspace')]);
+-    }
+-});
++const { WorkspacesPage } = Me.imports.workspacePrefs;
+ 
+ function init() {
+     ExtensionUtils.initTranslations();
+ }
+ 
+ function buildPrefsWidget() {
+-    return new WorkspaceSettingsWidget();
++    return new WorkspacesPage();
+ }
+diff --git a/extensions/workspace-indicator/workspacePrefs.js b/extensions/workspace-indicator/workspacePrefs.js
+new file mode 100644
+index 00000000..5691996d
+--- /dev/null
++++ b/extensions/workspace-indicator/workspacePrefs.js
+@@ -0,0 +1,245 @@
++// SPDX-FileCopyrightText: 2012 Giovanni Campagna <gcampagna@src.gnome.org>
++// SPDX-FileCopyrightText: 2014 Florian Müllner <fmuellner@gnome.org>
++//
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++/* exported WorkspacesPage */
++const { Gio, GLib, GObject, Gtk, Pango } = imports.gi;
++
++const ExtensionUtils = imports.misc.extensionUtils;
++const Me = ExtensionUtils.getCurrentExtension();
++
++const Gettext = imports.gettext.domain(Me.metadata['gettext-domain']);
++const _ = Gettext.gettext;
++const N_ = e => e;
++
++const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
++const WORKSPACE_KEY = 'workspace-names';
++
++const GeneralGroup = GObject.registerClass(
++class GeneralGroup extends Gtk.Box {
++    _init() {
++        super._init({
++            orientation: Gtk.Orientation.VERTICAL,
++        });
++
++        const row = new Gtk.Box();
++        this.append(row);
++
++        row.append(new Gtk.Label({
++            label: _('Show Previews In Top Bar'),
++        }));
++
++        const sw = new Gtk.Switch({
++            hexpand: true,
++            halign: Gtk.Align.END,
++        });
++        row.append(sw);
++
++        const settings = ExtensionUtils.getSettings();
++
++        settings.bind('embed-previews',
++            sw, 'active',
++            Gio.SettingsBindFlags.DEFAULT);
++    }
++});
++
++var WorkspacesPage = GObject.registerClass(
++class WorkspacesPage extends Gtk.ScrolledWindow {
++    _init() {
++        super._init({
++            hscrollbar_policy: Gtk.PolicyType.NEVER,
++            vexpand: true,
++        });
++
++        const box = new Gtk.Box({
++            orientation: Gtk.Orientation.VERTICAL,
++            halign: Gtk.Align.CENTER,
++            spacing: 12,
++            margin_top: 36,
++            margin_bottom: 36,
++            margin_start: 36,
++            margin_end: 36,
++        });
++        this.set_child(box);
++
++        box.append(new GeneralGroup());
++
++        box.append(new Gtk.Label({
++            label: '<b>%s</b>'.format(_('Workspace Names')),
++            use_markup: true,
++            halign: Gtk.Align.START,
++        }));
++
++        this._list = new Gtk.ListBox({
++            selection_mode: Gtk.SelectionMode.NONE,
++            valign: Gtk.Align.START,
++            show_separators: true,
++        });
++        this._list.connect('row-activated', (l, row) => row.edit());
++        box.append(this._list);
++
++        const context = this._list.get_style_context();
++        const cssProvider = new Gtk.CssProvider();
++        cssProvider.load_from_data(
++            'list { min-width: 25em; }', -1);
++
++        context.add_provider(cssProvider,
++            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
++        context.add_class('frame');
++
++        this._list.append(new NewWorkspaceRow());
++
++        this._actionGroup = new Gio.SimpleActionGroup();
++        this._list.insert_action_group('workspaces', this._actionGroup);
++
++        let action;
++        action = new Gio.SimpleAction({ name: 'add' });
++        action.connect('activate', () => {
++            const names = this._settings.get_strv(WORKSPACE_KEY);
++            this._settings.set_strv(WORKSPACE_KEY, [
++                ...names,
++                _('Workspace %d').format(names.length + 1),
++            ]);
++        });
++        this._actionGroup.add_action(action);
++
++        action = new Gio.SimpleAction({
++            name: 'remove',
++            parameter_type: new GLib.VariantType('s'),
++        });
++        action.connect('activate', (a, param) => {
++            const removed = param.deepUnpack();
++            this._settings.set_strv(WORKSPACE_KEY,
++                this._settings.get_strv(WORKSPACE_KEY)
++                    .filter(name => name !== removed));
++        });
++        this._actionGroup.add_action(action);
++
++        action = new Gio.SimpleAction({ name: 'update' });
++        action.connect('activate', () => {
++            const names = this._getWorkspaceRows().map(row => row.name);
++            this._settings.set_strv(WORKSPACE_KEY, names);
++        });
++        this._actionGroup.add_action(action);
++
++        this._settings = new Gio.Settings({
++            schema_id: WORKSPACE_SCHEMA,
++        });
++        this._settings.connect(`changed::${WORKSPACE_KEY}`,
++            this._sync.bind(this));
++        this._sync();
++    }
++
++    _getWorkspaceRows() {
++        return [...this._list].filter(row => row.name);
++    }
++
++    _sync() {
++        const rows = this._getWorkspaceRows();
++
++        const oldNames = rows.map(row => row.name);
++        const newNames = this._settings.get_strv(WORKSPACE_KEY);
++
++        const removed = oldNames.filter(n => !newNames.includes(n));
++        const added = newNames.filter(n => !oldNames.includes(n));
++
++        removed.forEach(n => this._list.remove(rows.find(r => r.name === n)));
++        added.forEach(n => {
++            this._list.insert(new WorkspaceRow(n), newNames.indexOf(n));
++        });
++    }
++});
++
++const WorkspaceRow = GObject.registerClass(
++class WorkspaceRow extends Gtk.ListBoxRow {
++    _init(name) {
++        super._init({ name });
++
++        const controller = new Gtk.ShortcutController();
++        controller.add_shortcut(new Gtk.Shortcut({
++            trigger: Gtk.ShortcutTrigger.parse_string('Escape'),
++            action: Gtk.CallbackAction.new(this._stopEdit.bind(this)),
++        }));
++        this.add_controller(controller);
++
++        const box = new Gtk.Box({
++            spacing: 12,
++            margin_top: 6,
++            margin_bottom: 6,
++            margin_start: 6,
++            margin_end: 6,
++        });
++
++        const label = new Gtk.Label({
++            hexpand: true,
++            xalign: 0,
++            max_width_chars: 25,
++            ellipsize: Pango.EllipsizeMode.END,
++        });
++        this.bind_property('name', label, 'label',
++            GObject.BindingFlags.SYNC_CREATE);
++        box.append(label);
++
++        const button = new Gtk.Button({
++            action_name: 'workspaces.remove',
++            action_target: new GLib.Variant('s', name),
++            icon_name: 'edit-delete-symbolic',
++        });
++        box.append(button);
++
++        this._entry = new Gtk.Entry({
++            max_width_chars: 25,
++        });
++
++        this._stack = new Gtk.Stack();
++        this._stack.add_named(box, 'display');
++        this._stack.add_named(this._entry, 'edit');
++        this.child = this._stack;
++
++        this._entry.connect('activate', () => {
++            this.name = this._entry.text;
++            this._stopEdit();
++        });
++        this._entry.connect('notify::has-focus', () => {
++            if (this._entry.has_focus)
++                return;
++            this._stopEdit();
++        });
++
++        this.connect('notify::name', () => {
++            button.action_target = new GLib.Variant('s', this.name);
++            this.activate_action('workspaces.update', null);
++        });
++    }
++
++    edit() {
++        this._entry.text = this.name;
++        this._entry.grab_focus();
++        this._stack.visible_child_name = 'edit';
++    }
++
++    _stopEdit() {
++        this.grab_focus();
++        this._stack.visible_child_name = 'display';
++    }
++});
++
++const NewWorkspaceRow = GObject.registerClass(
++class NewWorkspaceRow extends Gtk.ListBoxRow {
++    _init() {
++        super._init({
++            action_name: 'workspaces.add',
++            child: new Gtk.Image({
++                icon_name: 'list-add-symbolic',
++                pixel_size: 16,
++                margin_top: 12,
++                margin_bottom: 12,
++                margin_start: 12,
++                margin_end: 12,
++            }),
++        });
++        this.update_property(
++            [Gtk.AccessibleProperty.LABEL], [_('Add Workspace')]);
++    }
++});
+diff --git a/po/POTFILES.in b/po/POTFILES.in
+index 4d551780..1fb8f17a 100644
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -17,6 +17,6 @@ extensions/window-list/org.gnome.shell.extensions.window-list.gschema.xml
+ extensions/window-list/prefs.js
+ extensions/window-list/workspaceIndicator.js
+ extensions/windowsNavigator/extension.js
+-extensions/workspace-indicator/prefs.js
+ extensions/workspace-indicator/schemas/org.gnome.shell.extensions.workspace-indicator.gschema.xml
+ extensions/workspace-indicator/workspaceIndicator.js
++extensions/workspace-indicator/workspacePrefs.js
+-- 
+2.50.0
+
+
+From 96c95e0114fa158237d7f16c71b314bea30946a1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 11 Oct 2024 12:13:05 +0200
+Subject: [PATCH 03/19] workspace-indicator: Don't mention "top bar" in prefs
+
+The preferences will be shared with the window-list extension,
+so avoid mentioning a specific placement.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/344>
+---
+ extensions/workspace-indicator/workspacePrefs.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/extensions/workspace-indicator/workspacePrefs.js b/extensions/workspace-indicator/workspacePrefs.js
+index 5691996d..77c333f1 100644
+--- a/extensions/workspace-indicator/workspacePrefs.js
++++ b/extensions/workspace-indicator/workspacePrefs.js
+@@ -27,7 +27,7 @@ class GeneralGroup extends Gtk.Box {
+         this.append(row);
+ 
+         row.append(new Gtk.Label({
+-            label: _('Show Previews In Top Bar'),
++            label: _('Show Previews'),
+         }));
+ 
+         const sw = new Gtk.Switch({
+-- 
+2.50.0
+
+
+From 5012e5e2b758f389b6ccfdd24a281b00ca900060 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 11 Oct 2024 12:45:54 +0200
+Subject: [PATCH 04/19] window-list: Remove workspace-previews setting from
+ prefs
+
+We are about to include the workspace prefs page from the
+workspace-indicator extension, which already includes
+the setting.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/344>
+---
+ extensions/window-list/prefs.js | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/extensions/window-list/prefs.js b/extensions/window-list/prefs.js
+index 79cd1355..e35990ff 100644
+--- a/extensions/window-list/prefs.js
++++ b/extensions/window-list/prefs.js
+@@ -102,12 +102,6 @@ class WindowListPrefsWidget extends Gtk.Box {
+         });
+         this._settings.bind('display-all-workspaces', check, 'active', Gio.SettingsBindFlags.DEFAULT);
+         this.append(check);
+-
+-        check = new Gtk.CheckButton({
+-            label: _('Show workspace previews'),
+-        });
+-        this._settings.bind('embed-previews', check, 'active', Gio.SettingsBindFlags.DEFAULT);
+-        this.append(check);
+     }
+ });
+ 
+-- 
+2.50.0
+
+
+From fdfd486005be35f4bf43bb37992dea281618edec Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sun, 29 Jun 2025 23:49:15 +0200
+Subject: [PATCH 05/19] window-list: Add workspaces page to prefs
+
+This brings back the workspace-previews setting, and adds the
+ability to change the workspace names.
+
+Given that those names are used as tooltips or preview titles,
+it makes sense to allow editing them from the extension prefs
+rather than relying on external tools (like dconf-editor).
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/344>
+---
+ extensions/window-list/meson.build |  1 +
+ extensions/window-list/prefs.js    | 28 ++++++++++++++++++++++++++--
+ 2 files changed, 27 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/window-list/meson.build b/extensions/window-list/meson.build
+index 12d2b174..c4485965 100644
+--- a/extensions/window-list/meson.build
++++ b/extensions/window-list/meson.build
+@@ -30,6 +30,7 @@ workspaceIndicatorSources = [
+    command: transform_stylesheet,
+    capture: true,
+  ),
++ files('../workspace-indicator/workspacePrefs.js'),
+ ]
+ 
+ extension_sources += files('prefs.js', 'windowPicker.js') + workspaceIndicatorSources
+diff --git a/extensions/window-list/prefs.js b/extensions/window-list/prefs.js
+index e35990ff..f1ce4bb7 100644
+--- a/extensions/window-list/prefs.js
++++ b/extensions/window-list/prefs.js
+@@ -9,13 +9,14 @@ const Me = ExtensionUtils.getCurrentExtension();
+ const Gettext = imports.gettext.domain(Me.metadata['gettext-domain']);
+ const _ = Gettext.gettext;
+ 
++const { WorkspacesPage } = Me.imports.workspacePrefs;
+ 
+ function init() {
+     ExtensionUtils.initTranslations();
+ }
+ 
+-const WindowListPrefsWidget = GObject.registerClass(
+-class WindowListPrefsWidget extends Gtk.Box {
++const WindowListPage = GObject.registerClass(
++class WindowListPage extends Gtk.Box {
+     _init() {
+         super._init({
+             orientation: Gtk.Orientation.VERTICAL,
+@@ -105,6 +106,29 @@ class WindowListPrefsWidget extends Gtk.Box {
+     }
+ });
+ 
++const WindowListPrefsWidget = GObject.registerClass(
++class WindowListPrefsWidget extends Gtk.Box {
++    _init() {
++        super._init({
++            orientation: Gtk.Orientation.VERTICAL,
++            spacing: 6,
++        });
++
++        const stack = new Gtk.Stack();
++        const stackSwitcher = new Gtk.StackSwitcher({
++            stack,
++            margin_top: 12,
++            halign: Gtk.Align.CENTER,
++        });
++
++        this.append(stackSwitcher);
++        this.append(stack);
++
++        stack.add_titled(new WindowListPage(), 'window-list', _('Window List'));
++        stack.add_titled(new WorkspacesPage(), 'workspaces', _('Workspaces'));
++    }
++});
++
+ function buildPrefsWidget() {
+     return new WindowListPrefsWidget();
+ }
+-- 
+2.50.0
+
+
+From cd0b7ee2ca454244f8171e9120c3ea1ff3bfdd51 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 22 May 2025 16:31:57 +0200
+Subject: [PATCH 06/19] workspace-indicator: Remove left-over variable
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ extensions/workspace-indicator/workspaceIndicator.js | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index f70dcaf7..5a5dba2f 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -470,8 +470,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._thumbnails = new WorkspacePreviews();
+         container.add_child(this._thumbnails);
+ 
+-        this._workspacesItems = [];
+-
+         this._workspaceManagerSignals = [
+             workspaceManager.connect_after('workspace-switched',
+                 this._onWorkspaceSwitched.bind(this)),
+-- 
+2.50.0
+
+
+From cd725aaa4cba84ae3e779307e681a8551106ed19 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 22 May 2025 16:27:57 +0200
+Subject: [PATCH 07/19] workspace-indicator: Split out WorkspacesMenu
+
+The menu currently only contains the previews without any logic
+on its own. This is about to change, so split the menu into a
+separate class.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ .../workspace-indicator/workspaceIndicator.js | 21 ++++++++++---------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 5a5dba2f..7e6b9cce 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -435,6 +435,16 @@ const WorkspacePreviews = GObject.registerClass({
+     }
+ });
+ 
++class WorkspacesMenu extends PopupMenu.PopupMenu {
++    constructor(sourceActor) {
++        super(sourceActor, 0.5, St.Side.TOP);
++
++        const previews = new WorkspacePreviews({show_labels: true});
++        this.box.add_child(previews);
++        this.actor.add_style_class_name(`${baseStyleClassName}-menu`);
++    }
++}
++
+ var WorkspaceIndicator = GObject.registerClass(
+ class WorkspaceIndicator extends PanelMenu.Button {
+     _init(params = {}) {
+@@ -511,7 +521,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._thumbnails.visible = !useMenu;
+ 
+         this.setMenu(useMenu
+-            ? this._createPreviewMenu()
++            ? new WorkspacesMenu(this)
+             : null);
+ 
+         this._updateTopBarRedirect();
+@@ -538,13 +548,4 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         const current = this._currentWorkspace + 1;
+         return `${current} / ${nWorkspaces}`;
+     }
+-
+-    _createPreviewMenu() {
+-        const menu = new PopupMenu.PopupMenu(this, 0.5, St.Side.TOP);
+-
+-        const previews = new WorkspacePreviews({show_labels: true});
+-        menu.box.add_child(previews);
+-        menu.actor.add_style_class_name(`${baseStyleClassName}-menu`);
+-        return menu;
+-    }
+ });
+-- 
+2.50.0
+
+
+From 8b3ad4561dd1ce86e3575b1184dc8a6f15249c5c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 22 May 2025 18:53:20 +0200
+Subject: [PATCH 08/19] workspace-indicator: Add back plain workspaces menu
+
+Unlike in the top bar, the previews in the menu were not too
+successful. Change back to a regular menu with a list of workspace
+names.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ .../workspace-indicator/stylesheet-dark.css   | 20 ------
+ .../workspace-indicator/workspaceIndicator.js | 72 ++++++++++++++++++-
+ 2 files changed, 70 insertions(+), 22 deletions(-)
+
+diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
+index 872c6afc..d9bc65b1 100644
+--- a/extensions/workspace-indicator/stylesheet-dark.css
++++ b/extensions/workspace-indicator/stylesheet-dark.css
+@@ -6,19 +6,10 @@
+   -st-hfade-offset: 20px;
+ }
+ 
+-.workspace-indicator-menu .workspaces-view {
+-  max-width: 480px;
+-}
+-
+ .workspace-indicator .workspaces-box {
+   spacing: 3px;
+ }
+ 
+-.workspace-indicator-menu .workspaces-box {
+-  padding: 5px;
+-  spacing: 6px;
+-}
+-
+ .workspace-indicator .workspace-box {
+   padding-top: 5px;
+   padding-bottom: 5px;
+@@ -33,11 +24,6 @@
+   padding-right: 5px;
+ }
+ 
+-.workspace-indicator-menu .workspace-box {
+-  spacing: 6px;
+-}
+-
+-.workspace-indicator-menu .workspace,
+ .workspace-indicator .workspace {
+   border: 1px solid transparent;
+   border-radius: 4px;
+@@ -48,12 +34,6 @@
+   width: 52px;
+ }
+ 
+-.workspace-indicator-menu .workspace {
+-  height: 80px;
+-  width: 160px;
+-}
+-
+-.workspace-indicator-menu .workspace.active,
+ .workspace-indicator .workspace.active {
+   border-color: #fff;
+ }
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 7e6b9cce..ebe92363 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -439,9 +439,77 @@ class WorkspacesMenu extends PopupMenu.PopupMenu {
+     constructor(sourceActor) {
+         super(sourceActor, 0.5, St.Side.TOP);
+ 
+-        const previews = new WorkspacePreviews({show_labels: true});
+-        this.box.add_child(previews);
+         this.actor.add_style_class_name(`${baseStyleClassName}-menu`);
++        this.actor.connect('destroy', () => this._onDestroy());
++
++        this._workspacesSection = new PopupMenu.PopupMenuSection();
++        this.addMenuItem(this._workspacesSection);
++
++        this.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
++
++        this.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
++
++        this._desktopSettings =
++            new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'});
++        this._workspaceNamesChangedId =
++            this._desktopSettings.connect('changed::workspace-names',
++                () => this._updateWorkspaceLabels());
++
++        const {workspaceManager} = global;
++        this._workspaceManagerSignals = [
++            workspaceManager.connect('notify::n-workspaces',
++                () => this._updateWorkspaceItems()),
++            workspaceManager.connect('workspace-switched',
++                () => this._updateActiveIndicator()),
++        ];
++        this._updateWorkspaceItems();
++    }
++
++    _updateWorkspaceItems() {
++        const {workspaceManager} = global;
++        const {nWorkspaces} = workspaceManager;
++
++        const section = this._workspacesSection.actor;
++        while (section.get_n_children() < nWorkspaces) {
++            const item = new PopupMenu.PopupMenuItem('');
++            item.connect('activate', (o, event) => {
++                const index = [...section].indexOf(item);
++                const workspace = workspaceManager.get_workspace_by_index(index);
++                workspace?.activate(event.get_time());
++            });
++            this._workspacesSection.addMenuItem(item);
++        }
++
++        [...section].splice(nWorkspaces).forEach(item => item.destroy());
++
++        this._updateWorkspaceLabels();
++        this._updateActiveIndicator();
++    }
++
++    _updateWorkspaceLabels() {
++        const items = [...this._workspacesSection.actor];
++        items.forEach(
++            (item, i) => (item.label.text = Meta.prefs_get_workspace_name(i)));
++    }
++
++    _updateActiveIndicator() {
++        const {workspaceManager} = global;
++        const active = workspaceManager.get_active_workspace_index();
++
++        const items = [...this._workspacesSection.actor];
++        items.forEach((item, i) => {
++            item.setOrnament(i === active
++                ? PopupMenu.Ornament.CHECK
++                : PopupMenu.Ornament.NONE);
++        });
++    }
++
++    _onDestroy() {
++        for (const id of this._workspaceManagerSignals)
++            global.workspace_manager.disconnect(id);
++
++        this._desktopSettings.disconnect(this._workspaceNamesChangedId);
++        this._desktopSettings = null;
+     }
+ }
+ 
+-- 
+2.50.0
+
+
+From 1072bf3d6652b67e311a30c3e3592e2ea9410990 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 22 May 2025 19:00:23 +0200
+Subject: [PATCH 09/19] workspace-indicator: Remove preview labels
+
+Previews are no longer used in the menu, so they are never
+shown with labels.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ .../workspace-indicator/workspaceIndicator.js | 36 ++-----------------
+ 1 file changed, 2 insertions(+), 34 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index ebe92363..54912746 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -122,10 +122,6 @@ const WorkspaceThumbnail = GObject.registerClass({
+             'active', '', '',
+             GObject.ParamFlags.READWRITE,
+             false),
+-        'show-label': GObject.ParamSpec.boolean(
+-            'show-label', '', '',
+-            GObject.ParamFlags.READWRITE,
+-            false),
+     },
+ }, class WorkspaceThumbnail extends St.Button {
+     _init(index) {
+@@ -150,32 +146,15 @@ const WorkspaceThumbnail = GObject.registerClass({
+         });
+         box.add_child(this._preview);
+ 
+-        this._label = new St.Label({
+-            x_align: Clutter.ActorAlign.CENTER,
+-            text: Meta.prefs_get_workspace_name(index),
+-        });
+-        box.add_child(this._label);
+-
+         this._tooltip = new St.Label({
+             style_class: 'dash-label',
+             visible: false,
+         });
+         Main.uiGroup.add_child(this._tooltip);
+ 
+-        this.bind_property('show-label',
+-            this._label, 'visible',
+-            GObject.BindingFlags.SYNC_CREATE);
+-
+         this.connect('destroy', this._onDestroy.bind(this));
+         this.connect('notify::hover', this._syncTooltip.bind(this));
+ 
+-        this._desktopSettings =
+-            new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'});
+-        this._namesChangedId =
+-            this._desktopSettings.connect('changed::workspace-names', () => {
+-                this._label.text = Meta.prefs_get_workspace_name(index);
+-            });
+-
+         this._index = index;
+         this._delegate = this; // needed for DND
+ 
+@@ -273,9 +252,6 @@ const WorkspaceThumbnail = GObject.registerClass({
+     }
+ 
+     _syncTooltip() {
+-        if (this.showLabel)
+-            return;
+-
+         if (this.hover) {
+             this._tooltip.set({
+                 text: Meta.prefs_get_workspace_name(this._index),
+@@ -312,9 +288,6 @@ const WorkspaceThumbnail = GObject.registerClass({
+         this._workspace.disconnect(this._windowAddedId);
+         this._workspace.disconnect(this._windowRemovedId);
+         global.display.disconnect(this._restackedId);
+-
+-        this._desktopSettings.disconnect(this._namesChangedId);
+-        this._desktopSettings = null;
+     }
+ });
+ 
+@@ -376,13 +349,8 @@ const WorkspacePreviews = GObject.registerClass({
+ 
+         this._thumbnailsBox.destroy_all_children();
+ 
+-        for (let i = 0; i < nWorkspaces; i++) {
+-            const thumb = new WorkspaceThumbnail(i);
+-            this.bind_property('show-labels',
+-                thumb, 'show-label',
+-                GObject.BindingFlags.SYNC_CREATE);
+-            this._thumbnailsBox.add_child(thumb);
+-        }
++        for (let i = 0; i < nWorkspaces; i++)
++            this._thumbnailsBox.add_child(new WorkspaceThumbnail(i));
+ 
+         if (this.mapped)
+             this._updateScrollPosition();
+-- 
+2.50.0
+
+
+From a8aae63fc91f1ac5494f7ac8685d4f0fb39b4658 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 28 May 2025 02:16:33 +0200
+Subject: [PATCH 10/19] workspace-indicator: Include menu with previews
+
+The menu is currently only used when previews are disabled. But
+as we are going to use the menu for changing workspace names, it
+should be always available. So add it unconditionally, and show
+it on right-click when using previews.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ .../workspace-indicator/stylesheet-dark.css   |  5 ++++
+ .../workspace-indicator/workspaceIndicator.js | 25 +++++++++++++------
+ 2 files changed, 23 insertions(+), 7 deletions(-)
+
+diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
+index d9bc65b1..1ca929f9 100644
+--- a/extensions/workspace-indicator/stylesheet-dark.css
++++ b/extensions/workspace-indicator/stylesheet-dark.css
+@@ -1,3 +1,8 @@
++.workspace-indicator.previews:active {
++  background-color: none !important;
++  box-shadow: none !important;
++}
++
+ .workspace-indicator .status-label {
+   padding: 0 8px;
+ }
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 54912746..ca4466cc 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -496,6 +496,8 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         baseStyleClassName = baseStyleClass;
+         this.add_style_class_name(baseStyleClassName);
+ 
++        this.setMenu(new WorkspacesMenu(this));
++
+         let container = new St.Widget({
+             layout_manager: new Clutter.BinLayout(),
+             x_expand: true,
+@@ -516,6 +518,14 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._thumbnails = new WorkspacePreviews();
+         container.add_child(this._thumbnails);
+ 
++        this._thumbnails.connect('button-press-event', (a, event) => {
++            if (event.get_button() !== Clutter.BUTTON_SECONDARY)
++                return Clutter.EVENT_PROPAGATE;
++
++            this.menu.toggle();
++            return Clutter.EVENT_STOP;
++        });
++
+         this._workspaceManagerSignals = [
+             workspaceManager.connect_after('workspace-switched',
+                 this._onWorkspaceSwitched.bind(this)),
+@@ -550,15 +560,16 @@ class WorkspaceIndicator extends PanelMenu.Button {
+     }
+ 
+     _updateThumbnailVisibility() {
+-        const useMenu = !this._settings.get_boolean('embed-previews');
+-        this.reactive = useMenu;
++        const usePreviews = this._settings.get_boolean('embed-previews');
++        this.reactive = !usePreviews;
+ 
+-        this._statusLabel.visible = useMenu;
+-        this._thumbnails.visible = !useMenu;
++        this._thumbnails.visible = usePreviews;
++        this._statusLabel.visible = !usePreviews;
+ 
+-        this.setMenu(useMenu
+-            ? new WorkspacesMenu(this)
+-            : null);
++        if (usePreviews)
++            this.add_style_class_name('previews');
++        else
++            this.remove_style_class_name('previews');
+ 
+         this._updateTopBarRedirect();
+     }
+-- 
+2.50.0
+
+
+From 8548119bca73b1dbf7f5e5e3c850e0b4af03f729 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 29 May 2025 14:53:37 +0200
+Subject: [PATCH 11/19] workspace-indicator: Expose active workspace name on
+ menu
+
+When not using previews, we currently use a numerical presentation
+like "1 / 4" for the top bar button. We will change that to use
+the active workspace name instead.
+
+As the menu already has to track workspace switches and name changes,
+expose the active workspace name there, so that the button doesn't
+have to duplicate the tracking.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ .../workspace-indicator/workspaceIndicator.js       | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index ca4466cc..8e22e6b1 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -420,8 +420,10 @@ class WorkspacesMenu extends PopupMenu.PopupMenu {
+         this._desktopSettings =
+             new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'});
+         this._workspaceNamesChangedId =
+-            this._desktopSettings.connect('changed::workspace-names',
+-                () => this._updateWorkspaceLabels());
++            this._desktopSettings.connect('changed::workspace-names', () => {
++                this._updateWorkspaceLabels();
++                this.emit('active-name-changed');
++            });
+ 
+         const {workspaceManager} = global;
+         this._workspaceManagerSignals = [
+@@ -433,6 +435,12 @@ class WorkspacesMenu extends PopupMenu.PopupMenu {
+         this._updateWorkspaceItems();
+     }
+ 
++    get activeName() {
++        const {workspaceManager} = global;
++        const active = workspaceManager.get_active_workspace_index();
++        return Meta.prefs_get_workspace_name(active);
++    }
++
+     _updateWorkspaceItems() {
+         const {workspaceManager} = global;
+         const {nWorkspaces} = workspaceManager;
+@@ -470,6 +478,7 @@ class WorkspacesMenu extends PopupMenu.PopupMenu {
+                 ? PopupMenu.Ornament.CHECK
+                 : PopupMenu.Ornament.NONE);
+         });
++        this.emit('active-name-changed');
+     }
+ 
+     _onDestroy() {
+-- 
+2.50.0
+
+
+From 1d176bb2cce5dd4d89a316846fb2125b8373493e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 22 May 2025 20:59:58 +0200
+Subject: [PATCH 12/19] workspace-indicator: Show full name when using menu
+
+With workspace names becoming a more prominent feature, it makes
+sense to expose them without opening the menu.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ .../workspace-indicator/stylesheet-dark.css   |  8 +++++
+ .../workspace-indicator/workspaceIndicator.js | 34 +++++++------------
+ 2 files changed, 21 insertions(+), 21 deletions(-)
+
+diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
+index 1ca929f9..d35a5dfc 100644
+--- a/extensions/workspace-indicator/stylesheet-dark.css
++++ b/extensions/workspace-indicator/stylesheet-dark.css
+@@ -4,8 +4,16 @@
+ }
+ 
+ .workspace-indicator .status-label {
++  width: 8em;
+   padding: 0 8px;
+ }
++.workspace-indicator .status-label:ltr { padding-right: 4px; }
++.workspace-indicator .status-label:rtl { padding-left: 4px; }
++
++.workspace-indicator .system-status-icon {
++  padding: 0 !important;
++  margin: 0 !important;
++}
+ 
+ .workspace-indicator .workspaces-view.hfade {
+   -st-hfade-offset: 20px;
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 8e22e6b1..ced16256 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -514,15 +514,23 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         });
+         this.add_child(container);
+ 
+-        let workspaceManager = global.workspace_manager;
++        this._statusBox = new St.BoxLayout();
++        container.add_child(this._statusBox);
+ 
+-        this._currentWorkspace = workspaceManager.get_active_workspace_index();
+         this._statusLabel = new St.Label({
+             style_class: 'status-label',
++            x_expand: true,
+             y_align: Clutter.ActorAlign.CENTER,
+-            text: this._getStatusText(),
++            text: this.menu.activeName,
+         });
+-        container.add_child(this._statusLabel);
++        this._statusBox.add_child(this._statusLabel);
++        this._statusBox.add_child(new St.Icon({
++            icon_name: 'pan-down-symbolic',
++            style_class: 'system-status-icon',
++        }));
++
++        this.menu.connect('active-name-changed',
++            () => this._statusLabel.set_text(this.menu.activeName));
+ 
+         this._thumbnails = new WorkspacePreviews();
+         container.add_child(this._thumbnails);
+@@ -535,11 +543,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             return Clutter.EVENT_STOP;
+         });
+ 
+-        this._workspaceManagerSignals = [
+-            workspaceManager.connect_after('workspace-switched',
+-                this._onWorkspaceSwitched.bind(this)),
+-        ];
+-
+         this.connect('scroll-event',
+             (a, event) => Main.wm.handleWorkspaceScroll(event));
+ 
+@@ -573,7 +576,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this.reactive = !usePreviews;
+ 
+         this._thumbnails.visible = usePreviews;
+-        this._statusLabel.visible = !usePreviews;
++        this._statusBox.visible = !usePreviews;
+ 
+         if (usePreviews)
+             this.add_style_class_name('previews');
+@@ -593,15 +596,4 @@ class WorkspaceIndicator extends PanelMenu.Button {
+             ? Clutter.OffscreenRedirect.ALWAYS
+             : Clutter.OffscreenRedirect.AUTOMATIC_FOR_OPACITY);
+     }
+-
+-    _onWorkspaceSwitched() {
+-        this._currentWorkspace = global.workspace_manager.get_active_workspace_index();
+-        this._statusLabel.set_text(this._getStatusText());
+-    }
+-
+-    _getStatusText() {
+-        const {nWorkspaces} = global.workspace_manager;
+-        const current = this._currentWorkspace + 1;
+-        return `${current} / ${nWorkspaces}`;
+-    }
+ });
+-- 
+2.50.0
+
+
+From 9951956a6e17772bf9fd9e9ca470493b6707b7a5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Mon, 9 Jun 2025 18:10:14 +0200
+Subject: [PATCH 13/19] workspace-indicator: Add background when using name
+ label
+
+Panel buttons are flat, so the name+arrow are not immediately
+recognizable as a single control. Address this by adding a
+background to the button when using the name label.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ extensions/workspace-indicator/stylesheet-dark.css | 14 ++++++++++++++
+ .../workspace-indicator/stylesheet-light.css       | 14 ++++++++++++++
+ .../workspace-indicator/workspaceIndicator.js      |  7 +++++--
+ 3 files changed, 33 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
+index d35a5dfc..f1f9ec8f 100644
+--- a/extensions/workspace-indicator/stylesheet-dark.css
++++ b/extensions/workspace-indicator/stylesheet-dark.css
+@@ -3,6 +3,20 @@
+   box-shadow: none !important;
+ }
+ 
++.workspace-indicator.name-label {
++  box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.17) !important;
++}
++.workspace-indicator.name-label:hover,
++.workspace-indicator.name-label:focus {
++  box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.28) !important;
++}
++.workspace-indicator.name-label:active {
++  box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.32) !important;
++}
++.workspace-indicator.name-label:active:hover {
++  box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.36) !important;
++}
++
+ .workspace-indicator .status-label {
+   width: 8em;
+   padding: 0 8px;
+diff --git a/extensions/workspace-indicator/stylesheet-light.css b/extensions/workspace-indicator/stylesheet-light.css
+index 049b6a38..5191923c 100644
+--- a/extensions/workspace-indicator/stylesheet-light.css
++++ b/extensions/workspace-indicator/stylesheet-light.css
+@@ -7,6 +7,20 @@
+ 
+ @import url("stylesheet-dark.css");
+ 
++.workspace-indicator.name-label {
++  box-shadow: inset 0 0 0 100px rgba(34, 34, 38, 0.17) !important;
++}
++.workspace-indicator.name-label:hover,
++.workspace-indicator.name-label:focus {
++  box-shadow: inset 0 0 0 100px rgba(34, 34, 38, 0.28) !important;
++}
++.workspace-indicator.name-label:active {
++  box-shadow: inset 0 0 0 100px rgba(34, 34, 38, 0.32) !important;
++}
++.workspace-indicator.name-label:active:hover {
++  box-shadow: inset 0 0 0 100px rgba(34, 34, 38, 0.36) !important;
++}
++
+ .workspace-indicator .workspace {
+   background-color: #ccc;
+ }
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index ced16256..11ae9f5f 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -578,10 +578,13 @@ class WorkspaceIndicator extends PanelMenu.Button {
+         this._thumbnails.visible = usePreviews;
+         this._statusBox.visible = !usePreviews;
+ 
+-        if (usePreviews)
++        if (usePreviews) {
+             this.add_style_class_name('previews');
+-        else
++            this.remove_style_class_name('name-label');
++        } else {
+             this.remove_style_class_name('previews');
++            this.add_style_class_name('name-label');
++        }
+ 
+         this._updateTopBarRedirect();
+     }
+-- 
+2.50.0
+
+
+From 8b60e81922f6b9ee6ac48bc63226e082e482b3fd Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 22 May 2025 21:07:08 +0200
+Subject: [PATCH 14/19] workspace-indicator: Reimplement some libadwaita prefs
+ widgets
+
+Upstream now makes more use of libawaita, so reimplement the API we
+need to make backporting a bit less painful.
+---
+ .../workspace-indicator/workspacePrefs.js     | 238 ++++++++++++++++++
+ 1 file changed, 238 insertions(+)
+
+diff --git a/extensions/workspace-indicator/workspacePrefs.js b/extensions/workspace-indicator/workspacePrefs.js
+index 77c333f1..871bbf0c 100644
+--- a/extensions/workspace-indicator/workspacePrefs.js
++++ b/extensions/workspace-indicator/workspacePrefs.js
+@@ -16,6 +16,244 @@ const N_ = e => e;
+ const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
+ const WORKSPACE_KEY = 'workspace-names';
+ 
++const PreferencesGroup = GObject.registerClass({
++    Properties: {
++        'title': GObject.ParamSpec.string(
++            'title', '', '',
++            GObject.ParamFlags.READWRITE,
++            null),
++    },
++}, class PreferencesGroup extends Gtk.Box {
++    _init(params) {
++        super._init({
++            ...params,
++            orientation: Gtk.Orientation.VERTICAL,
++        });
++
++        const titleLabel = new Gtk.Label({
++            halign: Gtk.Align.START,
++        });
++        titleLabel.add_css_class('heading');
++
++        this.bind_property('title',
++            titleLabel, 'label',
++            GObject.BindingFlags.SYNC_CREATE);
++        this.append(titleLabel);
++
++        this._list = new Gtk.ListBox({
++            selection_mode: Gtk.SelectionMode.NONE,
++            valign: Gtk.Align.START,
++            show_separators: true,
++        });
++        this._list.add_css_class('boxed-list');
++        this.append(this._list);
++
++        this._list.connect('row-activated',
++            (l, row) => row.activate());
++    }
++
++    get title() {
++        return this._title || '';
++    }
++
++    set title(title) {
++        if (this._title === title)
++            return;
++
++        this._title = title;
++        this.notify('title');
++    }
++
++    add(child) {
++        this._list.append(child);
++    }
++
++    remove(child) {
++        this._list.remove(child);
++    }
++});
++
++const ActionRow = GObject.registerClass({
++    Properties: {
++        'title': GObject.ParamSpec.string(
++            'title', '', '',
++            GObject.ParamFlags.READWRITE,
++            null),
++        'subtitle': GObject.ParamSpec.string(
++            'subtitle', '', '',
++            GObject.ParamFlags.READWRITE,
++            null),
++        'activatable-widget': GObject.ParamSpec.object(
++            'activatable-widget', '', '',
++            GObject.ParamFlags.READWRITE,
++            Gtk.Widget),
++    },
++}, class ActionRow extends Gtk.ListBoxRow {
++    _init(params) {
++        super._init(params);
++
++        const provider = new Gtk.CssProvider();
++        provider.load_from_data(`* {
++            border-spacing: 6px 6px;
++            min-height: 40px;
++            margin-left: 12px;
++            margin-right: 12px;
++        }`, -1);
++
++        const mainBox = new Gtk.Box({
++            valign: Gtk.Align.CENTER,
++            hexpand: false,
++        });
++        mainBox.get_style_context().add_provider(provider,
++            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
++        this.set_child(mainBox);
++
++        this._prefixes = new Gtk.Box({
++            visible: false,
++        });
++        mainBox.append(this._prefixes);
++
++        const titleBox = new Gtk.Box({
++            orientation: Gtk.Orientation.VERTICAL,
++            valign: Gtk.Align.CENTER,
++            hexpand: true,
++        });
++        mainBox.append(titleBox);
++
++        this._suffixes = new Gtk.Box({
++            visible: false,
++        });
++        mainBox.append(this._suffixes);
++
++        const titleLabel = new Gtk.Label({
++            lines: 0,
++            wrap: true,
++            wrap_mode: Pango.WrapMode.WORD_CHAR,
++            xalign: 0,
++        });
++
++        this.bind_property('title',
++            titleLabel, 'label',
++            GObject.BindingFlags.SYNC_CREATE);
++        titleBox.append(titleLabel);
++
++        const subtitleLabel = new Gtk.Label({
++            ellipsize: Pango.EllipsizeMode.NONE,
++            lines: 0,
++            wrap: true,
++            wrap_mode: Pango.WrapMode.WORD_CHAR,
++            xalign: 0,
++            visible: this.subtitle.length > 0,
++        });
++        subtitleLabel.add_css_class('dim-label');
++
++        this.bind_property('subtitle',
++            subtitleLabel, 'label',
++            GObject.BindingFlags.SYNC_CREATE);
++        titleBox.append(subtitleLabel);
++    }
++
++    get title() {
++        return this._title || '';
++    }
++
++    set title(title) {
++        if (this._title === title)
++            return;
++
++        this._title = title;
++        this.notify('title');
++    }
++
++    get subtitle() {
++        return this._subtitle || '';
++    }
++
++    set subtitle(subtitle) {
++        if (this._subtitle === subtitle)
++            return;
++
++        this._subtitle = subtitle;
++        this.notify('subtitle');
++    }
++
++    get activitable_widget() {
++        return this._activatableWidget;
++    }
++
++    set activatable_widget(widget) {
++        if (this._activatableWidget === widget)
++            return;
++
++        this._activatableWidget = widget;
++        this.notify('activatable-widget');
++    }
++
++    add_prefix(child) {
++        this._prefixes.append(child);
++        this._prefixes.set_visible(true);
++    }
++
++    add_suffix(child) {
++        this._suffixes.append(child);
++        this._suffixes.set_visible(true);
++    }
++
++    activate() {
++        if (this._activatableWidget)
++            this._activatableWidget.mnemonic_activate(false);
++    }
++});
++
++const SpinRow = GObject.registerClass({
++    Properties: {
++        'adjustment': GObject.ParamSpec.object(
++            'adjustment', '', '',
++            GObject.ParamFlags.READWRITE,
++            Gtk.Adjustment),
++        'value': GObject.ParamSpec.double(
++            'value', '', '',
++            GObject.ParamFlags.READWRITE,
++            -Infinity, Infinity, 0),
++    },
++}, class SpinRow extends ActionRow {
++    _init(params) {
++        this._spinButton = new Gtk.SpinButton({
++            valign: Gtk.Align.CENTER,
++            hexpand: true,
++            xalign: 1,
++        });
++        super._init(params);
++        this.add_suffix(this._spinButton);
++    }
++
++    get adjustment() {
++        return this._spinButton.get_adjustment();
++    }
++
++    set adjustment(adj) {
++        if (this.adjustment === adj)
++            return;
++
++        this._spinButton.set_adjustment(adj);
++        this.notify('adjustment');
++    }
++
++    get value() {
++        return this._spinButton.get_value();
++    }
++
++    set value(value) {
++        const EPSILON = 0.005;
++
++        if (Math.abs(this.value, value) < EPSILON)
++            return;
++
++        this._spinButton.set_value(value);
++        this.notify('value');
++    }
++});
++
+ const GeneralGroup = GObject.registerClass(
+ class GeneralGroup extends Gtk.Box {
+     _init() {
+-- 
+2.50.0
+
+
+From c621184851f590c4b7938a059724317783cdfe78 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Sun, 29 Jun 2025 21:26:40 +0200
+Subject: [PATCH 15/19] workspace-indicator: Refine preview settings
+
+Add a group title, and change the single switch row to radio rows
+to explicitly choose between "Previews" and "Workspace Name".
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ .../workspace-indicator/workspacePrefs.js     | 35 ++++++++++++-------
+ 1 file changed, 22 insertions(+), 13 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspacePrefs.js b/extensions/workspace-indicator/workspacePrefs.js
+index 871bbf0c..1f706dad 100644
+--- a/extensions/workspace-indicator/workspacePrefs.js
++++ b/extensions/workspace-indicator/workspacePrefs.js
+@@ -255,29 +255,38 @@ const SpinRow = GObject.registerClass({
+ });
+ 
+ const GeneralGroup = GObject.registerClass(
+-class GeneralGroup extends Gtk.Box {
++class GeneralGroup extends PreferencesGroup {
+     _init() {
+         super._init({
+-            orientation: Gtk.Orientation.VERTICAL,
++            title: _('Indicator'),
+         });
+ 
+-        const row = new Gtk.Box();
+-        this.append(row);
+-
+-        row.append(new Gtk.Label({
+-            label: _('Show Previews'),
+-        }));
++        const previewCheck = new Gtk.CheckButton();
++        const previewRow = new ActionRow({
++            title: _('Previews'),
++            activatable_widget: previewCheck,
++        });
++        previewRow.add_prefix(previewCheck);
++        this.add(previewRow);
+ 
+-        const sw = new Gtk.Switch({
+-            hexpand: true,
+-            halign: Gtk.Align.END,
++        const nameCheck = new Gtk.CheckButton({
++            group: previewCheck,
++        });
++        const nameRow = new ActionRow({
++            title: _('Workspace Name'),
++            activatable_widget: nameCheck,
+         });
+-        row.append(sw);
++        nameRow.add_prefix(nameCheck);
++        this.add(nameRow);
+ 
+         const settings = ExtensionUtils.getSettings();
++        if (settings.get_boolean('embed-previews'))
++            previewCheck.active = true;
++        else
++            nameCheck.active = true;
+ 
+         settings.bind('embed-previews',
+-            sw, 'active',
++            previewCheck, 'active',
+             Gio.SettingsBindFlags.DEFAULT);
+     }
+ });
+-- 
+2.50.0
+
+
+From 589abbc74cbbde57e4ad2f01084b01b7f828d01c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 22 May 2025 16:20:05 +0200
+Subject: [PATCH 16/19] workspace-indicator: Include workspace settings
+
+While the "Multitasking" panel in Settings already exposes workspace
+settings, it makes sense to expose them in our prefs dialog as well
+where they are more in context.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ .../workspace-indicator/workspacePrefs.js     | 67 +++++++++++++++++++
+ 1 file changed, 67 insertions(+)
+
+diff --git a/extensions/workspace-indicator/workspacePrefs.js b/extensions/workspace-indicator/workspacePrefs.js
+index 1f706dad..c5e311ef 100644
+--- a/extensions/workspace-indicator/workspacePrefs.js
++++ b/extensions/workspace-indicator/workspacePrefs.js
+@@ -291,6 +291,72 @@ class GeneralGroup extends PreferencesGroup {
+     }
+ });
+ 
++const BehaviorGroup = GObject.registerClass(
++class BehaviorGroup extends PreferencesGroup {
++    _init() {
++        super._init({
++            title: _('Behavior'),
++        });
++
++        const dynamicCheck = new Gtk.CheckButton();
++        const dynamicRow = new ActionRow({
++            title: _('Dynamic'),
++            subtitle: _('Automatically removes empty workspaces.'),
++            activatable_widget: dynamicCheck,
++        });
++        dynamicRow.add_prefix(dynamicCheck);
++        this.add(dynamicRow);
++
++        const fixedCheck = new Gtk.CheckButton({
++            group: dynamicCheck,
++        });
++        const fixedRow = new ActionRow({
++            title: _('Fixed Number'),
++            subtitle: _('Specify a number of permanent workspaces.'),
++            activatable_widget: fixedCheck,
++        });
++        fixedRow.add_prefix(fixedCheck);
++        this.add(fixedRow);
++
++        const adjustment = new Gtk.Adjustment({
++            lower: 1,
++            step_increment: 1,
++            value: 4,
++            upper: 36, // hard limit in mutter
++        });
++        const numRow = new SpinRow({
++            title: _('Number of Workspaces'),
++            adjustment,
++        });
++        this.add(numRow);
++
++        const mutterSettings = new Gio.Settings({
++            schema_id: 'org.gnome.mutter',
++        });
++
++        if (mutterSettings.get_boolean('dynamic-workspaces'))
++            dynamicCheck.active = true;
++        else
++            fixedCheck.active = true;
++
++        mutterSettings.bind('dynamic-workspaces',
++            dynamicCheck, 'active',
++            Gio.SettingsBindFlags.DEFAULT);
++
++        const desktopSettings = new Gio.Settings({
++            schema_id: 'org.gnome.desktop.wm.preferences',
++        });
++
++        desktopSettings.bind('num-workspaces',
++            numRow, 'value',
++            Gio.SettingsBindFlags.DEFAULT);
++
++        fixedCheck.bind_property('active',
++            numRow, 'sensitive',
++            GObject.BindingFlags.SYNC_CREATE);
++    }
++});
++
+ var WorkspacesPage = GObject.registerClass(
+ class WorkspacesPage extends Gtk.ScrolledWindow {
+     _init() {
+@@ -311,6 +377,7 @@ class WorkspacesPage extends Gtk.ScrolledWindow {
+         this.set_child(box);
+ 
+         box.append(new GeneralGroup());
++        box.append(new BehaviorGroup());
+ 
+         box.append(new Gtk.Label({
+             label: '<b>%s</b>'.format(_('Workspace Names')),
+-- 
+2.50.0
+
+
+From 6ca15a8289d3308d4bb87e55d48ebd25ad9807a1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 28 May 2025 21:01:08 +0200
+Subject: [PATCH 17/19] workspace-indicator: Allow changing workspace names
+ from menu
+
+Instead of requiring the user to open the prefs dialog to change
+workspace names, make the menu items themselves editable.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ .../workspace-indicator/stylesheet-dark.css   |  48 +++++++
+ .../workspace-indicator/stylesheet-light.css  |  16 +++
+ .../workspace-indicator/workspaceIndicator.js | 130 +++++++++++++++++-
+ 3 files changed, 192 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
+index f1f9ec8f..446c78de 100644
+--- a/extensions/workspace-indicator/stylesheet-dark.css
++++ b/extensions/workspace-indicator/stylesheet-dark.css
+@@ -74,3 +74,51 @@
+ .workspace-indicator-window-preview.active {
+   background-color: #d4d4d4;
+ }
++
++.workspace-indicator-menu {
++  min-width: 17em;
++}
++
++.workspace-indicator-menu .editable-menu-item.popup-menu-item {
++  padding: 3px 12px;
++}
++
++.workspace-indicator-menu .editable-menu-item .icon-button {
++  border-radius: 99px;
++  padding: 6px;
++}
++
++.workspace-indicator-menu .editable-menu-item .icon-button.flat {
++  background-color: transparent;
++}
++
++.workspace-indicator-menu .editable-menu-item .icon-button.flat:hover {
++  background-color: rgba(255, 255, 255, 0.1);
++}
++
++.workspace-indicator-menu .editable-menu-item .icon-button.flat:active {
++  background-color: rgba(255, 255, 255, 0.15);
++}
++
++.workspace-indicator-menu .editable-menu-item .icon-button.flat:checked {
++  color: white;
++  background-color: #3584e4;
++}
++
++.workspace-indicator-menu .editable-menu-item .icon-button.flat:checked:hover {
++  background-color: #629fea;
++}
++
++.workspace-indicator-menu .editable-menu-item .icon-button.flat:checked:active {
++  background-color: #78aded;
++}
++
++.workspace-indicator-menu .editable-menu-item .label {
++  padding: 0 11px;
++  width: 6.5em;
++}
++
++.workspace-indicator-menu .editable-menu-item .entry {
++  padding: 9px 9px;
++  width: 6.5em;
++}
+diff --git a/extensions/workspace-indicator/stylesheet-light.css b/extensions/workspace-indicator/stylesheet-light.css
+index 5191923c..e4f2b45a 100644
+--- a/extensions/workspace-indicator/stylesheet-light.css
++++ b/extensions/workspace-indicator/stylesheet-light.css
+@@ -37,3 +37,19 @@
+ .workspace-indicator-window-preview.active {
+   background-color: #f6f5f4;
+ }
++
++.workspace-indicator-menu .editable-menu-item .icon-button.flat:hover {
++  background-color: rgba(0, 0, 0, 0.1);
++}
++
++.workspace-indicator-menu .editable-menu-item .icon-button.flat:active {
++  background-color: rgba(0, 0, 0, 0.15);
++}
++
++.workspace-indicator-menu .editable-menu-item .icon-button.flat:checked:hover {
++  background-color: #1b6acb;
++}
++
++.workspace-indicator-menu .editable-menu-item .icon-button.flat:checked:active {
++  background-color: #185fb4;
++}
+diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
+index 11ae9f5f..4f374653 100644
+--- a/extensions/workspace-indicator/workspaceIndicator.js
++++ b/extensions/workspace-indicator/workspaceIndicator.js
+@@ -4,7 +4,7 @@
+ //
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+-const { Clutter, Gio, GObject, Meta, St } = imports.gi;
++const { Clutter, Gio, GObject, Meta, Shell, St } = imports.gi;
+ 
+ const ExtensionUtils = imports.misc.extensionUtils;
+ const Me = ExtensionUtils.getCurrentExtension();
+@@ -403,6 +403,125 @@ const WorkspacePreviews = GObject.registerClass({
+     }
+ });
+ 
++const EditableMenuItem = GObject.registerClass({
++    Signals: {
++        'edited': {},
++    },
++}, class EditableMenuItem extends PopupMenu.PopupBaseMenuItem {
++    _init() {
++        super._init({
++            style_class: 'editable-menu-item',
++        });
++        this.get_accessible()?.set_description(0,
++            _('Press %s to edit').format('e'));
++
++        this._ornamentLabel.y_align = Clutter.ActorAlign.CENTER;
++
++        const stack = new Shell.Stack({
++            x_expand: true,
++            x_align: Clutter.ActorAlign.START,
++        });
++        this.add_child(stack);
++
++        this.label = new St.Label({
++            style_class: 'label',
++            y_align: Clutter.ActorAlign.CENTER,
++        });
++        stack.add_child(this.label);
++        this.label_actor = this.label;
++
++        this._entry = new St.Entry({
++            style_class: 'entry',
++            opacity: 0,
++            reactive: false,
++        });
++        stack.add_child(this._entry);
++
++        this.label.bind_property('text',
++            this._entry, 'text',
++            GObject.BindingFlags.DEFAULT);
++
++        this._entry.clutter_text.connect('activate',
++            () => this._stopEditing());
++
++        this._editButton = new St.Button({
++            style_class: 'icon-button flat',
++            child: new St.Icon({
++                icon_name: 'document-edit-symbolic',
++                icon_size: 16,
++            }),
++            button_mask: St.ButtonMask.ONE,
++            toggle_mode: true,
++            x_align: Clutter.ActorAlign.END,
++            y_align: Clutter.ActorAlign.CENTER,
++        });
++        this.add_child(this._editButton);
++
++        this._editButton.connect('notify::checked', () => {
++            if (this._editButton.checked) {
++                this._editButton.child.icon_name = 'object-select-symbolic';
++                this._startEditing();
++            } else {
++                this._editButton.child.icon_name = 'document-edit-symbolic';
++                this._stopEditing();
++            }
++        });
++        this.connect('key-release-event', (o, event) => {
++            if (event.get_key_symbol() === Clutter.KEY_e)
++                this._editButton.checked = true;
++        });
++
++        this._keyFocusId = global.stage.connect('notify::key-focus', () => {
++            const {keyFocus} = global.stage;
++            if (!keyFocus || !this.contains(keyFocus))
++                this._stopEditing();
++        });
++
++        this.connect('destroy', () => {
++            global.stage.disconnect(this._keyFocusId);
++            delete this._keyFocusId;
++        });
++    }
++
++    _switchActor(from, to) {
++        to.reactive = true;
++        to.ease({
++            opacity: 255,
++            duration: 300,
++            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
++        });
++
++        from.ease({
++            opacity: 0,
++            duration: 300,
++            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
++            onComplete: () => {
++                from.reactive = false;
++            },
++        });
++    }
++
++    _startEditing() {
++        this._switchActor(this.label, this._entry);
++
++        this._entry.clutter_text.set_selection(0, -1);
++        this._entry.clutter_text.grab_key_focus();
++    }
++
++    _stopEditing() {
++        if (this.label.text !== this._entry.text) {
++            this.label.text = this._entry.text;
++            this.emit('edited');
++        }
++
++        if (this._editButton.checked)
++            this._editButton.checked = false;
++
++        this._switchActor(this._entry, this.label);
++        this.navigate_focus(this, St.DirectionType.TAB_FORWARD, false);
++    }
++});
++
+ class WorkspacesMenu extends PopupMenu.PopupMenu {
+     constructor(sourceActor) {
+         super(sourceActor, 0.5, St.Side.TOP);
+@@ -447,12 +566,19 @@ class WorkspacesMenu extends PopupMenu.PopupMenu {
+ 
+         const section = this._workspacesSection.actor;
+         while (section.get_n_children() < nWorkspaces) {
+-            const item = new PopupMenu.PopupMenuItem('');
++            const item = new EditableMenuItem();
+             item.connect('activate', (o, event) => {
+                 const index = [...section].indexOf(item);
+                 const workspace = workspaceManager.get_workspace_by_index(index);
+                 workspace?.activate(event.get_time());
+             });
++            item.connect('edited', () => {
++                const nLabels = section.get_n_children();
++                const oldNames = this._desktopSettings.get_strv('workspace-names');
++                const newNames = [...section].map(c => c.label.text);
++                this._desktopSettings.set_strv('workspace-names',
++                    [...newNames, ...oldNames.slice(nLabels)]);
++            });
+             this._workspacesSection.addMenuItem(item);
+         }
+ 
+-- 
+2.50.0
+
+
+From 67b4ea20adda268c05a037ae189b8ac55c8e1e2b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Wed, 28 May 2025 21:04:36 +0200
+Subject: [PATCH 18/19] workspace-indicator: Remove workspace names from prefs
+
+Now that names can be changed from the extension itself, we no
+longer need to expose them in the prefs dialog.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ .../workspace-indicator/workspacePrefs.js     | 183 +-----------------
+ 1 file changed, 1 insertion(+), 182 deletions(-)
+
+diff --git a/extensions/workspace-indicator/workspacePrefs.js b/extensions/workspace-indicator/workspacePrefs.js
+index c5e311ef..f638b93d 100644
+--- a/extensions/workspace-indicator/workspacePrefs.js
++++ b/extensions/workspace-indicator/workspacePrefs.js
+@@ -4,17 +4,13 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+ /* exported WorkspacesPage */
+-const { Gio, GLib, GObject, Gtk, Pango } = imports.gi;
++const { Gio, GObject, Gtk, Pango } = imports.gi;
+ 
+ const ExtensionUtils = imports.misc.extensionUtils;
+ const Me = ExtensionUtils.getCurrentExtension();
+ 
+ const Gettext = imports.gettext.domain(Me.metadata['gettext-domain']);
+ const _ = Gettext.gettext;
+-const N_ = e => e;
+-
+-const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
+-const WORKSPACE_KEY = 'workspace-names';
+ 
+ const PreferencesGroup = GObject.registerClass({
+     Properties: {
+@@ -378,182 +374,5 @@ class WorkspacesPage extends Gtk.ScrolledWindow {
+ 
+         box.append(new GeneralGroup());
+         box.append(new BehaviorGroup());
+-
+-        box.append(new Gtk.Label({
+-            label: '<b>%s</b>'.format(_('Workspace Names')),
+-            use_markup: true,
+-            halign: Gtk.Align.START,
+-        }));
+-
+-        this._list = new Gtk.ListBox({
+-            selection_mode: Gtk.SelectionMode.NONE,
+-            valign: Gtk.Align.START,
+-            show_separators: true,
+-        });
+-        this._list.connect('row-activated', (l, row) => row.edit());
+-        box.append(this._list);
+-
+-        const context = this._list.get_style_context();
+-        const cssProvider = new Gtk.CssProvider();
+-        cssProvider.load_from_data(
+-            'list { min-width: 25em; }', -1);
+-
+-        context.add_provider(cssProvider,
+-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+-        context.add_class('frame');
+-
+-        this._list.append(new NewWorkspaceRow());
+-
+-        this._actionGroup = new Gio.SimpleActionGroup();
+-        this._list.insert_action_group('workspaces', this._actionGroup);
+-
+-        let action;
+-        action = new Gio.SimpleAction({ name: 'add' });
+-        action.connect('activate', () => {
+-            const names = this._settings.get_strv(WORKSPACE_KEY);
+-            this._settings.set_strv(WORKSPACE_KEY, [
+-                ...names,
+-                _('Workspace %d').format(names.length + 1),
+-            ]);
+-        });
+-        this._actionGroup.add_action(action);
+-
+-        action = new Gio.SimpleAction({
+-            name: 'remove',
+-            parameter_type: new GLib.VariantType('s'),
+-        });
+-        action.connect('activate', (a, param) => {
+-            const removed = param.deepUnpack();
+-            this._settings.set_strv(WORKSPACE_KEY,
+-                this._settings.get_strv(WORKSPACE_KEY)
+-                    .filter(name => name !== removed));
+-        });
+-        this._actionGroup.add_action(action);
+-
+-        action = new Gio.SimpleAction({ name: 'update' });
+-        action.connect('activate', () => {
+-            const names = this._getWorkspaceRows().map(row => row.name);
+-            this._settings.set_strv(WORKSPACE_KEY, names);
+-        });
+-        this._actionGroup.add_action(action);
+-
+-        this._settings = new Gio.Settings({
+-            schema_id: WORKSPACE_SCHEMA,
+-        });
+-        this._settings.connect(`changed::${WORKSPACE_KEY}`,
+-            this._sync.bind(this));
+-        this._sync();
+-    }
+-
+-    _getWorkspaceRows() {
+-        return [...this._list].filter(row => row.name);
+-    }
+-
+-    _sync() {
+-        const rows = this._getWorkspaceRows();
+-
+-        const oldNames = rows.map(row => row.name);
+-        const newNames = this._settings.get_strv(WORKSPACE_KEY);
+-
+-        const removed = oldNames.filter(n => !newNames.includes(n));
+-        const added = newNames.filter(n => !oldNames.includes(n));
+-
+-        removed.forEach(n => this._list.remove(rows.find(r => r.name === n)));
+-        added.forEach(n => {
+-            this._list.insert(new WorkspaceRow(n), newNames.indexOf(n));
+-        });
+-    }
+-});
+-
+-const WorkspaceRow = GObject.registerClass(
+-class WorkspaceRow extends Gtk.ListBoxRow {
+-    _init(name) {
+-        super._init({ name });
+-
+-        const controller = new Gtk.ShortcutController();
+-        controller.add_shortcut(new Gtk.Shortcut({
+-            trigger: Gtk.ShortcutTrigger.parse_string('Escape'),
+-            action: Gtk.CallbackAction.new(this._stopEdit.bind(this)),
+-        }));
+-        this.add_controller(controller);
+-
+-        const box = new Gtk.Box({
+-            spacing: 12,
+-            margin_top: 6,
+-            margin_bottom: 6,
+-            margin_start: 6,
+-            margin_end: 6,
+-        });
+-
+-        const label = new Gtk.Label({
+-            hexpand: true,
+-            xalign: 0,
+-            max_width_chars: 25,
+-            ellipsize: Pango.EllipsizeMode.END,
+-        });
+-        this.bind_property('name', label, 'label',
+-            GObject.BindingFlags.SYNC_CREATE);
+-        box.append(label);
+-
+-        const button = new Gtk.Button({
+-            action_name: 'workspaces.remove',
+-            action_target: new GLib.Variant('s', name),
+-            icon_name: 'edit-delete-symbolic',
+-        });
+-        box.append(button);
+-
+-        this._entry = new Gtk.Entry({
+-            max_width_chars: 25,
+-        });
+-
+-        this._stack = new Gtk.Stack();
+-        this._stack.add_named(box, 'display');
+-        this._stack.add_named(this._entry, 'edit');
+-        this.child = this._stack;
+-
+-        this._entry.connect('activate', () => {
+-            this.name = this._entry.text;
+-            this._stopEdit();
+-        });
+-        this._entry.connect('notify::has-focus', () => {
+-            if (this._entry.has_focus)
+-                return;
+-            this._stopEdit();
+-        });
+-
+-        this.connect('notify::name', () => {
+-            button.action_target = new GLib.Variant('s', this.name);
+-            this.activate_action('workspaces.update', null);
+-        });
+-    }
+-
+-    edit() {
+-        this._entry.text = this.name;
+-        this._entry.grab_focus();
+-        this._stack.visible_child_name = 'edit';
+-    }
+-
+-    _stopEdit() {
+-        this.grab_focus();
+-        this._stack.visible_child_name = 'display';
+-    }
+-});
+-
+-const NewWorkspaceRow = GObject.registerClass(
+-class NewWorkspaceRow extends Gtk.ListBoxRow {
+-    _init() {
+-        super._init({
+-            action_name: 'workspaces.add',
+-            child: new Gtk.Image({
+-                icon_name: 'list-add-symbolic',
+-                pixel_size: 16,
+-                margin_top: 12,
+-                margin_bottom: 12,
+-                margin_start: 12,
+-                margin_end: 12,
+-            }),
+-        });
+-        this.update_property(
+-            [Gtk.AccessibleProperty.LABEL], [_('Add Workspace')]);
+     }
+ });
+-- 
+2.50.0
+
+
+From 6664250dcca0dcde5967ceae49f61dd1f026ef11 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 30 May 2025 16:39:22 +0200
+Subject: [PATCH 19/19] window-list: Adjust to workspace-indicator changes
+
+Keep the `.panel-button` class to get the expected hover/focus/active
+styling when using a regular menu button, but remove the horizontal
+padding when using previews for fittsability.
+
+Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
+---
+ extensions/window-list/extension.js   | 6 ------
+ extensions/window-list/stylesheet.css | 5 +++++
+ 2 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/extensions/window-list/extension.js b/extensions/window-list/extension.js
+index 477ed8fe..f0d7564f 100644
+--- a/extensions/window-list/extension.js
++++ b/extensions/window-list/extension.js
+@@ -1531,12 +1531,6 @@ class WindowList extends St.Widget {
+ 
+ const BottomWorkspaceIndicator = GObject.registerClass(
+ class BottomWorkspaceIndicator extends WorkspaceIndicator {
+-    _init(params) {
+-        super._init(params);
+-
+-        this.remove_style_class_name('panel-button');
+-    }
+-
+     setMenu(menu) {
+         super.setMenu(menu);
+ 
+diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
+index 88ef0a25..ef9df230 100644
+--- a/extensions/window-list/stylesheet.css
++++ b/extensions/window-list/stylesheet.css
+@@ -6,6 +6,11 @@
+  */
+ @import url("stylesheet-workspace-switcher-dark.css");
+ 
++.window-list-workspace-indicator.previews {
++  -natural-hpadding: 0 !important;
++  -minimum-hpadding: 0 !important;
++}
++
+ .window-list {
+   spacing: 2px;
+   font-size: 10pt;
+-- 
+2.50.0
+

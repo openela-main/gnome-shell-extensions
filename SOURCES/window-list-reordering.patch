@@ -1,4 +1,4 @@
-From 60b46c8d82dfbdcfdf54d3f022318637870a3756 Mon Sep 17 00:00:00 2001
+From 6f3e804a4910b43b55848d7bbe35916753c098c0 Mon Sep 17 00:00:00 2001
 From: Jakub Steiner <jimmac@gmail.com>
 Date: Tue, 16 Jul 2024 09:40:53 +0200
 Subject: [PATCH 01/24] window-list: Update styling
@@ -17,7 +17,7 @@ Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests
  3 files changed, 78 insertions(+), 90 deletions(-)
 
 diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
-index d7ceb062..088c9478 100644
+index d7ceb062..1d9b82f0 100644
 --- a/extensions/window-list/classic.css
 +++ b/extensions/window-list/classic.css
 @@ -1,22 +1,24 @@
@@ -80,29 +80,29 @@ index d7ceb062..088c9478 100644
 -    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
 -  }
 +.window-button:hover > StWidget {
-+  background-color: st-darken(#eee,5%);
++  background-color: #e1e1e1;
 +}
  
 -  .bottom-panel .window-button.focused:hover > StWidget {
 -    background-color: #e9e9e9;
 +.window-button:active > StWidget,
 +.window-button:focus > StWidget {
-+  background-color: st-darken(#eee, 10%);
++  background-color: #d4d4d4;
 +}
 +
 +.window-button.focused > StWidget {
-+  background-color: st-darken(#eee,15%);
++  background-color: #c7c7c7;
 +}
 +
 +  .window-button.focused:hover > StWidget {
-+    background-color: st-darken(#eee, 20%);
++    background-color: #bbb;
    }
  
 -  .bottom-panel .window-button.minimized > StWidget {
 -    color: #888;
 -    box-shadow: none;
 +  .window-button.focused:active > StWidget {
-+    background-color: st-darken(#eee, 25%);
++    background-color: #aeaeae;
    }
 +
 +.window-button.minimized > StWidget {
@@ -115,7 +115,7 @@ index d7ceb062..088c9478 100644
 +  background-color: #f9f9f9;
 +}
 diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
-index 4ba47f07..b9087971 100644
+index 4ba47f07..2a835a1b 100644
 --- a/extensions/window-list/stylesheet.css
 +++ b/extensions/window-list/stylesheet.css
 @@ -1,3 +1,9 @@
@@ -187,7 +187,7 @@ index 4ba47f07..b9087971 100644
  .window-button:active > StWidget,
  .window-button:focus > StWidget {
 -  box-shadow: inset 2px 2px 4px rgba(255,255,255,0.5);
-+  background-color: st-lighten(#303030, 5%);
++  background-color: #3c3c3c;
  }
  
 -.window-button.focused > StWidget,
@@ -203,11 +203,11 @@ index 4ba47f07..b9087971 100644
 -  box-shadow: inset 2px 2px 4px rgba(255,255,255,0.7);
 -}
 +  .window-button.focused:hover > StWidget {
-+    background-color: st-lighten(#5b5b5b, 5%);
++    background-color: #676767;
 +  }
 +
 +  .window-button.focused:active > StWidget {
-+    background-color: st-lighten(#5b5b5b, 10%);
++    background-color: #747474;
 +  }
  
  .window-button.minimized > StWidget {
@@ -285,10 +285,10 @@ index 017d844a..872c6afc 100644
  
  .workspace-indicator-window-preview {
 -- 
-2.47.0
+2.49.0
 
 
-From b36d05f6d827a9063fb35a5120207718a2f30af1 Mon Sep 17 00:00:00 2001
+From 43bc977b5a0883707e6b326afa2424a96472f747 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 25 Sep 2024 03:36:08 +0200
 Subject: [PATCH 02/24] window-list: Small stylesheet cleanup
@@ -303,7 +303,7 @@ Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests
  1 file changed, 10 deletions(-)
 
 diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
-index 088c9478..3a6ffd02 100644
+index 1d9b82f0..63e5e48c 100644
 --- a/extensions/window-list/classic.css
 +++ b/extensions/window-list/classic.css
 @@ -21,21 +21,11 @@
@@ -326,13 +326,13 @@ index 088c9478..3a6ffd02 100644
 -}
 -
  .window-button:hover > StWidget {
-   background-color: st-darken(#eee,5%);
+   background-color: #e1e1e1;
  }
 -- 
-2.47.0
+2.49.0
 
 
-From ad30fc0976bface7944beacc276c4ca85961f0d0 Mon Sep 17 00:00:00 2001
+From 452acc5dec2e81530f30d5d55681f76670f12ddd Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 25 Jun 2024 19:24:35 +0200
 Subject: [PATCH 03/24] window-list: Don't use homogeneous layout
@@ -378,10 +378,10 @@ index 688ca761..a59307e2 100644
  
          let indicatorsBox = new St.BoxLayout({ x_align: Clutter.ActorAlign.END });
 -- 
-2.47.0
+2.49.0
 
 
-From 987a526802bae4970cc41c7504f98b5ac568d62d Mon Sep 17 00:00:00 2001
+From 1a8a31bc63d2001359894f443706401c5df5dff7 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 18 Jun 2024 18:55:05 +0200
 Subject: [PATCH 04/24] window-list: Don't hide window button while unmanaging
@@ -427,10 +427,10 @@ index a59307e2..8ac59dd0 100644
          global.display.disconnect(this._notifyFocusId);
          this._contextMenu.destroy();
 -- 
-2.47.0
+2.49.0
 
 
-From 9d37d880dacb3a29c4976b5442128e7269048d0e Mon Sep 17 00:00:00 2001
+From a11b4ec2b7eaea3c02d7966459f7e680686d74a6 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 18 Jun 2024 18:59:38 +0200
 Subject: [PATCH 05/24] window-list: Animate buttons in and out
@@ -581,10 +581,10 @@ index 8ac59dd0..cb9e7160 100644
  
      _monitorDrag() {
 -- 
-2.47.0
+2.49.0
 
 
-From 1f2213658f6d80ab7a9710dd5aa773499747efce Mon Sep 17 00:00:00 2001
+From d8a3b7c4604936eb4bef7ab51de3d5b32ea0e890 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 18 Jun 2024 20:08:56 +0200
 Subject: [PATCH 06/24] window-list: Replace custom tooltip implementation
@@ -636,10 +636,10 @@ index cb9e7160..0dd3775e 100644
          if (this._longPressTimeoutId)
              return;
 -- 
-2.47.0
+2.49.0
 
 
-From 59d45cbef4ab701146325c46aea8bc6ffd13ca1f Mon Sep 17 00:00:00 2001
+From 761fe142b4ba63f8be725758ed73c2022938d098 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Sat, 13 Jul 2024 00:11:19 +0200
 Subject: [PATCH 07/24] window-list: Fix .focused styling
@@ -673,10 +673,10 @@ index 0dd3775e..ec37f50f 100644
  
      _windowEnteredOrLeftMonitor(_metaDisplay, _monitorIndex, _metaWindow) {
 -- 
-2.47.0
+2.49.0
 
 
-From ab1c5fc68916cbc2dff6302cb425f3afb4f4ea68 Mon Sep 17 00:00:00 2001
+From af63f529d679ebd0331d182c04ce393b54e9edcd Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 25 Sep 2024 02:23:41 +0200
 Subject: [PATCH 08/24] window-list: Split out AppTitle class
@@ -790,10 +790,10 @@ index ec37f50f..e778a4d4 100644
          this.app.disconnect(this._windowsChangedId);
          this._menu.destroy();
 -- 
-2.47.0
+2.49.0
 
 
-From c2cd38942205b33920002d35f347f1051501ccbe Mon Sep 17 00:00:00 2001
+From 9b7b6d0f4f7ed077738ae3be2c08ff4c0d52e402 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 25 Sep 2024 02:55:14 +0200
 Subject: [PATCH 09/24] window-list: Simplify app button
@@ -909,10 +909,10 @@ index e778a4d4..f4434afa 100644
  
      _onClicked(actor, button) {
 -- 
-2.47.0
+2.49.0
 
 
-From beadfe2a6f6a7627096cad5a2161add902edf039 Mon Sep 17 00:00:00 2001
+From 904be2f12f75eda75d85426f054b06b26e422a72 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Mon, 7 Oct 2024 17:22:04 +0200
 Subject: [PATCH 10/24] window-list: Fix minimized styling
@@ -947,10 +947,10 @@ index f4434afa..6c00686c 100644
  
      _windowEnteredOrLeftMonitor(metaDisplay, monitorIndex, metaWindow) {
 -- 
-2.47.0
+2.49.0
 
 
-From 77a1b57678e62ad091e09d5e97299d53999a3521 Mon Sep 17 00:00:00 2001
+From 29013aca96261a1ba5c87310bdb391f75a8b801e Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Mon, 7 Oct 2024 17:10:43 +0200
 Subject: [PATCH 11/24] window-list: Fix active state
@@ -982,10 +982,10 @@ index 6c00686c..936dd9e4 100644
  
      // eslint-disable-next-line camelcase
 -- 
-2.47.0
+2.49.0
 
 
-From 8ab9ab5cc43ccea7a3208b72e08f32685584c869 Mon Sep 17 00:00:00 2001
+From 7e8255f99b49a373bd93203567acfe895b852245 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 15 Oct 2024 17:48:52 +0200
 Subject: [PATCH 12/24] window-list: Remove outdated style
@@ -1001,7 +1001,7 @@ with notification styling, so stop doing that.
  1 file changed, 4 deletions(-)
 
 diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
-index b9087971..f02fca60 100644
+index 2a835a1b..99d47e32 100644
 --- a/extensions/window-list/stylesheet.css
 +++ b/extensions/window-list/stylesheet.css
 @@ -81,7 +81,3 @@
@@ -1013,10 +1013,10 @@ index b9087971..f02fca60 100644
 -  font-weight: normal;
 -}
 -- 
-2.47.0
+2.49.0
 
 
-From 807da4082a3a78789ab4926fd1074a8040f5d794 Mon Sep 17 00:00:00 2001
+From 7bb47650a0c80a7950aa7f87a93543125009ec53 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 26 Sep 2024 19:07:11 +0200
 Subject: [PATCH 13/24] window-list: Split out some common code
@@ -1067,10 +1067,10 @@ index 936dd9e4..d92a4155 100644
  
      _removeWindow(win) {
 -- 
-2.47.0
+2.49.0
 
 
-From e10c1fd24bc86c7d980f50efd9e663b42097d2f1 Mon Sep 17 00:00:00 2001
+From 0b4da110e6539e209cf2ea75533e22b9d1a970ce Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 3 Oct 2024 17:19:31 +0200
 Subject: [PATCH 14/24] window-list: Split out common TitleWidget class
@@ -1183,10 +1183,10 @@ index d92a4155..69058fcd 100644
  
          this.connect('destroy', this._onDestroy.bind(this));
 -- 
-2.47.0
+2.49.0
 
 
-From e29fb2e04541157a6233b702588a3d206ad68615 Mon Sep 17 00:00:00 2001
+From a4373e1ceac4955325da97ce2deb9d7f2c8714d7 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 3 Oct 2024 17:27:57 +0200
 Subject: [PATCH 15/24] window-list: Add TitleWidget:abstract-label property
@@ -1241,7 +1241,7 @@ index 69058fcd..fc47d2e6 100644
  });
  
 diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
-index f02fca60..fce6bcc5 100644
+index 99d47e32..ee500299 100644
 --- a/extensions/window-list/stylesheet.css
 +++ b/extensions/window-list/stylesheet.css
 @@ -81,3 +81,9 @@
@@ -1255,10 +1255,10 @@ index f02fca60..fce6bcc5 100644
 +  margin: 6px;
 +}
 -- 
-2.47.0
+2.49.0
 
 
-From e0a5584a79d938d649c17b54267bfb83d547f984 Mon Sep 17 00:00:00 2001
+From 0fb4950e013eea7513029e9a5f18e602c0925dfe Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 25 Sep 2024 03:20:52 +0200
 Subject: [PATCH 16/24] window-list: Split out `_createTitleActor()` hook
@@ -1340,10 +1340,10 @@ index fc47d2e6..a65e2108 100644
          let menuWasOpen = this._menu.isOpen;
          if (menuWasOpen)
 -- 
-2.47.0
+2.49.0
 
 
-From 75e0bbd671101dea9803d3fdcfe10d67e5f71e5d Mon Sep 17 00:00:00 2001
+From 3047fdf423f395ac677d1184a8a71680563635f5 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 19 Jun 2024 13:01:37 +0200
 Subject: [PATCH 17/24] window-list: Rename XDND related methods and props
@@ -1407,10 +1407,10 @@ index a65e2108..263a2af8 100644
          Main.xdndHandler.disconnect(this._dragEndId);
  
 -- 
-2.47.0
+2.49.0
 
 
-From 4ae3577e50907cdf0f257fd559475b1decdf4af0 Mon Sep 17 00:00:00 2001
+From 41888462f1675a1f9ce8abbdac5c66e154c24432 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 25 Sep 2024 04:13:25 +0200
 Subject: [PATCH 18/24] window-list: Allow rearranging window buttons
@@ -1430,7 +1430,7 @@ Closes https://gitlab.gnome.org/GNOME/gnome-shell-extensions/issues/4
  3 files changed, 157 insertions(+), 2 deletions(-)
 
 diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
-index 3a6ffd02..74945657 100644
+index 63e5e48c..a43f11cf 100644
 --- a/extensions/window-list/classic.css
 +++ b/extensions/window-list/classic.css
 @@ -56,3 +56,8 @@
@@ -1653,7 +1653,7 @@ index 263a2af8..574c85ac 100644
          DND.addDragMonitor(this._xdndDragMonitor);
      }
 diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
-index fce6bcc5..c92081d2 100644
+index ee500299..afa1aaf0 100644
 --- a/extensions/window-list/stylesheet.css
 +++ b/extensions/window-list/stylesheet.css
 @@ -17,10 +17,19 @@
@@ -1688,10 +1688,10 @@ index fce6bcc5..c92081d2 100644
    max-width: 18.75em;
  }
 -- 
-2.47.0
+2.49.0
 
 
-From 324236e9f4ba7a1ca743c0a432b246dfc9216001 Mon Sep 17 00:00:00 2001
+From 1175589f3e0a11ffda5460259a5fac161b79b864 Mon Sep 17 00:00:00 2001
 From: Jakub Steiner <jimmac@gmail.com>
 Date: Thu, 3 Oct 2024 14:18:32 +0200
 Subject: [PATCH 19/24] window-list: Indicate drop target more prominently
@@ -1704,7 +1704,7 @@ its styling more prominent.
  2 files changed, 10 insertions(+), 1 deletion(-)
 
 diff --git a/extensions/window-list/classic.css b/extensions/window-list/classic.css
-index 74945657..1147984c 100644
+index a43f11cf..81b161c9 100644
 --- a/extensions/window-list/classic.css
 +++ b/extensions/window-list/classic.css
 @@ -23,7 +23,6 @@
@@ -1724,7 +1724,7 @@ index 74945657..1147984c 100644
 +  border-color: rgba(0,0,0,0.5);
 +}
 diff --git a/extensions/window-list/stylesheet.css b/extensions/window-list/stylesheet.css
-index c92081d2..4c06ebc0 100644
+index afa1aaf0..24747442 100644
 --- a/extensions/window-list/stylesheet.css
 +++ b/extensions/window-list/stylesheet.css
 @@ -56,6 +56,12 @@
@@ -1741,10 +1741,10 @@ index c92081d2..4c06ebc0 100644
    background-color: #303030;
  }
 -- 
-2.47.0
+2.49.0
 
 
-From 5b35516962e6c326f9ae4236a798b6e521d0c850 Mon Sep 17 00:00:00 2001
+From 9117f214d2ccf8cd7d88c7dca44127349eca2fb0 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 3 Oct 2024 17:05:42 +0200
 Subject: [PATCH 20/24] window-list: Fade out drag source during drag
@@ -1793,10 +1793,10 @@ index 574c85ac..5aca473c 100644
              this._clearDragPlaceholder();
          });
 -- 
-2.47.0
+2.49.0
 
 
-From bfbb54b4c903ec41f61748868d5f175ad469d811 Mon Sep 17 00:00:00 2001
+From 8a43b5dfe8fa5c6e896480c10b69fa51aedbaccf Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 9 Oct 2024 19:15:16 +0200
 Subject: [PATCH 21/24] window-list: Shrink drag-actor size during drags
@@ -1872,10 +1872,10 @@ index 5aca473c..2d5ce525 100644
  
      getDragActorSource() {
 -- 
-2.47.0
+2.49.0
 
 
-From be721d3fee4faf5060dcf1a83fa5adc8e7ee5f89 Mon Sep 17 00:00:00 2001
+From a69401b07fa2e01932b847fdb3704755710e6c68 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 8 Oct 2024 19:25:53 +0200
 Subject: [PATCH 22/24] window-list: Handle DND events near the drop target
@@ -1942,10 +1942,10 @@ index 2d5ce525..b6c00f8b 100644
          DND.addDragMonitor(this._xdndDragMonitor);
      }
 -- 
-2.47.0
+2.49.0
 
 
-From 66672ca11281deb9326dd164759db749263c143c Mon Sep 17 00:00:00 2001
+From b3dcf28250968bd6f3e1ddbab52ea9be768ad168 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 26 Jun 2024 00:58:18 +0200
 Subject: [PATCH 23/24] window-list: Add `id` property to buttons
@@ -1983,10 +1983,10 @@ index b6c00f8b..feefc66e 100644
          if (this._windowTracker.get_window_app(metaWindow) === this.app &&
              monitorIndex === this._monitorIndex) {
 -- 
-2.47.0
+2.49.0
 
 
-From 6f11b79c65085a49e6907571ad51f972c1579685 Mon Sep 17 00:00:00 2001
+From 9344fce65ca3b8705f05cc55395b2cd002a5dd83 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 24 Sep 2024 20:31:06 +0200
 Subject: [PATCH 24/24] window-list: Save and restore positions as runtime
@@ -2061,5 +2061,5 @@ index feefc66e..bb9ca80f 100644
          DND.addDragMonitor(this._itemDragMonitor);
      }
 -- 
-2.47.0
+2.49.0
 

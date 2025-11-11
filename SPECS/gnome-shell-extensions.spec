@@ -7,7 +7,7 @@
 
 Name:           gnome-shell-extensions
 Version:        40.7
-Release:        25%{?dist}
+Release:        28%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 License:        GPLv2+
@@ -52,6 +52,8 @@ Patch029: 0001-workspace-indicator-Re-fittsify-workspace-previews.patch
 Patch030: window-list-reordering.patch
 Patch031: 0001-dash-to-panel-Remove-faulty-version-check.patch
 Patch032: window-list-attention-indicator.patch
+Patch033: 0001-dash-to-panel-Stop-messing-with-overview-allocation.patch
+Patch034: improve-workspace-names.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -471,6 +473,18 @@ workspaces.
 
 
 %changelog
+* Mon Jun 30 2025 Florian Müllner <fmuellner@redhat.com> - 40.7-28
+- Make workspace names more prominent
+  Resolves: RHEL-96218
+
+* Mon Jun 09 2025 Florian Müllner <fmuellner@redhat.com> - 40.7-27
+- Fix window-list styling
+  Resolves: RHEL-95787
+
+* Mon May 05 2025 Florian Müllner <fmuellner@redhat.com> - 40.7-26
+- Stop overriding gnome-shell's overview allocation
+  Resolves: RHEL-70892
+
 * Wed Jan 08 2025 Florian Müllner <fmuellner@redhat.com> - 40.7-25
 - Indicate urgency-hint in window-list
   Resolves: RHEL-73146
