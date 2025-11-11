@@ -1,0 +1,483 @@
+From c9845372267ecc085143b3cfa4f7eaf39091b41a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 9 May 2025 13:29:06 +0200
+Subject: [PATCH 1/5] heads-up-display: Split out getMessageText() helper
+
+The new method will make it easier to add alternative sources
+for the message text.
+---
+ extensions/heads-up-display/extension.js | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/extensions/heads-up-display/extension.js b/extensions/heads-up-display/extension.js
+index a71b5925..5f72e168 100644
+--- a/extensions/heads-up-display/extension.js
++++ b/extensions/heads-up-display/extension.js
+@@ -183,6 +183,13 @@ export default class HeadsUpDisplayExtension extends Extension {
+             this._onUserIdle.bind(this));
+     }
+ 
++    _getMessageText() {
++        return {
++            heading: this._settings.get_string('message-heading'),
++            body: this._settings.get_string('message-body'),
++        };
++    }
++
+     _updateMessage() {
+         if (this._messageInhibitedUntilIdle) {
+             if (this._message)
+@@ -237,8 +244,7 @@ export default class HeadsUpDisplayExtension extends Extension {
+             }
+         }
+ 
+-        const heading = this._settings.get_string('message-heading');
+-        const body = this._settings.get_string('message-body');
++        const {heading, body} = this._getMessageText();
+ 
+         if (!heading && !body) {
+             this._dismissMessage();
+-- 
+2.46.1
+
+
+From a121cf4e1a21e78b74de7b2f33f40f3201eaaa50 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 9 May 2025 13:29:42 +0200
+Subject: [PATCH 2/5] heads-up-display: Update message text asynchronously
+
+We will soon allow reading the banner text from a file. Prepare
+for that by making the method asynchronous.
+---
+ extensions/heads-up-display/extension.js | 27 +++++++++++++-----------
+ 1 file changed, 15 insertions(+), 12 deletions(-)
+
+diff --git a/extensions/heads-up-display/extension.js b/extensions/heads-up-display/extension.js
+index 5f72e168..3ae6eabb 100644
+--- a/extensions/heads-up-display/extension.js
++++ b/extensions/heads-up-display/extension.js
+@@ -66,7 +66,7 @@ export default class HeadsUpDisplayExtension extends Extension {
+     enable() {
+         this._settings = this.getSettings('org.gnome.shell.extensions.heads-up-display');
+         this._settings.connectObject('changed',
+-            () => this._updateMessage(), this);
++            () => this._updateMessage().catch(logError), this);
+ 
+         this._idleMonitor = global.backend.get_core_idle_monitor();
+         this._messageInhibitedUntilIdle = false;
+@@ -123,15 +123,15 @@ export default class HeadsUpDisplayExtension extends Extension {
+ 
+     _onStartupComplete() {
+         Main.overview.connectObject(
+-            'showing', () => this._updateMessage(),
+-            'hidden', () => this._updateMessage(),
++            'showing', () => this._updateMessage().catch(logError),
++            'hidden', () => this._updateMessage().catch(logError),
+             this);
+         Main.layoutManager.panelBox.connectObject('notify::visible',
+-            () => this._updateMessage(), this);
++            () => this._updateMessage().catch(logError), this);
+         Main.sessionMode.connectObject('updated',
+             () => this._onSessionModeUpdated(), this);
+ 
+-        this._updateMessage();
++        this._updateMessage().catch(logError);
+     }
+ 
+     _onSessionModeUpdated() {
+@@ -140,13 +140,14 @@ export default class HeadsUpDisplayExtension extends Extension {
+ 
+         const dialog = Main.screenShield._dialog;
+         if (!Main.sessionMode.isGreeter && dialog && !this._screenShieldVisibleId) {
+-            this._screenShieldVisibleId = dialog._clock.connect('notify::visible', this._updateMessage.bind(this));
++            this._screenShieldVisibleId = dialog._clock.connect('notify::visible',
++                () => this._updateMessage().catch(logError));
+             this._screenShieldDestroyId = dialog._clock.connect('destroy', () => {
+                 this._screenShieldVisibleId = 0;
+                 this._screenShieldDestroyId = 0;
+             });
+         }
+-        this._updateMessage();
++        this._updateMessage().catch(logError);
+     }
+ 
+     _stopWatchingForIdle() {
+@@ -168,7 +169,7 @@ export default class HeadsUpDisplayExtension extends Extension {
+ 
+     _onUserIdle() {
+         this._messageInhibitedUntilIdle = false;
+-        this._updateMessage();
++        this._updateMessage().catch(logError);
+     }
+ 
+     _watchForIdle() {
+@@ -183,14 +184,16 @@ export default class HeadsUpDisplayExtension extends Extension {
+             this._onUserIdle.bind(this));
+     }
+ 
+-    _getMessageText() {
++    async _getMessageText() {
++        await false;
++
+         return {
+             heading: this._settings.get_string('message-heading'),
+             body: this._settings.get_string('message-body'),
+         };
+     }
+ 
+-    _updateMessage() {
++    async _updateMessage() {
+         if (this._messageInhibitedUntilIdle) {
+             if (this._message)
+                 this._dismissMessage();
+@@ -244,7 +247,7 @@ export default class HeadsUpDisplayExtension extends Extension {
+             }
+         }
+ 
+-        const {heading, body} = this._getMessageText();
++        const {heading, body} = await this._getMessageText();
+ 
+         if (!heading && !body) {
+             this._dismissMessage();
+@@ -276,7 +279,7 @@ export default class HeadsUpDisplayExtension extends Extension {
+ 
+         this._watchForIdle();
+         this._messageInhibitedUntilIdle = true;
+-        this._updateMessage();
++        this._updateMessage().catch(logError);
+     }
+ 
+     _dismissMessage() {
+-- 
+2.46.1
+
+
+From 88bff8c0a592e72f5797c834dfa8519b69c1f15b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 9 May 2025 14:49:15 +0200
+Subject: [PATCH 3/5] heads-up-display: Add `message-path` and `-source`
+ settings
+
+The new settings allow reading the message text from a file instead
+of GSettings. This is mainly useful for `/etc/motd` and similar
+mechanisms, to show the same message for both graphical and
+non-graphical logins.
+---
+ ...ll.extensions.heads-up-display.gschema.xml | 20 +++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/extensions/heads-up-display/org.gnome.shell.extensions.heads-up-display.gschema.xml b/extensions/heads-up-display/org.gnome.shell.extensions.heads-up-display.gschema.xml
+index 1e2119c8..a9552642 100644
+--- a/extensions/heads-up-display/org.gnome.shell.extensions.heads-up-display.gschema.xml
++++ b/extensions/heads-up-display/org.gnome.shell.extensions.heads-up-display.gschema.xml
+@@ -5,6 +5,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
+ -->
+ 
+ <schemalist gettext-domain="gnome-shell-extensions">
++  <enum id="org.gnome.shell.extensions.heads-up-display.MessageSource">
++    <value value="1" nick="settings"/>
++    <value value="2" nick="file"/>
++  </enum>
+   <schema id="org.gnome.shell.extensions.heads-up-display"
+           path="/org/gnome/shell/extensions/heads-up-display/">
+     <key name="idle-timeout" type="u">
+@@ -14,6 +18,15 @@ SPDX-License-Identifier: GPL-2.0-or-later
+         Number of seconds until message is reshown after user goes idle.
+       </description>
+     </key>
++    <key name="message-source" enum="org.gnome.shell.extensions.heads-up-display.MessageSource">
++      <default>"settings"</default>
++      <summary>
++        Banner message source
++      </summary>
++      <description>
++        The source of the text banner message on the login screen.
++      </description>
++    </key>
+     <key name="message-heading" type="s">
+       <default>""</default>
+       <summary>Message to show at top of display</summary>
+@@ -28,6 +41,13 @@ SPDX-License-Identifier: GPL-2.0-or-later
+         A message to always show at the top of the screen.
+       </description>
+     </key>
++    <key name="message-path" type="s">
++      <default>""</default>
++      <summary>Banner message path</summary>
++      <description>
++        Path to text file with message to show in banner
++      </description>
++    </key>
+     <key name="show-on-login-screen" type="b">
+       <default>true</default>
+       <summary>Show on login screen</summary>
+-- 
+2.46.1
+
+
+From a1f32f7ce76044c4782dc9e3620e4ba448cfec82 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 9 May 2025 14:49:15 +0200
+Subject: [PATCH 4/5] heads-up-display: Support loading message text from file
+
+Support the new `message-path` and `message-source` settings, which
+allows loading the message text from a path instead of GSettings.
+
+This is mainly useful for `/etc/motd` and similar mechanisms, to
+show the same message for both graphical and non-graphical logins.
+---
+ extensions/heads-up-display/extension.js | 70 +++++++++++++++++++++++-
+ 1 file changed, 69 insertions(+), 1 deletion(-)
+
+diff --git a/extensions/heads-up-display/extension.js b/extensions/heads-up-display/extension.js
+index 3ae6eabb..bc1961b9 100644
+--- a/extensions/heads-up-display/extension.js
++++ b/extensions/heads-up-display/extension.js
+@@ -2,6 +2,7 @@
+ //
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
++import Gio from 'gi://Gio';
+ import GObject from 'gi://GObject';
+ import Meta from 'gi://Meta';
+ import Mtk from 'gi://Mtk';
+@@ -13,6 +14,8 @@ import {MonitorConstraint} from 'resource:///org/gnome/shell/ui/layout.js';
+ 
+ import {HeadsUpMessage} from './headsUpMessage.js';
+ 
++Gio._promisify(Gio.File.prototype, 'load_contents_async');
++
+ var HeadsUpConstraint = GObject.registerClass({
+     Properties: {
+         'offset': GObject.ParamSpec.int(
+@@ -67,6 +70,7 @@ export default class HeadsUpDisplayExtension extends Extension {
+         this._settings = this.getSettings('org.gnome.shell.extensions.heads-up-display');
+         this._settings.connectObject('changed',
+             () => this._updateMessage().catch(logError), this);
++        this._cachedMessage = {};
+ 
+         this._idleMonitor = global.backend.get_core_idle_monitor();
+         this._messageInhibitedUntilIdle = false;
+@@ -81,6 +85,7 @@ export default class HeadsUpDisplayExtension extends Extension {
+ 
+     disable() {
+         this._dismissMessage();
++        this._clearMessageFile();
+ 
+         this._stopWatchingForIdle();
+ 
+@@ -184,8 +189,71 @@ export default class HeadsUpDisplayExtension extends Extension {
+             this._onUserIdle.bind(this));
+     }
+ 
++    _clearMessageFile() {
++        this._messageFileMonitor?.disconnectObject(this);
++        this._messageFileMonitor = null;
++
++        this._messageFile = null;
++    }
++
++    _updateMessageFile() {
++        const path = this._settings.get_string('message-source') === 'file'
++            ? this._settings.get_string('message-path')
++            : null;
++        const file = path
++            ? Gio.File.new_for_path(path)
++            : null;
++
++        if (!file && !this._messageFile)
++            return false;
++
++        if (file && this._messageFile && this._messageFile.equal(file))
++            return false;
++
++        this._clearMessageFile();
++        this._messageFile = file;
++
++        if (file) {
++            this._messageFileMonitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
++            this._messageFileMonitor.connectObject(
++                'changed', () => this._messageFileChanged().catch(logError), this);
++        }
++
++        return true;
++    }
++
++    async _messageFileChanged() {
++        await this._updateCachedMessage();
++        await this._updateMessage();
++    }
++
++    async _updateCachedMessage() {
++        let heading = null, body = null;
++
++        if (this._messageFile) {
++            try {
++                const [contents] = await this._messageFile.load_contents_async(null);
++                const message = new TextDecoder().decode(contents).trim();
++
++                const sep = '\n\n';
++                const paragraphs = message.split(sep);
++                if (paragraphs.length > 1)
++                    heading = paragraphs.shift();
++                body = paragraphs.join(sep);
++            } catch (e) {
++                console.error(`Failed to read banner from ${this._messageFile.get_path()}: ${e.message}`);
++            }
++        }
++
++        this._cachedMessage = {heading, body};
++    }
++
+     async _getMessageText() {
+-        await false;
++        if (this._updateMessageFile())
++            await this._updateCachedMessage();
++
++        if (this._settings.get_string('message-source') === 'file')
++            return this._cachedMessage;
+ 
+         return {
+             heading: this._settings.get_string('message-heading'),
+-- 
+2.46.1
+
+
+From 6bdf47e04f64b41db0350b073f264ca46ed6f9c0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Fri, 9 May 2025 13:27:35 +0200
+Subject: [PATCH 5/5] heads-up-display: Expose `message-path` and `-source`
+ settings in prefs
+
+Allow switching between directly entered message text and selecting
+a file from the extension's prefs dialog.
+---
+ extensions/heads-up-display/prefs.js | 88 +++++++++++++++++++++++++++-
+ 1 file changed, 85 insertions(+), 3 deletions(-)
+
+diff --git a/extensions/heads-up-display/prefs.js b/extensions/heads-up-display/prefs.js
+index 304c8813..1d2bea4c 100644
+--- a/extensions/heads-up-display/prefs.js
++++ b/extensions/heads-up-display/prefs.js
+@@ -4,11 +4,14 @@
+ 
+ import Adw from 'gi://Adw';
+ import Gio from 'gi://Gio';
++import GLib from 'gi://GLib';
+ import GObject from 'gi://GObject';
+ import Gtk from 'gi://Gtk';
+ 
+ import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+ 
++Gio._promisify(Gtk.FileDialog.prototype, 'open');
++
+ class GeneralGroup extends Adw.PreferencesGroup {
+     static {
+         GObject.registerClass(this);
+@@ -64,21 +67,100 @@ class MessageGroup extends Adw.PreferencesGroup {
+             title: _('Message'),
+         });
+ 
++        this._settings = settings;
++
++        const actionGroup = new Gio.SimpleActionGroup();
++        const selectAction = new Gio.SimpleAction({name: 'select-file'});
++        actionGroup.add_action(selectAction);
++        actionGroup.add_action(settings.create_action('message-source'));
++        this.insert_action_group('message-group', actionGroup);
++
++        selectAction.connect('activate',
++            () => this._selectFile().catch(logError));
++
++        const textCheck = new Gtk.CheckButton({
++            action_name: 'message-group.message-source',
++            action_target: new GLib.Variant('s', 'settings'),
++        });
++        const useTextRow = new Adw.ActionRow({
++            title: _('Use fixed message text'),
++            activatable_widget: textCheck,
++        });
++        useTextRow.add_prefix(textCheck);
++
++        this.add(useTextRow);
++
+         const textView = new Gtk.TextView({
+             accepts_tab: false,
+             wrap_mode: Gtk.WrapMode.WORD,
++            height_request: 80,
+             top_margin: 6,
+             bottom_margin: 6,
+             left_margin: 6,
+             right_margin: 6,
+-            vexpand: true,
+         });
+-        textView.add_css_class('card');
+ 
+         settings.bind('message-body',
+             textView.get_buffer(), 'text',
+             Gio.SettingsBindFlags.DEFAULT);
+-        this.add(textView);
++
++        const textRow = new Adw.PreferencesRow({
++            child: textView,
++        });
++        this.add(textRow);
++
++        textCheck.bind_property('active',
++            textRow, 'sensitive',
++            GObject.BindingFlags.SYNC_CREATE);
++
++        const fileCheck = new Gtk.CheckButton({
++            action_name: 'message-group.message-source',
++            action_target: new GLib.Variant('s', 'file'),
++            group: textCheck,
++        });
++        const useFileRow = new Adw.ActionRow({
++            title: _('Read message text from file'),
++            activatable_widget: fileCheck,
++        });
++        useFileRow.add_prefix(fileCheck);
++
++        this.add(useFileRow);
++
++        const selectButton = new Gtk.Button({
++            label: _('Select…'),
++            action_name: 'message-group.select-file',
++            valign: Gtk.Align.CENTER,
++        });
++
++        const fileRow = new Adw.ActionRow();
++        fileRow.add_suffix(selectButton);
++        this.add(fileRow);
++
++        fileCheck.bind_property('active',
++            fileRow, 'sensitive',
++            GObject.BindingFlags.SYNC_CREATE);
++
++        function updateFileLabel() {
++            const path = settings.get_string('message-path');
++            fileRow.title = path || _('None');
++        }
++
++        settings.connect_object('changed::message-path',
++            () => updateFileLabel(),
++            this, GObject.ConnectFlags.DEFAULT);
++        updateFileLabel();
++    }
++
++    async _selectFile() {
++        const fileDialog = new Gtk.FileDialog({
++            modal: true,
++            default_filter: new Gtk.FileFilter({
++                mime_types: ['text/plain'],
++            }),
++        });
++        const file = await fileDialog.open(this.get_root(), null);
++        if (file)
++            this._settings.set_string('message-path', file.get_path());
+     }
+ }
+ 
+-- 
+2.46.1
+
