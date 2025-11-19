@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        46%{?dist}
+Release:        48%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -581,6 +581,14 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %changelog
+* Tue Nov 18 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-48
+- Fix workspace-indicator cleanup
+  Resolves: RHEL-129131
+
+* Mon Nov 17 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-47
+- Fix applying num-workspace setting
+  Resolves: RHEL-129121
+
 * Thu Oct 16 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-46
 - Skip creating main panel with no monitor
   Resolves: RHEL-110378
