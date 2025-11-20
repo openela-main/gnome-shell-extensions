@@ -7,7 +7,7 @@
 
 Name:           gnome-shell-extensions
 Version:        40.7
-Release:        28%{?dist}
+Release:        29%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 License:        GPLv2+
@@ -473,6 +473,10 @@ workspaces.
 
 
 %changelog
+* Tue Nov 18 2025 Florian Müllner <fmuellner@redhat.com> - 40.7-29
+- Fix workspace-indicator cleanups
+  Resolves: RHEL-129396
+
 * Mon Jun 30 2025 Florian Müllner <fmuellner@redhat.com> - 40.7-28
 - Make workspace names more prominent
   Resolves: RHEL-96218

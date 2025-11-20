@@ -1,4 +1,4 @@
-From 11442f82272a1fba9ed1ff7088e6e2ae68e01787 Mon Sep 17 00:00:00 2001
+From bef9d7ac2f78383208e35c9a54dbacb533053c6b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 17 Jun 2025 22:22:29 +0200
 Subject: [PATCH 01/19] Fix signal leak
@@ -20,10 +20,10 @@ index 14359a0e..f70dcaf7 100644
  });
  
 -- 
-2.50.0
+2.51.1
 
 
-From 874ee94d7ead1c1792ce73c5aea0663223c89228 Mon Sep 17 00:00:00 2001
+From 9156d8dbea7235e13e23302e5e0c0ae5a388961a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 11 Oct 2024 12:10:36 +0200
 Subject: [PATCH 02/19] workspace-indicator: Split out workspaces prefs page
@@ -571,10 +571,10 @@ index 4d551780..1fb8f17a 100644
  extensions/workspace-indicator/workspaceIndicator.js
 +extensions/workspace-indicator/workspacePrefs.js
 -- 
-2.50.0
+2.51.1
 
 
-From 96c95e0114fa158237d7f16c71b314bea30946a1 Mon Sep 17 00:00:00 2001
+From 092dd50137078d9c39b8749866c721b32aa91249 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 11 Oct 2024 12:13:05 +0200
 Subject: [PATCH 03/19] workspace-indicator: Don't mention "top bar" in prefs
@@ -601,10 +601,10 @@ index 5691996d..77c333f1 100644
  
          const sw = new Gtk.Switch({
 -- 
-2.50.0
+2.51.1
 
 
-From 5012e5e2b758f389b6ccfdd24a281b00ca900060 Mon Sep 17 00:00:00 2001
+From ef706734487e99ceb59707e7745d393d93d77e0f Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 11 Oct 2024 12:45:54 +0200
 Subject: [PATCH 04/19] window-list: Remove workspace-previews setting from
@@ -637,10 +637,10 @@ index 79cd1355..e35990ff 100644
  });
  
 -- 
-2.50.0
+2.51.1
 
 
-From fdfd486005be35f4bf43bb37992dea281618edec Mon Sep 17 00:00:00 2001
+From 7b9a01c543b2f608d679d355e8bc610ce03b8183 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Sun, 29 Jun 2025 23:49:15 +0200
 Subject: [PATCH 05/19] window-list: Add workspaces page to prefs
@@ -722,10 +722,10 @@ index e35990ff..f1ce4bb7 100644
      return new WindowListPrefsWidget();
  }
 -- 
-2.50.0
+2.51.1
 
 
-From cd0b7ee2ca454244f8171e9120c3ea1ff3bfdd51 Mon Sep 17 00:00:00 2001
+From 7e36fcf60395d6736c42109350bed132cb640bd8 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 22 May 2025 16:31:57 +0200
 Subject: [PATCH 06/19] workspace-indicator: Remove left-over variable
@@ -749,10 +749,10 @@ index f70dcaf7..5a5dba2f 100644
              workspaceManager.connect_after('workspace-switched',
                  this._onWorkspaceSwitched.bind(this)),
 -- 
-2.50.0
+2.51.1
 
 
-From cd725aaa4cba84ae3e779307e681a8551106ed19 Mon Sep 17 00:00:00 2001
+From 69d632bcf963084673cff04643382a7181bd1c97 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 22 May 2025 16:27:57 +0200
 Subject: [PATCH 07/19] workspace-indicator: Split out WorkspacesMenu
@@ -811,10 +811,10 @@ index 5a5dba2f..7e6b9cce 100644
 -    }
  });
 -- 
-2.50.0
+2.51.1
 
 
-From 8b3ad4561dd1ce86e3575b1184dc8a6f15249c5c Mon Sep 17 00:00:00 2001
+From 8be09699a833df8528f6ec2f80a9792536436b8b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 22 May 2025 18:53:20 +0200
 Subject: [PATCH 08/19] workspace-indicator: Add back plain workspaces menu
@@ -963,10 +963,10 @@ index 7e6b9cce..ebe92363 100644
  }
  
 -- 
-2.50.0
+2.51.1
 
 
-From 1072bf3d6652b67e311a30c3e3592e2ea9410990 Mon Sep 17 00:00:00 2001
+From 575bff3521e66f942bf4972edd51a0ad5ec8b43c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 22 May 2025 19:00:23 +0200
 Subject: [PATCH 09/19] workspace-indicator: Remove preview labels
@@ -1064,10 +1064,10 @@ index ebe92363..54912746 100644
          if (this.mapped)
              this._updateScrollPosition();
 -- 
-2.50.0
+2.51.1
 
 
-From a8aae63fc91f1ac5494f7ac8685d4f0fb39b4658 Mon Sep 17 00:00:00 2001
+From 5d61ee235756fd3139bfa31a5be2e5af2329fe6b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 28 May 2025 02:16:33 +0200
 Subject: [PATCH 10/19] workspace-indicator: Include menu with previews
@@ -1149,10 +1149,10 @@ index 54912746..ca4466cc 100644
          this._updateTopBarRedirect();
      }
 -- 
-2.50.0
+2.51.1
 
 
-From 8548119bca73b1dbf7f5e5e3c850e0b4af03f729 Mon Sep 17 00:00:00 2001
+From 5f9dd0ae1cb5c7f8acb97c4f7e68d21919727ce6 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 29 May 2025 14:53:37 +0200
 Subject: [PATCH 11/19] workspace-indicator: Expose active workspace name on
@@ -1210,10 +1210,10 @@ index ca4466cc..8e22e6b1 100644
  
      _onDestroy() {
 -- 
-2.50.0
+2.51.1
 
 
-From 1d176bb2cce5dd4d89a316846fb2125b8373493e Mon Sep 17 00:00:00 2001
+From 1bd51d790447ac3329c8fcb399f472e2baaf17db Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 22 May 2025 20:59:58 +0200
 Subject: [PATCH 12/19] workspace-indicator: Show full name when using menu
@@ -1223,9 +1223,9 @@ sense to expose them without opening the menu.
 
 Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests/405>
 ---
- .../workspace-indicator/stylesheet-dark.css   |  8 +++++
- .../workspace-indicator/workspaceIndicator.js | 34 +++++++------------
- 2 files changed, 21 insertions(+), 21 deletions(-)
+ .../workspace-indicator/stylesheet-dark.css   |  8 ++++
+ .../workspace-indicator/workspaceIndicator.js | 37 +++++++------------
+ 2 files changed, 21 insertions(+), 24 deletions(-)
 
 diff --git a/extensions/workspace-indicator/stylesheet-dark.css b/extensions/workspace-indicator/stylesheet-dark.css
 index 1ca929f9..d35a5dfc 100644
@@ -1249,7 +1249,7 @@ index 1ca929f9..d35a5dfc 100644
  .workspace-indicator .workspaces-view.hfade {
    -st-hfade-offset: 20px;
 diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
-index 8e22e6b1..ced16256 100644
+index 8e22e6b1..d47fbd13 100644
 --- a/extensions/workspace-indicator/workspaceIndicator.js
 +++ b/extensions/workspace-indicator/workspaceIndicator.js
 @@ -514,15 +514,23 @@ class WorkspaceIndicator extends PanelMenu.Button {
@@ -1292,7 +1292,17 @@ index 8e22e6b1..ced16256 100644
          this.connect('scroll-event',
              (a, event) => Main.wm.handleWorkspaceScroll(event));
  
-@@ -573,7 +576,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
+@@ -558,9 +561,6 @@ class WorkspaceIndicator extends PanelMenu.Button {
+     }
+ 
+     _onDestroy() {
+-        for (let i = 0; i < this._workspaceManagerSignals.length; i++)
+-            global.workspace_manager.disconnect(this._workspaceManagerSignals[i]);
+-
+         if (this._inTopBar)
+             Main.panel.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
+         this._inTopBar = false;
+@@ -573,7 +573,7 @@ class WorkspaceIndicator extends PanelMenu.Button {
          this.reactive = !usePreviews;
  
          this._thumbnails.visible = usePreviews;
@@ -1301,7 +1311,7 @@ index 8e22e6b1..ced16256 100644
  
          if (usePreviews)
              this.add_style_class_name('previews');
-@@ -593,15 +596,4 @@ class WorkspaceIndicator extends PanelMenu.Button {
+@@ -593,15 +593,4 @@ class WorkspaceIndicator extends PanelMenu.Button {
              ? Clutter.OffscreenRedirect.ALWAYS
              : Clutter.OffscreenRedirect.AUTOMATIC_FOR_OPACITY);
      }
@@ -1318,10 +1328,10 @@ index 8e22e6b1..ced16256 100644
 -    }
  });
 -- 
-2.50.0
+2.51.1
 
 
-From 9951956a6e17772bf9fd9e9ca470493b6707b7a5 Mon Sep 17 00:00:00 2001
+From 92cce4da58a748eb65980c604b340cf2b3d930d9 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Mon, 9 Jun 2025 18:10:14 +0200
 Subject: [PATCH 13/19] workspace-indicator: Add background when using name
@@ -1389,10 +1399,10 @@ index 049b6a38..5191923c 100644
    background-color: #ccc;
  }
 diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
-index ced16256..11ae9f5f 100644
+index d47fbd13..427aef68 100644
 --- a/extensions/workspace-indicator/workspaceIndicator.js
 +++ b/extensions/workspace-indicator/workspaceIndicator.js
-@@ -578,10 +578,13 @@ class WorkspaceIndicator extends PanelMenu.Button {
+@@ -575,10 +575,13 @@ class WorkspaceIndicator extends PanelMenu.Button {
          this._thumbnails.visible = usePreviews;
          this._statusBox.visible = !usePreviews;
  
@@ -1409,10 +1419,10 @@ index ced16256..11ae9f5f 100644
          this._updateTopBarRedirect();
      }
 -- 
-2.50.0
+2.51.1
 
 
-From 8b60e81922f6b9ee6ac48bc63226e082e482b3fd Mon Sep 17 00:00:00 2001
+From c16736b3da4ee702ee32c844a3606e364e063dbf Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 22 May 2025 21:07:08 +0200
 Subject: [PATCH 14/19] workspace-indicator: Reimplement some libadwaita prefs
@@ -1421,14 +1431,14 @@ Subject: [PATCH 14/19] workspace-indicator: Reimplement some libadwaita prefs
 Upstream now makes more use of libawaita, so reimplement the API we
 need to make backporting a bit less painful.
 ---
- .../workspace-indicator/workspacePrefs.js     | 238 ++++++++++++++++++
- 1 file changed, 238 insertions(+)
+ .../workspace-indicator/workspacePrefs.js     | 241 ++++++++++++++++++
+ 1 file changed, 241 insertions(+)
 
 diff --git a/extensions/workspace-indicator/workspacePrefs.js b/extensions/workspace-indicator/workspacePrefs.js
-index 77c333f1..871bbf0c 100644
+index 77c333f1..9e2f25b9 100644
 --- a/extensions/workspace-indicator/workspacePrefs.js
 +++ b/extensions/workspace-indicator/workspacePrefs.js
-@@ -16,6 +16,244 @@ const N_ = e => e;
+@@ -16,6 +16,247 @@ const N_ = e => e;
  const WORKSPACE_SCHEMA = 'org.gnome.desktop.wm.preferences';
  const WORKSPACE_KEY = 'workspace-names';
  
@@ -1641,6 +1651,9 @@ index 77c333f1..871bbf0c 100644
 +        });
 +        super._init(params);
 +        this.add_suffix(this._spinButton);
++
++        this._spinButton.connect('notify::value',
++            () => this.notify('value'));
 +    }
 +
 +    get adjustment() {
@@ -1674,10 +1687,10 @@ index 77c333f1..871bbf0c 100644
  class GeneralGroup extends Gtk.Box {
      _init() {
 -- 
-2.50.0
+2.51.1
 
 
-From c621184851f590c4b7938a059724317783cdfe78 Mon Sep 17 00:00:00 2001
+From 6b1f02d8c38e5a649ac886a26fcc57be6c2b0f08 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Sun, 29 Jun 2025 21:26:40 +0200
 Subject: [PATCH 15/19] workspace-indicator: Refine preview settings
@@ -1691,10 +1704,10 @@ Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests
  1 file changed, 22 insertions(+), 13 deletions(-)
 
 diff --git a/extensions/workspace-indicator/workspacePrefs.js b/extensions/workspace-indicator/workspacePrefs.js
-index 871bbf0c..1f706dad 100644
+index 9e2f25b9..d8ad902f 100644
 --- a/extensions/workspace-indicator/workspacePrefs.js
 +++ b/extensions/workspace-indicator/workspacePrefs.js
-@@ -255,29 +255,38 @@ const SpinRow = GObject.registerClass({
+@@ -258,29 +258,38 @@ const SpinRow = GObject.registerClass({
  });
  
  const GeneralGroup = GObject.registerClass(
@@ -1747,10 +1760,10 @@ index 871bbf0c..1f706dad 100644
      }
  });
 -- 
-2.50.0
+2.51.1
 
 
-From 589abbc74cbbde57e4ad2f01084b01b7f828d01c Mon Sep 17 00:00:00 2001
+From ed92b9fe869dc8a6b11e04278192024e88146c7e Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 22 May 2025 16:20:05 +0200
 Subject: [PATCH 16/19] workspace-indicator: Include workspace settings
@@ -1765,10 +1778,10 @@ Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests
  1 file changed, 67 insertions(+)
 
 diff --git a/extensions/workspace-indicator/workspacePrefs.js b/extensions/workspace-indicator/workspacePrefs.js
-index 1f706dad..c5e311ef 100644
+index d8ad902f..d037ef80 100644
 --- a/extensions/workspace-indicator/workspacePrefs.js
 +++ b/extensions/workspace-indicator/workspacePrefs.js
-@@ -291,6 +291,72 @@ class GeneralGroup extends PreferencesGroup {
+@@ -294,6 +294,72 @@ class GeneralGroup extends PreferencesGroup {
      }
  });
  
@@ -1841,7 +1854,7 @@ index 1f706dad..c5e311ef 100644
  var WorkspacesPage = GObject.registerClass(
  class WorkspacesPage extends Gtk.ScrolledWindow {
      _init() {
-@@ -311,6 +377,7 @@ class WorkspacesPage extends Gtk.ScrolledWindow {
+@@ -314,6 +380,7 @@ class WorkspacesPage extends Gtk.ScrolledWindow {
          this.set_child(box);
  
          box.append(new GeneralGroup());
@@ -1850,10 +1863,10 @@ index 1f706dad..c5e311ef 100644
          box.append(new Gtk.Label({
              label: '<b>%s</b>'.format(_('Workspace Names')),
 -- 
-2.50.0
+2.51.1
 
 
-From 6ca15a8289d3308d4bb87e55d48ebd25ad9807a1 Mon Sep 17 00:00:00 2001
+From 3fabfb8e852d932129bbaf60646fcd73683e1966 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 28 May 2025 21:01:08 +0200
 Subject: [PATCH 17/19] workspace-indicator: Allow changing workspace names
@@ -1950,7 +1963,7 @@ index 5191923c..e4f2b45a 100644
 +  background-color: #185fb4;
 +}
 diff --git a/extensions/workspace-indicator/workspaceIndicator.js b/extensions/workspace-indicator/workspaceIndicator.js
-index 11ae9f5f..4f374653 100644
+index 427aef68..43315280 100644
 --- a/extensions/workspace-indicator/workspaceIndicator.js
 +++ b/extensions/workspace-indicator/workspaceIndicator.js
 @@ -4,7 +4,7 @@
@@ -2110,10 +2123,10 @@ index 11ae9f5f..4f374653 100644
          }
  
 -- 
-2.50.0
+2.51.1
 
 
-From 67b4ea20adda268c05a037ae189b8ac55c8e1e2b Mon Sep 17 00:00:00 2001
+From 976529e158e43599c35de4ac18832fef332b33b7 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 28 May 2025 21:04:36 +0200
 Subject: [PATCH 18/19] workspace-indicator: Remove workspace names from prefs
@@ -2127,7 +2140,7 @@ Part-of: <https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/merge_requests
  1 file changed, 1 insertion(+), 182 deletions(-)
 
 diff --git a/extensions/workspace-indicator/workspacePrefs.js b/extensions/workspace-indicator/workspacePrefs.js
-index c5e311ef..f638b93d 100644
+index d037ef80..3fd932c0 100644
 --- a/extensions/workspace-indicator/workspacePrefs.js
 +++ b/extensions/workspace-indicator/workspacePrefs.js
 @@ -4,17 +4,13 @@
@@ -2149,7 +2162,7 @@ index c5e311ef..f638b93d 100644
  
  const PreferencesGroup = GObject.registerClass({
      Properties: {
-@@ -378,182 +374,5 @@ class WorkspacesPage extends Gtk.ScrolledWindow {
+@@ -381,182 +377,5 @@ class WorkspacesPage extends Gtk.ScrolledWindow {
  
          box.append(new GeneralGroup());
          box.append(new BehaviorGroup());
@@ -2333,10 +2346,10 @@ index c5e311ef..f638b93d 100644
      }
  });
 -- 
-2.50.0
+2.51.1
 
 
-From 6664250dcca0dcde5967ceae49f61dd1f026ef11 Mon Sep 17 00:00:00 2001
+From bed8bb3da1a813d6b203e4ea6e3bbb3393fbe7e0 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 30 May 2025 16:39:22 +0200
 Subject: [PATCH 19/19] window-list: Adjust to workspace-indicator changes
@@ -2385,5 +2398,5 @@ index 88ef0a25..ef9df230 100644
    spacing: 2px;
    font-size: 10pt;
 -- 
-2.50.0
+2.51.1
 
