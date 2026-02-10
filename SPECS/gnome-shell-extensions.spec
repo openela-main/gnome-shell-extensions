@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        48%{?dist}
+Release:        49%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -581,6 +581,10 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %changelog
+* Mon Jan 26 2026 Florian Müllner <fmuellner@redhat.com> - 3.32.1-49
+- Fix style regressions in GNOME classic
+  Resolves: RHEL-136283
+
 * Tue Nov 18 2025 Florian Müllner <fmuellner@redhat.com> - 3.32.1-48
 - Fix workspace-indicator cleanup
   Resolves: RHEL-129131
