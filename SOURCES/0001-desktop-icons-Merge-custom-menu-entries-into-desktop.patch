@@ -1,0 +1,215 @@
+From 735602e7d3cfea688f741082d8cd8abb97c6b0d4 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 19 Mar 2026 16:07:46 +0100
+Subject: [PATCH 1/3] desktop-icons: Always add icons when backgrounds are
+ updated
+
+We currently assume that backgrounds are only updated when the
+monitor setup changed, so we explicitly track that.
+
+However backgrounds may be updated for other reasons as well (for
+example when enabling the custom-menu extension).
+
+So instead of making assumptions about when updateBackgrounds()
+is called, hook into the function itself to recreate the icons
+whenever the backgrounds are updated.
+---
+ extensions/desktop-icons/desktopManager.js | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/extensions/desktop-icons/desktopManager.js b/extensions/desktop-icons/desktopManager.js
+index 84bd79ce..80633901 100644
+--- a/extensions/desktop-icons/desktopManager.js
++++ b/extensions/desktop-icons/desktopManager.js
+@@ -45,6 +45,8 @@ const CLIPBOARD_TYPE = St.ClipboardType.CLIPBOARD;
+ 
+ var S_IWOTH = 0x00002;
+ 
++let updateBackgroundsOrig = null;
++
+ function getDpy() {
+     return global.screen || global.display;
+ }
+@@ -96,7 +98,12 @@ var DesktopManager = GObject.registerClass({
+         this._writableByOthers = null;
+         this._rubberBandActive = false;
+ 
+-        this._monitorsChangedId = Main.layoutManager.connect('monitors-changed', () => this._recreateDesktopIcons());
++        updateBackgroundsOrig = Main.layoutManager._updateBackgrounds;
++        Main.layoutManager._updateBackgrounds = () => {
++            updateBackgroundsOrig.call(Main.layoutManager);
++            this._recreateDesktopIcons();
++        };
++
+         this._rubberBand = new St.Widget({ style_class: 'rubber-band' });
+         this._rubberBand.hide();
+         Main.layoutManager._backgroundGroup.add_child(this._rubberBand);
+@@ -778,6 +785,8 @@ var DesktopManager = GObject.registerClass({
+     }
+ 
+     destroy() {
++        Main.layoutManager._updateBackgrounds = updateBackgroundsOrig;
++
+         if (this._monitorDesktopDir)
+             this._monitorDesktopDir.cancel();
+         this._monitorDesktopDir = null;
+@@ -797,9 +806,6 @@ var DesktopManager = GObject.registerClass({
+             GLib.source_remove(this._deleteChildrenId);
+         this._deleteChildrenId = 0;
+ 
+-        if (this._monitorsChangedId)
+-            Main.layoutManager.disconnect(this._monitorsChangedId);
+-        this._monitorsChangedId = 0;
+         if (this._stageReleaseEventId)
+             global.stage.disconnect(this._stageReleaseEventId);
+         this._stageReleaseEventId = 0;
+-- 
+2.53.0
+
+
+From bd110b928c8343e9b595cf38b97e9bc07d209879 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 19 Mar 2026 16:40:23 +0100
+Subject: [PATCH 2/3] desktop-icons: Merge custom-menu entries into desktop
+ background menu
+
+When both the desktop-icons and custom-menu extensions are enabled,
+the desktop-icons extension creates its own right-click context menu
+for the desktop background, bypassing the BackgroundMenu mechanism
+that custom-menu hooks into. This causes the custom-menu entries to
+be completely hidden when desktop-icons is active.
+
+This patch adds integration between the two extensions: when the
+desktop background menu is created in desktop-icons, it checks if
+the custom-menu extension is enabled. If so, it reads the user's
+custom menu configuration (~/.entries.json) and appends those entries
+below a separator at the bottom of the desktop-icons context menu.
+
+The integration is non-intrusive:
+  - If custom-menu is not enabled, no changes are visible
+  - If ~/.entries.json does not exist or is invalid, the menu
+    remains unchanged (errors are logged)
+  - Only affects the desktop background right-click menu, not
+    file icon context menus
+
+Resolves: RHEL-136187
+---
+ extensions/desktop-icons/desktopGrid.js | 30 +++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/extensions/desktop-icons/desktopGrid.js b/extensions/desktop-icons/desktopGrid.js
+index bd27e2ab..f0509595 100644
+--- a/extensions/desktop-icons/desktopGrid.js
++++ b/extensions/desktop-icons/desktopGrid.js
+@@ -49,6 +49,8 @@ const Gettext = imports.gettext.domain('gnome-shell-extensions');
+ 
+ const _ = Gettext.gettext;
+ 
++const CUSTOM_MENU_UUID = 'custom-menu@gnome-shell-extensions.gcampax.github.com';
++const CUSTOM_MENU_CONFIG = '/.entries.json';
+ 
+ /* From NautilusFileUndoManagerState */
+ var UndoStatus = {
+@@ -319,6 +321,32 @@ var DesktopGrid = class {
+             this._syncUndoRedo();
+     }
+ 
++    _appendCustomMenuEntries(menu) {
++        const ext = Main.extensionManager.lookup(CUSTOM_MENU_UUID);
++        if (!ext || ext.state !== ExtensionUtils.ExtensionState.ENABLED)
++            return;
++
++        const CustomMenuConfig = ext.imports.config;
++        const configLoader = new CustomMenuConfig.Loader();
++
++        try {
++            configLoader.loadConfig(GLib.get_home_dir() + CUSTOM_MENU_CONFIG);
++        } catch (e) {
++            log('desktop-icons: Error loading custom menu entries: ' + e.message);
++            return;
++        }
++
++        if (configLoader.entries.length === 0)
++            return;
++
++        menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
++
++        for (let i in configLoader.entries) {
++            const item = configLoader.entries[i].createItem();
++            menu.addMenuItem(item);
++        }
++    }
++
+     _createDesktopBackgroundMenu() {
+         let menu = new PopupMenu.PopupMenu(Main.layoutManager.dummyCursor,
+                                            0, St.Side.TOP);
+@@ -361,6 +389,8 @@ var DesktopGrid = class {
+         );
+         this._pasteMenuItem.setSensitive(false);
+ 
++        this._appendCustomMenuEntries(menu);
++
+         return menu;
+     }
+ 
+-- 
+2.53.0
+
+
+From b37776779b713b19129a664cfc913488bdff0226 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
+Date: Thu, 19 Mar 2026 16:32:51 +0100
+Subject: [PATCH 3/3] desktop-icons: Recreate desktop menu on custom-menu
+ changes
+
+We now add custom menu entries to the background menu when the custom-menu
+extension is enabled. That means that the menu contents now depend on
+the extension state, so we should make sure to update the menu as
+necessary.
+---
+ extensions/desktop-icons/desktopGrid.js | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/extensions/desktop-icons/desktopGrid.js b/extensions/desktop-icons/desktopGrid.js
+index f0509595..2457d0c7 100644
+--- a/extensions/desktop-icons/desktopGrid.js
++++ b/extensions/desktop-icons/desktopGrid.js
+@@ -131,6 +131,14 @@ var DesktopGrid = class {
+         this._grid.connect('key-press-event', this._onKeyPress.bind(this));
+ 
+         this._grid.connect('allocation-changed', () => Extension.desktopManager.scheduleReLayoutChildren());
++
++        this._extensionStateChangedId =
++            Main.extensionManager.connect('extension-state-changed', (mgr, ext) => {
++                // the custom-menu extension influences the menu contents when enabled,
++                // so recreate the menu on state changes
++                if (ext.uuid === CUSTOM_MENU_UUID)
++                    this._addDesktopBackgroundMenu();
++            });
+     }
+ 
+     _onKeyPress(actor, event) {
+@@ -194,6 +202,10 @@ var DesktopGrid = class {
+             this._bgManager.backgroundActor.disconnect(this._bgDestroyedId);
+         this._bgDestroyedId = 0;
+         this._bgManager = null;
++
++        if (this._extensionStateChangedId)
++            Main.extensionManager.disconnect(this._extensionStateChangedId);
++        this._extensionStateChangedId = 0;
+     }
+ 
+     _onNewFolderClicked() {
+@@ -557,6 +569,9 @@ var DesktopGrid = class {
+     }
+ 
+     _addDesktopBackgroundMenu() {
++        if (this.actor._desktopBackgroundMenu)
++            this.actor._desktopBackgroundMenu.destroy();
++
+         this.actor._desktopBackgroundMenu = this._createDesktopBackgroundMenu();
+         this.actor._desktopBackgroundManager = new PopupMenu.PopupMenuManager({ actor: this.actor });
+         this.actor._desktopBackgroundManager.addMenu(this.actor._desktopBackgroundMenu);
+-- 
+2.53.0
+

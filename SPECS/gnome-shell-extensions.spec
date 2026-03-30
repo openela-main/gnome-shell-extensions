@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        49%{?dist}
+Release:        52%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -66,6 +66,8 @@ Patch0037:         dash-to-panel-attention-indicator.patch
 Patch0038:         improve-workspace-names.patch
 Patch0039:         0001-dash-to-panel-Consider-range-around-edges-for-dwelli.patch
 Patch0040:         0001-dash-to-panel-Don-t-create-main-panel-without-a-moni.patch
+Patch0041:         scrollable-workspace-menu.patch
+Patch0042:         0001-desktop-icons-Merge-custom-menu-entries-into-desktop.patch
 
 %description
 GNOME Shell Extensions is a collection of extensions providing additional and
@@ -581,6 +583,18 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %changelog
+* Thu Mar 19 2026 Tomas Pelka <tpelka@redhat.com> - 3.32.1-52
+- Merge custom-menu entries into desktop-icons background menu
+  Resolves: RHEL-136187
+
+* Wed Mar 18 2026 Florian Müllner <fmuellner@redhat.com> - 3.32.1-51
+- Fix menu flip in window-list
+  Related: RHEL-143030
+
+* Tue Mar 03 2026 Florian Müllner <fmuellner@redhat.com> - 3.32.1-50
+- Support scrolling in workspace menu
+  Resolves: RHEL-143030
+
 * Mon Jan 26 2026 Florian Müllner <fmuellner@redhat.com> - 3.32.1-49
 - Fix style regressions in GNOME classic
   Resolves: RHEL-136283
