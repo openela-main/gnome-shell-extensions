@@ -1,4 +1,4 @@
-From 2bc8aa48edae1465a5c51be9d864a159b1009bc7 Mon Sep 17 00:00:00 2001
+From c0eac7df2fb3b4b5f7f23218d423c11d71d85063 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 18 Apr 2024 18:09:40 +0200
 Subject: [PATCH 01/29] prefs: Fix loading custom CSS
@@ -7,12 +7,13 @@ GTK changed the annotation of `gtk_css_provider_load_from_data()`,
 and as a result the `length` parameter is no longer interpreted
 as an implicit array length, but has to be specified explicitly.
 ---
- extensions/auto-move-windows/prefs.js     | 2 +-
- extensions/classification-banner/prefs.js | 2 +-
- extensions/heads-up-display/prefs.js      | 2 +-
- extensions/window-list/prefs.js           | 2 +-
- extensions/workspace-indicator/prefs.js   | 2 +-
- 5 files changed, 5 insertions(+), 5 deletions(-)
+ extensions/auto-move-windows/prefs.js       | 2 +-
+ extensions/classification-banner/adwShim.js | 2 +-
+ extensions/classification-banner/prefs.js   | 2 +-
+ extensions/heads-up-display/prefs.js        | 2 +-
+ extensions/window-list/prefs.js             | 2 +-
+ extensions/workspace-indicator/prefs.js     | 2 +-
+ 6 files changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/extensions/auto-move-windows/prefs.js b/extensions/auto-move-windows/prefs.js
 index 2c529067..db09c28b 100644
@@ -27,6 +28,19 @@ index 2c529067..db09c28b 100644
  
          context.add_provider(cssProvider,
              Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+diff --git a/extensions/classification-banner/adwShim.js b/extensions/classification-banner/adwShim.js
+index 46a8afca..3ed62359 100644
+--- a/extensions/classification-banner/adwShim.js
++++ b/extensions/classification-banner/adwShim.js
+@@ -52,7 +52,7 @@ class PreferencesPage extends Gtk.Widget {
+         scrolledWindow.set_child(this._box);
+ 
+         const provider = new Gtk.CssProvider();
+-        provider.load_from_data('* { min-width: 500px; }');
++        provider.load_from_data('* { min-width: 500px; }', -1);
+         this._box.get_style_context().add_provider(provider,
+             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+     }
 diff --git a/extensions/classification-banner/prefs.js b/extensions/classification-banner/prefs.js
 index a5dd8af1..0a91a5da 100644
 --- a/extensions/classification-banner/prefs.js
@@ -80,10 +94,10 @@ index 567f3e99..d307dcac 100644
          context.add_provider(cssProvider,
              Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
 -- 
-2.47.0
+2.51.1
 
 
-From d1380931b47adb23c36e5499cbd931fba4d63bd0 Mon Sep 17 00:00:00 2001
+From f0b3e7cfc962a0e28a89690ea2bcbc3d498bdecc Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 23 Mar 2022 19:59:14 +0100
 Subject: [PATCH 02/29] build: Remove unused stylesheets
@@ -363,10 +377,10 @@ index 71efa039..19858a39 100644
  
  extension_sources += files('prefs.js')
 -- 
-2.47.0
+2.51.1
 
 
-From c97c668cf178968d70a9f2de3308e37e0b931acb Mon Sep 17 00:00:00 2001
+From 467bf381b7b76ee19c6f1998e39b03e92ce054dc Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 12:38:33 +0100
 Subject: [PATCH 03/29] workspace-indicator: Move indicator code into separate
@@ -1329,10 +1343,10 @@ index 10b1d517..bd39ab61 100644
  extensions/workspace-indicator/prefs.js
 +extensions/workspace-indicator/workspaceIndicator.js
 -- 
-2.47.0
+2.51.1
 
 
-From 34ba767aa622ac9122463f4649f7a8854a56f25d Mon Sep 17 00:00:00 2001
+From 4987f2ddd3fa18ea3dfed5763ef75c8b2fd16748 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 19:09:38 +0100
 Subject: [PATCH 04/29] workspace-indicator: Use descendant style selectors
@@ -1406,10 +1420,10 @@ index c88ffc9c..28fc3ea8 100644
              reactive: true,
          });
 -- 
-2.47.0
+2.51.1
 
 
-From c5843b7870e0ce0cbf7b2f587193b93c63062105 Mon Sep 17 00:00:00 2001
+From 09799458050248324e037e3a598c232df5b31a88 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 12:48:43 +0100
 Subject: [PATCH 05/29] window-list: Use consistent style class prefix
@@ -1473,10 +1487,10 @@ index cdfe5b61..c24f159f 100644
  
          this._delegate = this;
 -- 
-2.47.0
+2.51.1
 
 
-From a81dbea8250c85b950c83048f178c700635a8c38 Mon Sep 17 00:00:00 2001
+From 69808ea2537be7e9cf6ad49c60202a8a4f550594 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 23 Feb 2024 01:59:15 +0100
 Subject: [PATCH 06/29] workspace-indicator: Allow overriding base style class
@@ -1526,10 +1540,10 @@ index 28fc3ea8..01604b91 100644
          let container = new St.Widget({
              layout_manager: new Clutter.BinLayout(),
 -- 
-2.47.0
+2.51.1
 
 
-From e1c5b589fca9021b960e19f043ca26735c8b02de Mon Sep 17 00:00:00 2001
+From 28a52ab5ae441e9a33d1aad51c183291c84414d8 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 23 Feb 2024 01:58:50 +0100
 Subject: [PATCH 07/29] window-list: Override base style class
@@ -1600,10 +1614,10 @@ index c24f159f..1a1d15cd 100644
          this.menu.actor.remove_style_class_name('panel-menu');
  
 -- 
-2.47.0
+2.51.1
 
 
-From c673a9d7169cc1a2f6df9c3eeea4b11f8968dc19 Mon Sep 17 00:00:00 2001
+From 186b5bcd86cd49c78a3e76f74b3c0b425e121131 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 12:48:43 +0100
 Subject: [PATCH 08/29] window-list: Externally adjust workspace menu
@@ -1688,10 +1702,10 @@ index 1a1d15cd..4290d58a 100644
              layout_manager: new Clutter.BinLayout(),
              x_expand: true,
 -- 
-2.47.0
+2.51.1
 
 
-From 3271e93695782d06ada9752144c650605ceed76a Mon Sep 17 00:00:00 2001
+From 6276e1a9182314a0fdfdc93602f7d763e6c05082 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 21 Mar 2024 16:49:35 +0100
 Subject: [PATCH 09/29] window-list: Handle changes to workspace menu
@@ -1731,10 +1745,10 @@ index c58df434..a011bc90 100644
          this.set_position(
              this._monitor.x,
 -- 
-2.47.0
+2.51.1
 
 
-From 314072792bba618a85897dc085bb72debe3ec6b1 Mon Sep 17 00:00:00 2001
+From 62321a13bcab19237f4988c4813d1e93033c09f9 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 15:58:39 +0100
 Subject: [PATCH 10/29] workspace-indicator: Don't use SCHEMA/KEY constants
@@ -1775,10 +1789,10 @@ index 01604b91..6e3ad7b5 100644
      }
  
 -- 
-2.47.0
+2.51.1
 
 
-From 002a0bb8036a997a70acda017e4016fd9fd51806 Mon Sep 17 00:00:00 2001
+From 48aec0093ab7c058fefcb315e762d9a6e496a00d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 18:59:23 +0100
 Subject: [PATCH 11/29] workspace-indicator: Use existing property
@@ -1803,10 +1817,10 @@ index 6e3ad7b5..60356d74 100644
      }
  });
 -- 
-2.47.0
+2.51.1
 
 
-From 4e2785910ceccc079305da1b9d0e2c810b1f982a Mon Sep 17 00:00:00 2001
+From 3e7205492557f977515dd32fc7a7d0ddcd586b29 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 16:14:24 +0100
 Subject: [PATCH 12/29] workspace-indicator: Don't use menu section
@@ -1872,10 +1886,10 @@ index 60356d74..39d4e296 100644
              this._workspacesItems[i].label_actor = this._statusLabel;
              this._workspacesItems[i].connect('activate', (actor, _event) => {
 -- 
-2.47.0
+2.51.1
 
 
-From 5f33bc574aee51700c92b940b23df0b7966450d6 Mon Sep 17 00:00:00 2001
+From a531a2b3a2a828182413875aa1a83359947b60a2 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 13:05:15 +0100
 Subject: [PATCH 13/29] workspace-indicator: Support showing tooltips above
@@ -1915,10 +1929,10 @@ index 39d4e296..83713b6f 100644
          }
  
 -- 
-2.47.0
+2.51.1
 
 
-From a65fd9e61cf3f3a83116815482843b1b20eef20f Mon Sep 17 00:00:00 2001
+From a890424da36e27af3dc77eefbab86dfc81a0bc37 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 17:37:16 +0100
 Subject: [PATCH 14/29] workspace-indicator: Only change top bar redirect when
@@ -1981,10 +1995,10 @@ index 83713b6f..fa05a54c 100644
              : Clutter.OffscreenRedirect.AUTOMATIC_FOR_OPACITY);
      }
 -- 
-2.47.0
+2.51.1
 
 
-From 521b224b17cb15df49a32d5c2dffe5ce65285df4 Mon Sep 17 00:00:00 2001
+From acc9a3f3ccb555d2d19d530c185db70521dafb1b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 16:13:00 +0100
 Subject: [PATCH 15/29] workspace-indicator: Small cleanup
@@ -2029,10 +2043,10 @@ index fa05a54c..bbb51c41 100644
  
          this._statusLabel.set_text(this._labelText());
 -- 
-2.47.0
+2.51.1
 
 
-From 3145e45a2d897b177e7395cec71a1293b6857a36 Mon Sep 17 00:00:00 2001
+From fe43614e06a34049016d6c680b97cbc0c469241d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 16:13:00 +0100
 Subject: [PATCH 16/29] workspace-indicator: Simplify getting status text
@@ -2115,10 +2129,10 @@ index bbb51c41..d401b6ab 100644
  
      _updateThumbnails() {
 -- 
-2.47.0
+2.51.1
 
 
-From 30adbc349b382c69c7592cd674d7837f6c9185c5 Mon Sep 17 00:00:00 2001
+From e75680ee3a56d734ec96d0721d38f55fe1be7314 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 16:35:09 +0100
 Subject: [PATCH 17/29] workspace-indicator: Include n-workspaces in status
@@ -2151,10 +2165,10 @@ index d401b6ab..29b8a671 100644
  
      _updateMenuLabels() {
 -- 
-2.47.0
+2.51.1
 
 
-From 675e91b7b521b4c8d7f53a9f3d028ab7300281dd Mon Sep 17 00:00:00 2001
+From e219f85ec3d017d4ca6014f7725d40b812215a71 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 22 Feb 2024 04:45:23 +0100
 Subject: [PATCH 18/29] workspace-indicator: Tweak preview style
@@ -2206,10 +2220,10 @@ index 4e12cce4..f74f7e88 100644
  
  .workspace-indicator-window-preview.active {
 -- 
-2.47.0
+2.51.1
 
 
-From 011af97ab27a4e7be9dab937754470e890bc131c Mon Sep 17 00:00:00 2001
+From 0800175a99252e7c120a3f39da03bb7aba89193b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 23:22:58 +0100
 Subject: [PATCH 19/29] workspace-indicator: Support light style
@@ -2344,10 +2358,10 @@ index f74f7e88..b0f7d171 100644
 -}
 +@import url("stylesheet-dark.css");
 -- 
-2.47.0
+2.51.1
 
 
-From bcb34a3a91a5140b5ecc6f9582dd9f80272c7e32 Mon Sep 17 00:00:00 2001
+From 81ea67d9b1a60728303202dbeeca0f5522724580 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Wed, 21 Feb 2024 13:08:52 +0100
 Subject: [PATCH 20/29] window-list: Use actual copy of workspace-indicator
@@ -2905,10 +2919,10 @@ index 4290d58a..00000000
 -});
 -
 -- 
-2.47.0
+2.51.1
 
 
-From 36e4714c31398b74eb1727197f40bbd81ccfd6f7 Mon Sep 17 00:00:00 2001
+From 5b5a603ecf6c39fb8c881cf67791f6b52fd2e0de Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 20 Feb 2024 17:39:49 +0100
 Subject: [PATCH 21/29] workspace-indicator: Simplify scroll handling
@@ -2957,10 +2971,10 @@ index 29b8a671..1dd3ed6b 100644
 -    }
  });
 -- 
-2.47.0
+2.51.1
 
 
-From f3154702594a814e5131252ab84b9daf0553ada3 Mon Sep 17 00:00:00 2001
+From 1717c263bb3e1e27f070c8c4ba8affecf785bdef Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 27 Feb 2024 21:20:45 +0100
 Subject: [PATCH 22/29] workspace-indicator: Handle active indication in
@@ -3058,10 +3072,10 @@ index 1dd3ed6b..ae526929 100644
  
      _activate(index) {
 -- 
-2.47.0
+2.51.1
 
 
-From e854ad2e483489952691d5fbede37e3fec63737c Mon Sep 17 00:00:00 2001
+From 94769ae1fe6e51b622b6ea48a06e322205ece525 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 20 Feb 2024 17:27:57 +0100
 Subject: [PATCH 23/29] workspace-indicator: Split out WorkspacePreviews
@@ -3209,10 +3223,10 @@ index ae526929..e5be8081 100644
          let workspaceManager = global.workspace_manager;
  
 -- 
-2.47.0
+2.51.1
 
 
-From 18b40e7f586d4546bd64745a0b2d617655b87af3 Mon Sep 17 00:00:00 2001
+From daa9116a3a1e6bc861a17dce87446747007635c6 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Mon, 19 Feb 2024 14:42:04 +0100
 Subject: [PATCH 24/29] workspace-indicator: Handle preview overflow
@@ -3342,10 +3356,10 @@ index e5be8081..d496d22d 100644
  
      _onDestroy() {
 -- 
-2.47.0
+2.51.1
 
 
-From 422a5e6f67b23c3b9b0764ec313ad0ad864249db Mon Sep 17 00:00:00 2001
+From 5bf1379d9f693c29707f239174fd79d0094e233f Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Sun, 3 Mar 2024 15:05:23 +0100
 Subject: [PATCH 25/29] workspace-indicator: Support labels in previews
@@ -3504,10 +3518,10 @@ index d496d22d..f5ffdbb7 100644
          }
  
 -- 
-2.47.0
+2.51.1
 
 
-From a0985eb24eafee329b6af6c2c2f7db4de7b103e3 Mon Sep 17 00:00:00 2001
+From 8f395d8f6c7542fc51b650720fe9c0ca3327f7c9 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 20 Feb 2024 21:43:55 +0100
 Subject: [PATCH 26/29] workspace-indicator: Stop handling vertical layouts
@@ -3548,10 +3562,10 @@ index f5ffdbb7..362c6372 100644
  
          this._statusLabel.visible = useMenu;
 -- 
-2.47.0
+2.51.1
 
 
-From 74b64e860757d56f0d500165ba2e49024ead48d2 Mon Sep 17 00:00:00 2001
+From d1ff140548fdc27956a3b6dfc407cecbf961ffd3 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Sun, 3 Mar 2024 15:05:23 +0100
 Subject: [PATCH 27/29] workspace-indicator: Also show previews in menu
@@ -3748,10 +3762,10 @@ index 362c6372..ed5645db 100644
      }
  });
 -- 
-2.47.0
+2.51.1
 
 
-From f810340e1e7ffd7c1964ec950be8b0585afe9e7f Mon Sep 17 00:00:00 2001
+From e2a3d1f8c014ed8ad90c61f306b5b49621524eb2 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 20 Feb 2024 22:00:57 +0100
 Subject: [PATCH 28/29] workspace-indicator: Make previews configurable
@@ -3966,10 +3980,10 @@ index bd39ab61..4d551780 100644
 +extensions/workspace-indicator/schemas/org.gnome.shell.extensions.workspace-indicator.gschema.xml
  extensions/workspace-indicator/workspaceIndicator.js
 -- 
-2.47.0
+2.51.1
 
 
-From 952d2ca4e3e5b35b3a25336506b06ef0dca734a9 Mon Sep 17 00:00:00 2001
+From 7a5db4acab0827f0eb69c35019cc7c067898545c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 21 Mar 2024 17:27:09 +0100
 Subject: [PATCH 29/29] window-list: Expose workspace preview option
@@ -3998,5 +4012,5 @@ index e35990ff..79cd1355 100644
  });
  
 -- 
-2.47.0
+2.51.1
 
