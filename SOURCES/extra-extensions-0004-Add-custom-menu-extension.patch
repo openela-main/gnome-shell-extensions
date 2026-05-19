@@ -1,4 +1,4 @@
-From 99754dff35dcb2db5eb44271f3bc9ca022cd76e5 Mon Sep 17 00:00:00 2001
+From 38424d064401b83931089689e3188908b0c25cf7 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 12 Jan 2023 19:43:52 +0100
 Subject: [PATCH 4/5] Add custom-menu extension
@@ -716,10 +716,10 @@ index 00000000..054f639b
 +"url": "@url@"
 +}
 diff --git a/meson.build b/meson.build
-index da36032b..175cc73f 100644
+index a6d50272..10bb4ffa 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -54,6 +54,7 @@ all_extensions = default_extensions
+@@ -56,6 +56,7 @@ all_extensions = default_extensions
  all_extensions += [
    'auto-move-windows',
    'classification-banner',
@@ -728,5 +728,5 @@ index da36032b..175cc73f 100644
    'native-window-placement',
    'user-theme',
 -- 
-2.47.1
+2.51.1
 

@@ -1,4 +1,4 @@
-From a30e0f7d6e93eb84f0864574b0da9816c0bbec83 Mon Sep 17 00:00:00 2001
+From 6b7f4929ca216129e18fd22b7599e316c40f7099 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Thu, 2 Dec 2021 19:39:50 +0100
 Subject: [PATCH 2/5] Add classification-banner
@@ -463,10 +463,10 @@ index 00000000..fb6a697e
 +.classification-message { font-weight: bold; }
 +.classification-banner { font-size: 0.9em; }
 diff --git a/meson.build b/meson.build
-index f21d0410..0f12b451 100644
+index 2197cb8a..01048882 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -52,6 +52,7 @@ default_extensions += [
+@@ -54,6 +54,7 @@ default_extensions += [
  all_extensions = default_extensions
  all_extensions += [
    'auto-move-windows',
@@ -475,5 +475,5 @@ index f21d0410..0f12b451 100644
    'native-window-placement',
    'user-theme',
 -- 
-2.47.1
+2.51.1
 

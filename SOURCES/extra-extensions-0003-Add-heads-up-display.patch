@@ -1,4 +1,4 @@
-From 7b2627e3110daa4cb98a67a94f7ffa7361569003 Mon Sep 17 00:00:00 2001
+From 5303eadc2160c95ef59b428617a53b7d094e6046 Mon Sep 17 00:00:00 2001
 From: Ray Strode <rstrode@redhat.com>
 Date: Tue, 24 Aug 2021 15:03:57 -0400
 Subject: [PATCH 3/5] Add heads-up-display
@@ -850,10 +850,10 @@ index 00000000..a1a34e3f
 +    text-align: center;
 +}
 diff --git a/meson.build b/meson.build
-index 0f12b451..da36032b 100644
+index 01048882..a6d50272 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -41,6 +41,7 @@ classic_extensions = [
+@@ -43,6 +43,7 @@ classic_extensions = [
  default_extensions = classic_extensions
  default_extensions += [
    'drive-menu',
@@ -862,7 +862,7 @@ index 0f12b451..da36032b 100644
    'screenshot-window-sizer',
    'status-icons',
 diff --git a/po/POTFILES.in b/po/POTFILES.in
-index 447465a1..b7cb8a7c 100644
+index ce3ceb2d..c0e18507 100644
 --- a/po/POTFILES.in
 +++ b/po/POTFILES.in
 @@ -6,6 +6,7 @@ extensions/auto-move-windows/extension.js
@@ -874,5 +874,5 @@ index 447465a1..b7cb8a7c 100644
  extensions/native-window-placement/org.gnome.shell.extensions.native-window-placement.gschema.xml
  extensions/places-menu/extension.js
 -- 
-2.47.1
+2.51.1
 

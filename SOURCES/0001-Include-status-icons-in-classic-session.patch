@@ -1,4 +1,4 @@
-From b373d600104d6a5c4984521d934c5d02af3a2b99 Mon Sep 17 00:00:00 2001
+From 7a22e7814662864215b9da0ded11add61599f402 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 23 Feb 2018 16:56:46 +0100
 Subject: [PATCH] Include status-icons in classic session
@@ -8,10 +8,10 @@ Subject: [PATCH] Include status-icons in classic session
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/meson.build b/meson.build
-index d092830f..14143501 100644
+index 29ac83bb..4b6e3197 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -35,6 +35,7 @@ classic_extensions = [
+@@ -37,6 +37,7 @@ classic_extensions = [
    'apps-menu',
    'places-menu',
    'launch-new-instance',
@@ -19,7 +19,7 @@ index d092830f..14143501 100644
    'window-list',
  ]
  
-@@ -45,7 +46,6 @@ default_extensions += [
+@@ -47,7 +48,6 @@ default_extensions += [
    'heads-up-display',
    'light-style',
    'screenshot-window-sizer',
@@ -28,5 +28,5 @@ index d092830f..14143501 100644
    'windowsNavigator',
    'workspace-indicator',
 -- 
-2.47.1
+2.51.1
 

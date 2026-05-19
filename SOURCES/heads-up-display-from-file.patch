@@ -1,4 +1,4 @@
-From c9845372267ecc085143b3cfa4f7eaf39091b41a Mon Sep 17 00:00:00 2001
+From f15fc6fc78c759a2aa76b4dc3e058c592645fdac Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 9 May 2025 13:29:06 +0200
 Subject: [PATCH 1/5] heads-up-display: Split out getMessageText() helper
@@ -38,10 +38,10 @@ index a71b5925..5f72e168 100644
          if (!heading && !body) {
              this._dismissMessage();
 -- 
-2.46.1
+2.51.1
 
 
-From a121cf4e1a21e78b74de7b2f33f40f3201eaaa50 Mon Sep 17 00:00:00 2001
+From 3ca8a3752765497ceae16398d039438ad545661c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 9 May 2025 13:29:42 +0200
 Subject: [PATCH 2/5] heads-up-display: Update message text asynchronously
@@ -149,10 +149,10 @@ index 5f72e168..3ae6eabb 100644
  
      _dismissMessage() {
 -- 
-2.46.1
+2.51.1
 
 
-From 88bff8c0a592e72f5797c834dfa8519b69c1f15b Mon Sep 17 00:00:00 2001
+From 160c85b57ca6b61f6f97afeb146993ac35dd7296 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 9 May 2025 14:49:15 +0200
 Subject: [PATCH 3/5] heads-up-display: Add `message-path` and `-source`
@@ -212,10 +212,10 @@ index 1e2119c8..a9552642 100644
        <default>true</default>
        <summary>Show on login screen</summary>
 -- 
-2.46.1
+2.51.1
 
 
-From a1f32f7ce76044c4782dc9e3620e4ba448cfec82 Mon Sep 17 00:00:00 2001
+From 382d3c1942ab6ed37b3d3d02e2564c2ed723a35c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 9 May 2025 14:49:15 +0200
 Subject: [PATCH 4/5] heads-up-display: Support loading message text from file
@@ -340,10 +340,10 @@ index 3ae6eabb..bc1961b9 100644
          return {
              heading: this._settings.get_string('message-heading'),
 -- 
-2.46.1
+2.51.1
 
 
-From 6bdf47e04f64b41db0350b073f264ca46ed6f9c0 Mon Sep 17 00:00:00 2001
+From 0c03ee3ce3f7c6dc16f1f9bac2e172a0f11b7dba Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Fri, 9 May 2025 13:27:35 +0200
 Subject: [PATCH 5/5] heads-up-display: Expose `message-path` and `-source`
@@ -479,5 +479,5 @@ index 304c8813..1d2bea4c 100644
  }
  
 -- 
-2.46.1
+2.51.1
 
