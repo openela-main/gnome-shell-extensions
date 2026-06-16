@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        52%{?dist}
+Release:        53%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -583,6 +583,10 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %changelog
+* Thu Jun 04 2026 Florian Müllner <fmuellner@redhat.com> - 3.32.1-53
+- Fix scrollable workspace menu
+  Resolves: RHEL-171972
+
 * Thu Mar 19 2026 Tomas Pelka <tpelka@redhat.com> - 3.32.1-52
 - Merge custom-menu entries into desktop-icons background menu
   Resolves: RHEL-136187
