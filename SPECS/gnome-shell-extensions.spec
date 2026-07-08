@@ -6,7 +6,7 @@
 
 Name:           gnome-shell-extensions
 Version:        3.32.1
-Release:        53%{?dist}
+Release:        54%{?dist}
 Summary:        Modify and extend GNOME Shell functionality and behavior
 
 Group:          User Interface/Desktops
@@ -583,6 +583,10 @@ cp $RPM_SOURCE_DIR/gnome-classic.desktop $RPM_BUILD_ROOT%{_datadir}/xsessions
 
 
 %changelog
+* Fri Jun 05 2026 Florian Müllner <fmuellner@redhat.com> - 3.32.1-54
+- Increase dwell area in dash-to-panel
+  Resolves: RHEL-144435
+
 * Thu Jun 04 2026 Florian Müllner <fmuellner@redhat.com> - 3.32.1-53
 - Fix scrollable workspace menu
   Resolves: RHEL-171972

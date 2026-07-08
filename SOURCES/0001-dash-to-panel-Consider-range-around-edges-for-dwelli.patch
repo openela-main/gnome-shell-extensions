@@ -1,43 +1,46 @@
-From d418620dd765a3b13fd6445e29efe5a375f3734c Mon Sep 17 00:00:00 2001
+From 4742d276e03386ddd3232af7038e2c5039ccd632 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Florian=20M=C3=BCllner?= <fmuellner@gnome.org>
 Date: Tue, 29 Apr 2025 12:22:38 +0200
 Subject: [PATCH] dash-to-panel: Consider range around edges for dwelling
 
 Rather than only reacting on a single pixel, unhide the dock when
-within 5 pixels of the edge (when not using pressure barriers).
+within 10 pixels of the edge (when not using pressure barriers).
 ---
- extensions/dash-to-panel/intellihide.js | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ extensions/dash-to-panel/intellihide.js | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
 diff --git a/extensions/dash-to-panel/intellihide.js b/extensions/dash-to-panel/intellihide.js
-index 8fb1e976..6649d4a6 100644
+index 8fb1e976..e1f7e789 100644
 --- a/extensions/dash-to-panel/intellihide.js
 +++ b/extensions/dash-to-panel/intellihide.js
 @@ -38,6 +38,8 @@ const CHECK_GRAB_MS = 400;
  const POST_ANIMATE_MS = 50; 
  const MIN_UPDATE_MS = 250;
  
-+const DWELL_RANGE = 5;
++const DWELL_RANGE = 10;
 +
  //timeout names
  const T1 = 'checkGrabTimeout';
  const T2 = 'limitUpdateTimeout';
-@@ -282,10 +284,10 @@ var Intellihide = Utils.defineClass({
+@@ -281,11 +283,13 @@ var Intellihide = Utils.defineClass({
+     _checkMousePointer: function(x, y) {
          let position = this._dtpPanel.geom.position;
  
++        const themeContext = St.ThemeContext.get_for_stage(global.stage);
++        const dwellRange = DWELL_RANGE * themeContext.scaleFactor;
          if (!this._panelBox.hover && !Main.overview.visible &&
 -            ((position == St.Side.TOP && y <= this._monitor.y + 1) || 
 -             (position == St.Side.BOTTOM && y >= this._monitor.y + this._monitor.height - 1) ||
 -             (position == St.Side.LEFT && x <= this._monitor.x + 1) ||
 -             (position == St.Side.RIGHT && x >= this._monitor.x + this._monitor.width - 1)) &&
-+            ((position == St.Side.TOP && y <= this._monitor.y + DWELL_RANGE) || 
-+             (position == St.Side.BOTTOM && y >= this._monitor.y + this._monitor.height - DWELL_RANGE) ||
-+             (position == St.Side.LEFT && x <= this._monitor.x + DWELL_RANGE) ||
-+             (position == St.Side.RIGHT && x >= this._monitor.x + this._monitor.width - DWELL_RANGE)) &&
++            ((position == St.Side.TOP && y <= this._monitor.y + dwellRange) ||
++             (position == St.Side.BOTTOM && y >= this._monitor.y + this._monitor.height - dwellRange) ||
++             (position == St.Side.LEFT && x <= this._monitor.x + dwellRange) ||
++             (position == St.Side.RIGHT && x >= this._monitor.x + this._monitor.width - dwellRange)) &&
              ((x >= this._monitor.x && x < this._monitor.x + this._monitor.width) && 
               (y >= this._monitor.y && y < this._monitor.y + this._monitor.height))) {
              this._queueUpdatePanelPosition(true);
-@@ -398,4 +400,4 @@ var Intellihide = Utils.defineClass({
+@@ -398,4 +402,4 @@ var Intellihide = Utils.defineClass({
  
          this._hoveredOut = false;
      },
@@ -45,5 +48,5 @@ index 8fb1e976..6649d4a6 100644
 \ No newline at end of file
 +});
 -- 
-2.50.1
+2.54.0
 
